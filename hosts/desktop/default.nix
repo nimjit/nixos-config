@@ -26,6 +26,7 @@
   hardware.nvidia.powerManagement.enable = false;
   hardware.nvidia.open = false;
   hardware.nvidia.nvidiaSettings = true;
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_535;
   hardware.graphics.enable = true;
 
   # ── Desktop environment ───────────────────────────────────────────────────
