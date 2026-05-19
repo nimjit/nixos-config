@@ -2,7 +2,7 @@
 
   programs.rofi = {
     enable = true;
-    package = pkgs.rofi-wayland;  # Wayland-native version
+    package = pkgs.rofi;  # Wayland-native version
 
     # Stylix themes Rofi automatically.
     # Only add non-colour config here.
