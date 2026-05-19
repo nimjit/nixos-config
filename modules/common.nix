@@ -185,5 +185,5 @@
 
   # ── Shell ─────────────────────────────────────────────────────────────────
 programs.zsh.enable = true;
-users.users.yourname.shell = pkgs.zsh;
+users.users.${username}.shell = pkgs.zsh;
 }
