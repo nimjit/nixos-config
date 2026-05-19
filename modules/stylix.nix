@@ -22,8 +22,8 @@
     # ── Fonts ─────────────────────────────────────────────────────────────
     fonts = {
       serif = {
-        package = pkgs.cm-unicode;
-        name = "CMU Typewriter Text";
+        package = pkgs.noto-fonts;
+        name = "Noto Serif";
       };
       sansSerif = {
         package = pkgs.nerd-fonts.jetbrains-mono;
