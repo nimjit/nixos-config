@@ -1,19 +1,18 @@
-{ pkgs, ... }: {
+{ pkgs, lib, ... }: {
 
   programs.firefox = {
     enable = true;
-
-    # NUR provides declarative extension management.
-    # You need to add NUR as a flake input for this to work.
-    # For now, extensions are commented out; install them manually.
-    # (See README for how to add NUR to flake.nix)
 
     profiles.default = {
       name = "default";
       isDefault = true;
 
       # ── userChrome.css ──────────────────────────────────────────────────
-      userChrome = builtins.readFile ./dotfiles/userChrome.css;
+      # Safely reads userChrome.css only if the file exists on disk.
+      # Remember: If inside a Git/Flake directory, this file MUST be tracked by Git!
+      userChrome = if builtins.pathExists ./dotfiles/userChrome.css
+                   then builtins.readFile ./dotfiles/userChrome.css
+                   else "";
 
       # ── about:config settings ───────────────────────────────────────────
       settings = {
@@ -29,6 +28,8 @@
         # Privacy
         "privacy.donottrackheader.enabled" = true;
         "geo.enabled" = false;
+        
+        # Note: Modern Firefox copies may override these silently unless forced via policies
         "browser.safebrowsing.malware.enabled" = false;
         "browser.safebrowsing.phishing.enabled" = false;
 
@@ -37,13 +38,16 @@
         "media.ffmpeg.vaapi.enabled" = true;
       };
 
-      # ── Extensions (requires NUR) ───────────────────────────────────────
-      # Uncomment after adding NUR to flake.nix:
-      # extensions = with pkgs.nur.repos.rycee.firefox-addons; [
-      #   ublock-origin
-      #   stylus
-      #   bitwarden
-      # ];
+      # ── Extensions (Safe NUR handling) ──────────────────────────────────
+      # This block automatically evaluates to an empty list unless you 
+      # explicitly pass NUR into your Home Manager context, preventing compilation crashes.
+      extensions = if (builtins.hasAttr "nur" pkgs) 
+                   then with pkgs.nur.repos.rycee.firefox-addons; [
+                     ublock-origin
+                     stylus
+                     bitwarden
+                   ]
+                   else [];
     };
   };
 }
