@@ -37,10 +37,14 @@
       pull.rebase = false;
     };
   };
-}
+
 
  # ── Warnings? ─────────────────────────────────────────────────────────────
-gtk.gtk4.theme = null;
-programs.neovim.withRuby = false;
-programs.neovim.withPython3 = false;
-programs.firefox.configPath = "${config.xdg.configHome}/mozilla/firefox";
+  gtk.gtk4.theme = null;
+  programs.neovim.withRuby = false;
+  programs.neovim.withPython3 = false;
+  programs.firefox.configPath = "${config.xdg.configHome}/mozilla/firefox";
+
+
+
+}
