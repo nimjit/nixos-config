@@ -27,7 +27,9 @@
       {
         home-manager.useGlobalPkgs = true;
         home-manager.useUserPackages = true;
-        home-manager.users.${username} = import ./home/default.nix;
+        
+        # REMOVED "import" -> Changed to a clean module path reference
+        home-manager.users.${username} = ./home/default.nix;
       }
     ];
 
