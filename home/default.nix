@@ -12,8 +12,8 @@
   ];
 
   # ── Home basics ───────────────────────────────────────────────────────────
-  home.username = "Thijmen";       # keep in sync with flake.nix
-  home.homeDirectory = "/home/Thijmen";
+  home.username = "thijmen";       # keep in sync with flake.nix
+  home.homeDirectory = "/home/thijmen";
   home.stateVersion = "24.11";
 
   # ── XDG dirs ──────────────────────────────────────────────────────────────

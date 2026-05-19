@@ -17,7 +17,7 @@
     system = "x86_64-linux";
 
     # Change "yourname" to your actual username throughout this repo
-    username = "Thijmen";
+    username = "thijmen";
 
     commonModules = [
       ./modules/common.nix
