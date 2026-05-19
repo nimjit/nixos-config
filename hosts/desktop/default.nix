@@ -46,6 +46,7 @@
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
     initialPassword = "changeme";  # change with passwd after first boot
+    group = "Thijmen";
   };
 
   system.stateVersion = "24.11";
