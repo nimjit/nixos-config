@@ -184,7 +184,6 @@
   };
 
   # ── Shell ─────────────────────────────────────────────────────────────────
-  programs.zsh.enable = true;
-  users.defaultShell = pkgs.zsh;
-  environment.shells = [ pkgs.zsh ];
+programs.zsh.enable = true;
+users.users.yourname.shell = pkgs.zsh;
 }
