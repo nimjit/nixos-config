@@ -34,6 +34,18 @@
   services.displayManager.sddm.enable = true;  # login screen
   services.desktopManager.plasma6.enable = true;
 
+    # ── Remove KDE Apps ─────────────────────────────────────────────────────
+  environment.plasma6.excludePackages = with pkgs.kdePackages; [
+    elisa        # music player
+    gwenview     # image viewer
+    okular       # PDF viewer (you have zathura)
+    kate         # text editor (you have neovim)
+    kmail        # email (you have thunderbird)
+    konqueror
+    korganizer
+    kontact
+  ];
+
   # ── Sound ─────────────────────────────────────────────────────────────────
   services.pulseaudio.enable = false;
   security.rtkit.enable = true;

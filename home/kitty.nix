@@ -19,5 +19,9 @@
       "ctrl+shift+enter" = "new_window_with_cwd";
       "ctrl+shift+t" = "new_tab_with_cwd";
     };
+    extraConfig = ''
+      foreground #ccc2b7
+      background #372d29
+      '';
   };
 }
