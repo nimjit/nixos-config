@@ -47,7 +47,7 @@
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
     initialPassword = "changeme";  # change with passwd after first boot
-    group = "username";
+    group = username;
   };
   users.groups.${username} = {};
 
