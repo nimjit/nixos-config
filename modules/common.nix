@@ -68,7 +68,8 @@
     enable = true;
     remotePlay.openFirewall = true;
   };
-  hardware.opengl.driSupport32Bit = true;  # required for Steam
+  hardware.graphics.enable = true;
+  hardware.graphics.enable32Bit = true;
 
   # ── Fonts ─────────────────────────────────────────────────────────────────
   fonts = {

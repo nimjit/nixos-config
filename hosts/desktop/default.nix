@@ -21,11 +21,12 @@
   # hardware.opengl.driSupport = true;
 
   # Nvidia (proprietary):
-  # services.xserver.videoDrivers = [ "nvidia" ];
-  # hardware.nvidia.modesetting.enable = true;
-  # hardware.nvidia.powerManagement.enable = false;
-  # hardware.nvidia.open = false;
-  # hardware.nvidia.nvidiaSettings = true;
+  services.xserver.videoDrivers = [ "nvidia" ];
+  hardware.nvidia.modesetting.enable = true;
+  hardware.nvidia.powerManagement.enable = false;
+  hardware.nvidia.open = false;
+  hardware.nvidia.nvidiaSettings = true;
+  hardware.graphics.enable = true;
 
   # ── Desktop environment ───────────────────────────────────────────────────
   services.xserver.enable = true;
