@@ -1,4 +1,4 @@
-{ pkgs, config, ... }: {
+{ pkgs, ... }: {
 
   imports = [
     ./neovim.nix
@@ -8,7 +8,6 @@
     ./mpv.nix
     ./zsh.nix
     ./rofi.nix
-    ./email.nix
   ];
 
   # ── Home basics ───────────────────────────────────────────────────────────
