@@ -48,7 +48,7 @@
     initialPassword = "changeme";  # change with passwd after first boot
     group = "Thijmen";
   };
-  user.groups.Thijmen = {}
+  user.groups.Thijmen = {};
 
   system.stateVersion = "26.05";
 }
