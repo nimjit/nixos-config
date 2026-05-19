@@ -41,14 +41,14 @@
       # ── Extensions (Safe NUR handling) ──────────────────────────────────
       # This block automatically evaluates to an empty list unless you 
       # explicitly pass NUR into your Home Manager context, preventing compilation crashes.
-      extensions =
-        if pkgs != null && pkgs ? nur
-        then with pkgs.nur.repos.rycee.firefox-addons; [
-          ublock-origin
-          stylus
-          bitwarden
-        ]
-        else [ ];
-          };
+      # extensions =
+      #   if pkgs != null && pkgs ? nur
+      #   then with pkgs.nur.repos.rycee.firefox-addons; [
+      #     ublock-origin
+      #     stylus
+      #     bitwarden
+      #   ]
+      #   else [ ];
+      #     };
     };
 }
