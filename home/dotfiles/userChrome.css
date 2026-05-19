@@ -1,15 +1,224 @@
-/* userChrome.css
- * Place your Firefox chrome customisations here.
- * This file is loaded by Firefox when:
- *   toolkit.legacyUserProfileCustomizations.stylesheets = true
- *
- * Replace the contents below with your existing userChrome.css.
- * Stylix does not touch this file directly — you manage it here.
- */
+/************************************************************
+ * Obsidian-like Firefox UI
+ * Minimal, rectangular tabs, underline active tab
+ * Stable, low-friction, keyboard-first
+ ************************************************************/
 
-/* Example: hide the tab bar when only one tab is open */
-/*
-#TabsToolbar[singlerow="true"] {
-  display: none;
+/* ================================
+   Variables (tweak here)
+   ================================ */
+
+:root {
+  /* Backgrounds */
+  --ff-bg: #413632;
+  --ff-bg-alt: #4e4340;
+  --ff-bg-dark: #372d29;
+
+  /* Accent */
+  --ff-accent: #ba945f;
+
+  /* Heights */
+  --uc-toolbar-height: 30px;
+  --uc-navbar-height: 30px;
+
+  /* 🔥 CRITICAL: override Firefox internal sizing */
+  --toolbar-min-height: 30px !important;
+
+  /* 🔥 Prevent hidden padding from breaking height */
+  --toolbarbutton-inner-padding: 2px !important;
+  --toolbarbutton-outer-padding: 0px !important;
 }
-*/
+
+/* ================================
+   GLOBAL FONT (Obsidian)
+   ================================ */
+
+#nav-bar,
+#TabsToolbar,
+#urlbar,
+.tab-label {
+  font-family: "UMC-TypeWriter", "UMC TypeWriter", monospace !important;
+  font-size: 13px !important;
+}
+
+
+/* ================================
+   HARD HEIGHT LOCK (fix snap-back)
+   ================================ */
+
+#navigator-toolbox {
+  --toolbar-height: 30px !important;
+}
+
+#nav-bar {
+  height: var(--uc-navbar-height) !important;
+  min-height: var(--uc-navbar-height) !important;
+  max-height: var(--uc-navbar-height) !important;
+  padding: 0 !important;
+}
+
+#TabsToolbar {
+  height: var(--uc-toolbar-height) !important;
+  min-height: var(--uc-toolbar-height) !important;
+  max-height: var(--uc-toolbar-height) !important;
+  padding: 0 !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Toolbar buttons */
+.toolbarbutton-1 {
+  height: var(--uc-navbar-height) !important;
+  padding: 0 !important;
+}
+
+/* URL bar container */
+#urlbar-container {
+  height: var(--uc-navbar-height) !important;
+  min-height: var(--uc-navbar-height) !important;
+  padding: 0 !important;
+  align-items: center !important;
+}
+
+/* URL bar itself */
+#urlbar {
+  height: 24px !important;
+  min-height: 24px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+
+/* ================================
+   Tabs: true rectangles
+   ================================ */
+
+.tabbrowser-tab::before,
+.tabbrowser-tab::after {
+  display: none !important;
+}
+
+.tabbrowser-tab {
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding-inline: 6px !important;
+}
+
+.tabbrowser-tab,
+.tabbrowser-tab * {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tabbrowser-tab .tab-background {
+  background: none !important;
+}
+
+
+/* ================================
+   Fix text alignment
+   ================================ */
+
+.tabbrowser-tab .tab-label {
+  line-height: 1.2 !important;
+  padding-top: 9px !important;
+  padding-bottom: 1px !important;
+}
+
+.tabbrowser-tab .tab-content {
+  align-items: flex-start !important;
+}
+
+#new-tab-button,
+#alltabs-button {
+  height: 30px !important;
+  min-height: 30px !important;
+  align-self: bottom !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* ================================
+   Active tab styling
+   ================================ */
+
+.tabbrowser-tab[selected] {
+  background: var(--ff-bg-dark) !important;
+  border-bottom: 1px solid var(--ff-accent) !important;
+}
+
+.tabbrowser-tab:not([selected]) {
+  border-bottom: 1px solid var(--ff-bg) !important;
+}
+/* Remove border/shadow under nav-bar */
+
+/* ================================
+   Remove tab clutter
+   ================================ */
+
+.tab-icon-image {
+  display: none !important;
+}
+
+.tab-close-button {
+  display: none !important;
+}
+
+.tab-icon-overlay {
+  display: none !important;
+}
+
+#nav-bar,
+#navigator-toolbox,
+#TabsToolbar {
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+/* ================================
+   NAVBAR BEHAVIOR (unchanged logic)
+   ================================ */
+
+#nav-bar {
+  margin-top: calc(var(--uc-navbar-height) * -1) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: margin-top 0.15s ease-out, opacity 0.15s ease-out !important;
+  position: relative !important;
+  z-index: 0 !important;
+}
+
+#navigator-toolbox:hover > #nav-bar,
+#navigator-toolbox:focus-within > #nav-bar {
+  margin-top: 0 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+
+/* ================================
+   URL BAR VISIBILITY (fixed timing)
+   ================================ */
+
+#urlbar {
+  transform: scaleY(0) !important;
+  transform-origin: top !important;
+  transition: transform 0.12s ease-out !important;
+}
+
+#navigator-toolbox:hover #urlbar,
+#navigator-toolbox:focus-within #urlbar {
+  transform: scaleY(1) !important;
+}
+
+/* Breakout (Ctrl+L / typing) */
+#urlbar[breakout][breakout-extend] {
+  transform: scaleY(1) !important;
+}
+
+/* Shift autocomplete / URL suggestion popup up */
+.urlbarView {
+  margin-top: calc(var(--uc-navbar-height) - 24px) !important;
+}
+
