@@ -76,7 +76,7 @@
     packages = with pkgs; [
       nerd-fonts.jetbrains-mono
       noto-fonts
-      noto-fonts-emoji
+      noto-fonts-color-emoji
       corefonts            # Microsoft fonts (for documents)
       # CMU fonts (uncomment if in nixpkgs; otherwise see custom font below)
       # cm-unicode
