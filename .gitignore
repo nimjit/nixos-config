@@ -1,0 +1,28 @@
+# Secrets — never commit these
+secrets/*.age
+secrets/*.key
+*.secret
+.env
+
+# Wallpapers — large files; store separately or use git-lfs
+# Comment out if you want to commit your wallpapers
+themes/wallpapers/*.jpg
+themes/wallpapers/*.png
+themes/wallpapers/*.jpeg
+
+# Custom fonts — large binary files
+themes/fonts/*.ttf
+themes/fonts/*.otf
+
+# Nix build results (symlinks created by `nix build`)
+result
+result-*
+
+# Editor files
+.vim/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

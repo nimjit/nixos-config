@@ -1,0 +1,15 @@
+/* userChrome.css
+ * Place your Firefox chrome customisations here.
+ * This file is loaded by Firefox when:
+ *   toolkit.legacyUserProfileCustomizations.stylesheets = true
+ *
+ * Replace the contents below with your existing userChrome.css.
+ * Stylix does not touch this file directly — you manage it here.
+ */
+
+/* Example: hide the tab bar when only one tab is open */
+/*
+#TabsToolbar[singlerow="true"] {
+  display: none;
+}
+*/
