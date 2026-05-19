@@ -11,6 +11,7 @@
   boot.loader.efi.canTouchEfiVariables = false;  # do not write to NVRAM
   # efiInstallAsRemovable is not needed on desktop (internal drive, known NVRAM)
   # but keeping canTouchEfiVariables = false is safe practice
+  boot.loader.efi.efiSysMountPoint = "/boot";
 
   # ── GPU ───────────────────────────────────────────────────────────────────
   # Uncomment the block matching your GPU:
@@ -46,9 +47,9 @@
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" ];
     initialPassword = "changeme";  # change with passwd after first boot
-    group = "Thijmen";
+    group = "username";
   };
-  users.groups.Thijmen = {};
+  users.groups.${username} = {};
 
   system.stateVersion = "26.05";
 }
