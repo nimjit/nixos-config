@@ -36,6 +36,9 @@
       init.defaultBranch = "main";
       pull.rebase = false;
     };
+    extraConfig = {
+      credential.helper = "store";
+    };
   };
 
 
