@@ -17,7 +17,7 @@
     # Stylix sets the wallpaper system-wide.
     # Add an image to themes/wallpapers/ and set the path here.
     # Until you add one, comment this out and set image above instead.
-    image = ../themes/wallpapers/wallpaper.jpg;
+    image = ../themes/wallpapers/Pieter_Bruegel_the_Elder_-_Children's_Games_-_Google_Art_Project.jpg;
 
     # ── Fonts ─────────────────────────────────────────────────────────────
     fonts = {
