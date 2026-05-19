@@ -48,6 +48,4 @@
   programs.neovim.withPython3 = false;
   programs.firefox.configPath = "${config.xdg.configHome}/mozilla/firefox";
 
-
-
 }
