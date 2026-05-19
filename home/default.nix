@@ -1,4 +1,4 @@
-{ pkgs, ... }: {
+{ pkgs, config, ... }: {
 
   imports = [
     ./neovim.nix
@@ -30,11 +30,17 @@
   # ── Git ───────────────────────────────────────────────────────────────────
   programs.git = {
     enable = true;
-    userName = "nimjit";
-    userEmail = "tidemanus@gmail.com";
-    extraConfig = {
+    settings = {
+      user.name = "nimjit";
+      user.email = "tidemanus@gmail.com"
       init.defaultBranch = "main";
       pull.rebase = false;
     };
   };
 }
+
+ # ── Warnings? ─────────────────────────────────────────────────────────────
+gtk.gtk4.theme = null;
+programs.neovim.withRuby = false;
+programs.neovim.withPython3 = false;
+programs.firefox.configPath = "${config.xdg.configHome}/mozilla/firefox";

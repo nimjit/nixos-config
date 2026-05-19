@@ -30,7 +30,7 @@
       # (the 'y' wrapper is set in yazi.nix)
     };
 
-    initExtra = ''
+    initContent = ''
       # direnv hook (activates .envrc in project folders)
       eval "$(direnv hook zsh)"
 
@@ -38,6 +38,7 @@
       # Uncomment if you want it:
       # NIXGEN=$(nixos-rebuild list-generations 2>/dev/null | tail -1 | awk '{print $1}')
     '';
+    dotDir = ".config/zsh";
   };
 
   # Starship prompt — clean, fast, shows git status, python env, etc.
