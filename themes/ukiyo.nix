@@ -1,29 +1,3 @@
-# Ukiyo-inspired base16 colour palette
-# Based on the Ukiyo Obsidian theme
-#
-# To find your exact colours:
-# Open your Obsidian theme CSS and look for the CSS variables block.
-# Map them to base16 roles below:
-#   base00 = darkest background
-#   base01 = slightly lighter background (sidebars, panels)
-#   base02 = selection / highlighted line background
-#   base03 = comments, subtle text
-#   base04 = secondary text
-#   base05 = primary text (default foreground)
-#   base06 = light foreground
-#   base07 = lightest (near-white)
-#   base08 = red (errors, deletions)
-#   base09 = orange (numbers, constants)
-#   base0A = yellow (warnings, classes)
-#   base0B = green (strings, success)
-#   base0C = cyan (regex, special strings)
-#   base0D = blue (functions, links)
-#   base0E = purple/violet (keywords)
-#   base0F = dark red (deprecated, special)
-#
-# The values below are approximate Ukiyo colours.
-# Replace them with your exact values from the theme CSS.
-
 scheme = "Ukiyo"
 author = "Thijmen"
 base00 = "372d29"
