@@ -65,6 +65,10 @@
     # Dev tools
     direnv        # per-project environments
   ];
+  # ── Obsidian ──────────────────────────────────────────────────────────────
+  environment.sessionVariables = {
+    NIXOS_OZONE_WL = "1";
+  };
 
   # ── Steam ─────────────────────────────────────────────────────────────────
   programs.steam = {
