@@ -15,7 +15,7 @@
 
     shellAliases = {
       # NixOS shortcuts
-      rebuild  = "sudo nixos-rebuild switch --flake /etc/nixos#$(hostname)";
+      rebuild  = "sudo nixos-rebuild switch --flake /etc/nixos#desktop";
       update   = "cd /etc/nixos && git pull && sudo nixos-rebuild switch --flake .#$(hostname)";
       gc       = "sudo nix-collect-garbage --delete-older-than 30d";
       gens     = "sudo nixos-rebuild list-generations";
