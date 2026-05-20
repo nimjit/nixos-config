@@ -2,7 +2,6 @@
 
   programs.firefox = {
     enable = true;
-    configPath = ".mozilla/firefox";
 
     profiles."an03u17w.default" = {
       name = "an03u17w.default";
