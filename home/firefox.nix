@@ -1,8 +1,8 @@
 { ... }: {
   programs.firefox = {
     enable = true;
-    profiles.default = {
-      name = "default";
+    profiles.an03u17w.default = {
+      name = "an03u17w.default";
       isDefault = true;
 
       userChrome = builtins.readFile ./dotfiles/userChrome.css;
