@@ -28,6 +28,10 @@
 
       # Use Yazi instead of plain file browsing
       # (the 'y' wrapper is set in yazi.nix)
+
+      # Home-manager does not configure root, so nvim in root does not apply init.lua
+      # this alias makes any nvim run in sudo, whilst perserving the environment:
+      "nvim" = "sudo -E nvim"
     };
 
     initContent = ''
