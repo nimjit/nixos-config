@@ -1,12 +1,13 @@
 { ... }: {
+
   programs.firefox = {
     enable = true;
-    profiles.an03u17w.default = {
+    configPath = ".mozilla/firefox";
+
+    profiles."an03u17w.default" = {
       name = "an03u17w.default";
       isDefault = true;
-
       userChrome = builtins.readFile ./dotfiles/userChrome.css;
-
       settings = {
         "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
         "browser.tabs.inTitlebar" = 0;
