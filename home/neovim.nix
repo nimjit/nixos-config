@@ -8,7 +8,7 @@
 
     # Stylix injects the colourscheme automatically before this config loads.
     # Do not set a colorscheme here; Stylix owns that.
-    extraLuaConfig = builtins.readFile ./dotfiles/neovim/init.lua;
+    programs.neovim.initLua = builtins.readFile ./dotfiles/neovim/init.lua;
 
     # Python provider — points to the system Python
     # Used for running code directly from Neovim without plugins
