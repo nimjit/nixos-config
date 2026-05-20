@@ -120,40 +120,8 @@ vim.api.nvim_create_autocmd("BufLeave", {
     end
 })
 
-                   -- Python runner
--- Store current python path
-vim.g.python_path = "python"
-
--- List environments
-vim.keymap.set("n", "<leader>pl", function()
-    local handle = io.popen('dir /b C:\\Users\\thijm\\anaconda3\\envs')
-    if not handle then return end
-
-    local result = handle:read("*a")
-    handle:close()
-
-    print("base\n" .. result)
-end)
--- Function to switch conda env
-vim.keymap.set("n", "<leader>pe", function()
-    local env = vim.fn.input("Conda env name (or 'base'): ")
-    if env == "" then return end
-    local base_path = "C:/Users/thijm/anaconda3"
-    local path
-
-    if env == "base" then
-        path = base_path .. "/python.exe"
-    else
-        path = base_path .. "/envs/" .. env .. "/python.exe"
-    end
-
-    if vim.fn.filereadable(path) == 1 then
-        vim.g.python_path = path
-        print("Switched to " .. env)
-    else
-        print("Env not found: " .. env)
-    end
-end)
+                  -- Python runner
+vim.g.python_path = '/run/current-system/sw/bin/python3'
 
 vim.keymap.set("n", "<leader>r", function()
     vim.cmd("w")
