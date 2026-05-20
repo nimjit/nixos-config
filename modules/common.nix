@@ -15,11 +15,14 @@
 
   # ── Locale and timezone ───────────────────────────────────────────────────
   time.timeZone = "Europe/Amsterdam";
-  i18n.defaultLocale = "en_US.UTF-8";
+  i18n.defaultLocale = "en_GB.UTF-8";
   i18n.extraLocaleSettings = {
-    LC_TIME = "nl_NL.UTF-8";
-    LC_MEASUREMENT = "nl_NL.UTF-8";
-  };
+  LC_TIME = "nl_NL.UTF-8";
+  LC_MONETARY = "nl_NL.UTF-8";
+  LC_MEASUREMENT = "nl_NL.UTF-8";
+  LC_NUMERIC = "nl_NL.UTF-8";
+  LC_PAPER = "nl_NL.UTF-8";
+};
 
   # ── Networking ────────────────────────────────────────────────────────────
   networking.networkmanager.enable = true;
