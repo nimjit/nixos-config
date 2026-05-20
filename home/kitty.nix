@@ -22,6 +22,7 @@
     extraConfig = ''
       foreground #ccc2b7
       background #372d29
+      color8 #ccc2b7
       '';
   };
 }
