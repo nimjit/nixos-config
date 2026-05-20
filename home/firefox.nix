@@ -20,5 +20,5 @@
       };
     };
   };
-  stylix.targets.firefox.profileNames = [ "default" ];
+  stylix.targets.firefox.profileNames = [ "an03u17w.default" ];
 }
