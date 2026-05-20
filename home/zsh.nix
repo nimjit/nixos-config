@@ -42,7 +42,7 @@
       # Uncomment if you want it:
       # NIXGEN=$(nixos-rebuild list-generations 2>/dev/null | tail -1 | awk '{print $1}')
     '';
-    dotDir = ".config/zsh";
+    dotDir = "${config.xdg.configHome}/zsh";
   };
 
   # Starship prompt — clean, fast, shows git status, python env, etc.
