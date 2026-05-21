@@ -60,13 +60,12 @@
 
     # Languages
       # Python
-    environment.systemPackages = with pkgs; [
-      (python3.withPackages (ps: with ps; [
-        numpy
-        matplotlib
-        tqdm
-        ipython
-      ]))
+    (python3.withPackages (ps: with ps; [
+      numpy
+      matplotlib
+      tqdm
+      ipython
+    ]))
     ];    
       # Rust
     rustup        # installs cargo, rustc, rust-analyzer
