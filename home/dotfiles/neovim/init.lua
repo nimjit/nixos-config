@@ -125,7 +125,7 @@ vim.g.python_path = '/run/current-system/sw/bin/python3'
 
 vim.keymap.set("n", "<leader>r", function()
     vim.cmd("w")
-    vim.cmd("split | terminal " .. vim.g.python_path .. " %")
+    vim.cmd("split | terminal " .. vim.g.python_path .. " '" .. vim.fn.expand("%:p") .. "'")
 end)
 
 --"Cell" runner (like notebooks)
