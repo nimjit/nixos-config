@@ -66,7 +66,7 @@
       tqdm
       ipython
     ]))
-    ];    
+
       # Rust
     rustup        # installs cargo, rustc, rust-analyzer
 
