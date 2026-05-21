@@ -59,7 +59,16 @@
     nwg-look      # GTK theme tweaker
 
     # Languages
-    python3
+      # Python
+    environment.systemPackages = with pkgs; [
+      (python3.withPackages (ps: with ps; [
+        numpy
+        matplotlib
+        tqdm
+        ipython
+      ]))
+    ];    
+      # Rust
     rustup        # installs cargo, rustc, rust-analyzer
 
     # Dev tools
