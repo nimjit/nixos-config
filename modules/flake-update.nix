@@ -41,7 +41,7 @@
 
         echo "Rebuilding..."
         # Escaped \$ ensures Bash reads the hostname at runtime
-        nixos-rebuild switch --flake /etc/nixos#\$(hostname)
+        nixos-rebuild switch --flake /etc/nixos#desktop
       '';
     };
   };
