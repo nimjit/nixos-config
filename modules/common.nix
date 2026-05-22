@@ -70,8 +70,10 @@
       # Rust
     rustup        # installs cargo, rustc, rust-analyzer
 
-    # Dev tools
+    # Tools
     direnv        # per-project environments
+    wmctrl
+    xdotool
   ];
   # ── Obsidian ──────────────────────────────────────────────────────────────
   environment.sessionVariables = {

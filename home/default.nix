@@ -8,6 +8,7 @@
     ./mpv.nix
     ./zsh.nix
     ./rofi.nix
+    ./autostart.nix
   ];
 
   # ── Home basics ───────────────────────────────────────────────────────────

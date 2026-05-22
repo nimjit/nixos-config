@@ -66,4 +66,19 @@
   users.groups.${username} = {};
 
   system.stateVersion = "25.05";
-}
+
+  # ── Sudo ───────────────────────────────────────────────────────────────────
+  security.sudo.extraRules = [{
+    users = [ "thijmen" ];
+    commands = [{
+      command = "/run/current-system/sw/bin/nvim";
+      options = [ "NOPASSWD" ];
+    }
+    {
+      command = "nvim";
+      options = [ "NOPASSWD" ];
+    }];
+  }];
+
+
+} # End of function.
