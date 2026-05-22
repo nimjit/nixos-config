@@ -75,7 +75,7 @@
       options = [ "NOPASSWD" ];
     }
     {
-      command = "nvim";
+      command = "/run/current-system/sw/bin/nvim";
       options = [ "NOPASSWD" ];
     }];
   }];
