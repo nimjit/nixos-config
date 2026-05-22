@@ -75,7 +75,7 @@
       options = [ "NOPASSWD" ];
     }
     {
-      command = "/run/current-system/sw/bin/nvim";
+      command = "/run/current-system/sw/bin/nixos-rebuild";
       options = [ "NOPASSWD" ];
     }];
   }];
