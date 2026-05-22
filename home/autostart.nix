@@ -29,7 +29,7 @@
 
       # Wait for KDE to fully settle before launching anything.
       # Increase this if apps open on the wrong desktop.
-      sleep 10
+      sleep 5
 
       # ── Helper functions ──────────────────────────────────────────────────
 
@@ -91,6 +91,7 @@
       sleep 1
       move_last_window 1 $RIGHT
 
+      sleep 5
       # ── Desktop 2: Personal ───────────────────────────────────────────────
       switch_desktop 2
 
@@ -103,6 +104,7 @@
       open_firefox_window "https://youtube.com" "https://web.whatsapp.com"
       move_last_window 2 $RIGHT
 
+      sleep 5
       # ── Desktop 3: Sync/Admin ─────────────────────────────────────────────
       switch_desktop 3
 
@@ -114,6 +116,7 @@
       open_firefox_window "http://localhost:8384/"
       move_last_window 3 $RIGHT
 
+      sleep 5
       # ── Desktop 4: NixOS work ─────────────────────────────────────────────
       switch_desktop 4
 
@@ -124,14 +127,14 @@
 
       # Left monitor: Kitty - nixos-issues.md
       kitty --title "nixos-issues" \
-        nvim /home/thijmen/Documents/BACKUP/nixos-issues.md &
+        nvim /home/thijmen/Documents/nixos-issues.md &
       sleep 1
       move_last_window 4 $LEFT
 
       # Left monitor: Kitty - NixOS config
       kitty --title "nixos-config" \
         cd /etc/nixos \
-        sudo -E nvim . &
+        sudo nvim . &
       sleep 1
       move_last_window 4 $LEFT
 
