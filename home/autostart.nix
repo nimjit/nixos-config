@@ -29,7 +29,7 @@
 
       # Wait for KDE to fully settle before launching anything.
       # Increase this if apps open on the wrong desktop.
-      sleep 5
+      sleep 10
 
       # ── Helper functions ──────────────────────────────────────────────────
 
@@ -130,7 +130,7 @@
 
       # Left monitor: Kitty - NixOS config
       kitty --title "nixos-config" \
-        cd /etc/nixos
+        cd /etc/nixos \
         sudo -E nvim . &
       sleep 1
       move_last_window 4 $LEFT
