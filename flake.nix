@@ -25,6 +25,7 @@
     commonModules = [
       ./modules/common.nix
       ./modules/stylix.nix
+      ./modules/flake-update.nix
       home-manager.nixosModules.home-manager
       stylix.nixosModules.stylix
       {
