@@ -19,7 +19,6 @@
       Type = "oneshot";
       User = "root";
       ExecStart = pkgs.writeShellScript "nixos-flake-update" ''
-        set -e
         cd /etc/nixos
 
         if [ ! -d ".git" ]; then
