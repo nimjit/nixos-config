@@ -27,8 +27,12 @@
       # Dependencies: wmctrl, xdotool (declared in modules/common.nix)
       # ─────────────────────────────────────────────────────────────────────
 
-      # Wait for KDE to fully settle before launching anything.
-      # Increase this if apps open on the wrong desktop.
+      # Only run if KDE has no session to restore
+      SESSION_DIR="$HOME/.local/share/ksmserver"
+      if [ -d "$SESSION_DIR" ] && [ -n "$(ls -A "$SESSION_DIR" 2>/dev/null)" ]; then
+        echo "KDE session exists, skipping startup script"
+        exit 0
+      fi
       sleep 5
 
       # ── Helper functions ──────────────────────────────────────────────────
