@@ -95,7 +95,7 @@
       switch_desktop 2
 
       # Left monitor: Obsidian - Renaissance vault
-      obsidian "obsidian://open?vault=Rennaissance_Vault_Structure" &
+      obsidian "obsidian://open?vault=Renaissance_Vault_Structure" &
       sleep 2
       move_last_window 2 $LEFT
 
