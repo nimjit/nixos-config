@@ -33,9 +33,6 @@
   # Wait for Nvidia DRM device before starting display manager
   systemd.services.display-manager.after = [ "dev-dri-card1.device" ];
   systemd.services.display-manager.wants = [ "dev-dri-card1.device" ];
-  
-  # Ensure Nvidia DRM is loaded early
-  boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 
   # ── Desktop environment ───────────────────────────────────────────────────
   services.xserver.enable = true;
