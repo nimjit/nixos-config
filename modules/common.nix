@@ -96,8 +96,7 @@
       noto-fonts
       noto-fonts-color-emoji
       corefonts            # Microsoft fonts (for documents)
-      # CMU fonts (uncomment if in nixpkgs; otherwise see custom font below)
-      # cm-unicode
+      cm_unicode
     ];
 
     # Custom font (CMU Typewriter — if you have the .ttf files)
