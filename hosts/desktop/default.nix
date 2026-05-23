@@ -28,6 +28,14 @@
   hardware.nvidia.nvidiaSettings = true;
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_535;
   hardware.graphics.enable = true;
+  boot.kernelParams = [ "nvidia-drm.modeset=1" ];
+
+  # Wait for Nvidia DRM device before starting display manager
+  systemd.services.display-manager.after = [ "dev-dri-card1.device" ];
+  systemd.services.display-manager.wants = [ "dev-dri-card1.device" ];
+  
+  # Ensure Nvidia DRM is loaded early
+  boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 
   # ── Desktop environment ───────────────────────────────────────────────────
   services.xserver.enable = true;
@@ -80,5 +88,13 @@
     }];
   }];
 
+
+  # ── Force Language to be good ────────────────────────────────────────────────
+  environment.sessionVariables = {
+    LANG = "en_GB.UTF-8";
+    LC_CTYPE = "en_GB.UTF-8";
+    LC_COLLATE = "en_GB.UTF-8";
+    LC_MESSAGES = "en_GB.UTF-8";
+  };
 
 } # End of function.
