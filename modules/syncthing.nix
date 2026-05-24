@@ -12,7 +12,7 @@
       devices = {
         "nixos-desktop" = {
           id = "YPJSINR-FPTEDVK-56OB5L6-JGBJ5DE-22PZW7X-CH7RC7F-NUEASLF-TIEJDQD";
-          addresses = [ "tcp://100.75.233.85" ]  # Tailscale address of nixos desktop - can be found at https://login.tailscale.com/admin/machines
+          addresses = [ "tcp://100.75.233.85" ];  # Tailscale address of nixos desktop - can be found at https://login.tailscale.com/admin/machines
         };
         "zbook-laptop" = {
           id = "3ACFKE4-5UVT2RY-EVWAAPS-DHTL7UZ-MANAYII-WELOAWM-LYCT5O5-2KHI3QJ";
