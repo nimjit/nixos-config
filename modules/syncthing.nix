@@ -5,51 +5,89 @@
     user = username;
     dataDir = "/home/${username}";
     configDir = "/home/${username}/.config/syncthing";
-
-    # Overwrite settings declared here even if changed in the web UI
     overrideDevices = true;
     overrideFolders = true;
 
     settings = {
-
-      # ── Devices ────────────────────────────────────────────────────────
-      # Add each device's ID here after first running Syncthing on it.
-      # Get the ID from: http://localhost:8384 → Actions → Show ID
-      # Or: syncthing --device-id (run as your user)
-
       devices = {
-        # "desktop" = { id = "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"; };
-        # "nas"     = { id = "YYYYY-YYYYY-YYYYY-YYYYY-YYYYY-YYYYY-YYYYY-YYYYY"; };
-        # "usb"     = { id = "ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ"; };
+        "nixos-desktop" = {
+          id = "YPJSINR-FPTEDVK-56OB5L6-JGBJ5DE-22PZW7X-CH7RC7F-NUEASLF-TIEJDQD";
+          addresses = [ "tcp://100.75.233.85" ]  # Tailscale address of nixos desktop - can be found at https://login.tailscale.com/admin/machines
+        };
+        "zbook-laptop" = {
+          id = "3ACFKE4-5UVT2RY-EVWAAPS-DHTL7UZ-MANAYII-WELOAWM-LYCT5O5-2KHI3QJ";
+          addresses = [ "tcp://100.74.207.5" ];  # Tailscale address of zbook
+        };
+        # "nas" = { id = ""; };
+        # "usb" = { id = ""; };
       };
 
-      # ── Folders ────────────────────────────────────────────────────────
       folders = {
+        # First folder: BACKUP at /home/thijmen/BACKUP
         "BACKUP" = {
           path = "/home/${username}/BACKUP";
-          # List all device names that should sync this folder:
-          devices = [ ];  # e.g. [ "desktop" "nas" "usb" ]
-
-          # Keep 30 days of file history (recovers accidentally deleted files)
+          devices = [ "nixos-desktop" "zbook-laptop" ];
           versioning = {
             type = "staggered";
             params = {
               cleanInterval = "3600";
-              maxAge = "2592000";  # 30 days in seconds
+              maxAge = "2592000";
+            };
+          };
+        };
+
+        # Second folder: Documents/BACKUP synced with both devices
+        "vq5vt-g7nas" = {
+          label = "Documents";
+          path = "/home/${username}/Documents/BACKUP";
+          devices = [ "nixos-desktop" "zbook-laptop" ];
+          ignores.lines = [
+            # Git repositories - sync files but not git internals
+            "**/.git"
+            "(?d) **/.DS_Store"
+            "(?d) **/Thumbs.db"
+
+            # System files
+            ".DS_Store"
+            "Thumbs.db"
+            "desktop.ini"
+
+            # Syncthing conflict files
+            "*.sync-conflict-*"
+
+            # Obsidian json files
+            "**/.obsidian/**/*.json"
+            "!**/.obsidian/community-plugins.json"
+            "!**/.obsidian/snippets/**"
+
+            # I want to sync Music Library, but not the Music Library symlink:
+            "Music Library"
+            "!Music Library/**"
+            ];
+            versioning = {
+            type = "staggered";
+            params = {
+              cleanInterval = "3600";
+              maxAge = "2592000";
             };
           };
         };
       };
 
-      # ── GUI ────────────────────────────────────────────────────────────
+      options = {
+        globalAnnounceEnabled = false;  
+        localAnnounceEnabled = true;
+        relaysEnabled = false;         
+        urAccepted = -1;              
+      };
+
       gui = {
         enabled = true;
-        address = "127.0.0.1:8384";  # web UI only accessible locally
+        address = "127.0.0.1:8384";
       };
     };
   };
 
-  # Open firewall port for Syncthing sync protocol (not the web UI)
   networking.firewall.allowedTCPPorts = [ 22000 ];
   networking.firewall.allowedUDPPorts = [ 22000 21027 ];
 }
