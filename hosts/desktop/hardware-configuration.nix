@@ -15,13 +15,19 @@
 
   fileSystems."/" =
     { device = "/dev/disk/by-uuid/838e4d99-fe57-4c55-b046-f9e65855fee9";
-      fsType = "ext4";
+      fstype = "ext4";
     };
 
   fileSystems."/boot" =
     { device = "/dev/disk/by-uuid/CD43-783C";
       fsType = "vfat";
       options = [ "fmask=0022" "dmask=0022" ];
+    };
+
+  fileSystems."/mnt/Data" = 
+    { device = "/dev/disk/by-uuid/b78f2664-b3f9-48e1-a86c-098f601df845";
+      fsType = "ext4";
+      options = [ "nofail" ]; # Stops system from hanging if the drive is disconnected
     };
 
   swapDevices = [ ];
