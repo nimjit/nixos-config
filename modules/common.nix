@@ -55,6 +55,9 @@
     zathura       # PDF viewer; themed by Stylix automatically
     thunderbird   # email client; connects to Outlook via IMAP
 
+    # AI
+    claude-code
+
     # Media
     spotify
 
