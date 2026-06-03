@@ -42,6 +42,10 @@
     zip
     btop          # system monitor
     fastfetch     # system info (replaces neofetch)
+    nh
+    bat
+    eza
+    zoxide
 
     # Applications
     obsidian
@@ -54,6 +58,7 @@
     qbittorrent
     zathura       # PDF viewer; themed by Stylix automatically
     thunderbird   # email client; connects to Outlook via IMAP
+    calcurse
 
     # AI
     claude-code
@@ -72,9 +77,10 @@
       tqdm
       ipython
     ]))
-
       # Rust
     rustup        # installs cargo, rustc, rust-analyzer
+      # Typst
+    typst
 
     # Tools
     direnv        # per-project environments
