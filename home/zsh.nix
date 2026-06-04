@@ -47,6 +47,12 @@
       # direnv hook (activates .envrc in project folders)
       eval "$(direnv hook zsh)"
 
+      # Workflow launchers
+      uni-work()   { nvim -c WorkflowUni; }
+      uni-code()   { nvim -c WorkflowCode; }
+      vault-work() { nvim -c WorkflowVault; }
+      nixos-work() { nvim -c WorkflowNixos; }
+
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
         echo ""

@@ -210,8 +210,14 @@ vim.keymap.set("n", "<leader>?", function()
         "  <C-↑↓←→>      Resize windows            ",
         " ─────────────────────────────────────── ",
         "  q / <Esc>     Close this popup          ",
+        " ─────────────────────────────────────── ",
+        "  Workflows (shell aliases)               ",
+        "  uni-work      Uni Obsidian vault        ",
+        "  uni-code      Current coding project    ",
+        "  vault-work    Personal vault + Claude   ",
+        "  nixos-work    NixOS config + Claude     ",
     }
-    local width = 46
+    local width = 48
     local height = #lines
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -231,6 +237,62 @@ vim.keymap.set("n", "<leader>?", function()
         end, { buffer = buf, nowait = true })
     end
 end)
+
+                   -- Workflow launchers
+-- Update uni_code_path each course
+vim.g.uni_code_path = "/home/thijmen/Documents/BACKUP/Uni/Master/Computational Physics"
+
+local function workflow_open(path, after)
+    vim.cmd("cd " .. vim.fn.fnameescape(path))
+    local tmp = vim.fn.tempname()
+    vim.cmd("terminal yazi --chooser-file=" .. tmp)
+    local term_buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_create_autocmd("TermClose", {
+        buffer = term_buf,
+        once = true,
+        callback = function()
+            vim.schedule(function()
+                if vim.api.nvim_buf_is_valid(term_buf) then
+                    vim.api.nvim_buf_delete(term_buf, { force = true })
+                end
+                local f = io.open(tmp, "r")
+                if f then
+                    local chosen = f:read("*l")
+                    f:close()
+                    os.remove(tmp)
+                    if chosen and chosen ~= "" then
+                        vim.cmd("edit " .. vim.fn.fnameescape(chosen))
+                    end
+                end
+                if after then after() end
+            end)
+        end,
+    })
+    vim.cmd("startinsert")
+end
+
+vim.api.nvim_create_user_command("WorkflowUni", function()
+    workflow_open("/home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni", nil)
+end, {})
+
+vim.api.nvim_create_user_command("WorkflowCode", function()
+    workflow_open(vim.g.uni_code_path, nil)
+end, {})
+
+vim.api.nvim_create_user_command("WorkflowVault", function()
+    workflow_open("/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure", function()
+        vim.cmd("vsplit | terminal claude --continue")
+        vim.cmd("1wincmd w")
+    end)
+end, {})
+
+vim.api.nvim_create_user_command("WorkflowNixos", function()
+    workflow_open("/etc/nixos", function()
+        vim.cmd("vsplit | terminal claude --continue")
+        vim.cmd("vsplit | terminal")
+        vim.cmd("1wincmd w")
+    end)
+end, {})
 
                    -- Git shortcuts
 vim.keymap.set("n", "<leader>gs", ":!git status<CR>")
