@@ -65,6 +65,12 @@
         echo "  ricing  → ~/Documents/BACKUP/Ricing"
         echo "  misc    → ~/Documents/BACKUP/Misc"
         echo ""
+        echo "  Workflows:"
+        echo "  uni-work  →   Uni Obsidian vault"
+        echo "  uni-code  →   Current coding project"
+        echo "  vault-work→   Personal vault + Claude"
+        echo "  nixos-work→   NixOS config + Claude"
+        echo ""
       fi
     '';
     dotDir = "${config.xdg.configHome}/zsh";
