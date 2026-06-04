@@ -74,6 +74,11 @@ vim.keymap.set('n','<C-h>', '<C-w>h')
 vim.keymap.set('n','<C-j>', '<C-w>j')
 vim.keymap.set('n','<C-k>', '<C-w>k')
 vim.keymap.set('n','<C-l>', '<C-w>l')
+-- Same binds from terminal mode (<C-\><C-n> exits terminal mode first)
+vim.keymap.set('t','<C-h>', '<C-\\><C-n><C-w>h')
+vim.keymap.set('t','<C-j>', '<C-\\><C-n><C-w>j')
+vim.keymap.set('t','<C-k>', '<C-\\><C-n><C-w>k')
+vim.keymap.set('t','<C-l>', '<C-\\><C-n><C-w>l')
 
                    -- Netrw settings --
 -- Better symlinks
@@ -142,8 +147,38 @@ vim.keymap.set("n", "<leader>c", function()
     vim.cmd(start .. "," .. stop .. "w !" .. py)
 end)
 
-                   -- Quick terminal 
+                   -- Quick terminal
 vim.keymap.set("n", "<leader>t", ":split | terminal<CR>")
+
+                   -- Yazi file picker
+-- Opens yazi in a split; selecting a file (q to confirm) opens it in neovim.
+-- Uses --chooser-file so no plugin is needed.
+vim.keymap.set("n", "<leader>f", function()
+    local tmp = vim.fn.tempname()
+    vim.cmd("split | terminal yazi --chooser-file=" .. tmp)
+    local term_buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_create_autocmd("TermClose", {
+        buffer = term_buf,
+        once = true,
+        callback = function()
+            vim.schedule(function()
+                if vim.api.nvim_buf_is_valid(term_buf) then
+                    vim.api.nvim_buf_delete(term_buf, { force = true })
+                end
+                local f = io.open(tmp, "r")
+                if f then
+                    local chosen = f:read("*l")
+                    f:close()
+                    os.remove(tmp)
+                    if chosen and chosen ~= "" then
+                        vim.cmd("edit " .. vim.fn.fnameescape(chosen))
+                    end
+                end
+            end)
+        end,
+    })
+    vim.cmd("startinsert")
+end)
 
                    -- Git shortcuts
 vim.keymap.set("n", "<leader>gs", ":!git status<CR>")
