@@ -27,6 +27,15 @@
   /* 🔥 Prevent hidden padding from breaking height */
   --toolbarbutton-inner-padding: 2px !important;
   --toolbarbutton-outer-padding: 0px !important;
+
+  /* Replace theme.xpi — window chrome colors at the Mozilla level */
+  --toolbar-bgcolor: #372d29 !important;
+  --toolbar-color: #ccc2b7 !important;
+  --lwt-accent-color: #372d29 !important;
+  --lwt-text-color: #ccc2b7 !important;
+  --toolbarbutton-icon-fill: #ccc2b7 !important;
+  --tab-selected-bgcolor: #2b2723 !important;
+  --tab-line-color: #ba945f !important;
 }
 
 /* ================================
@@ -134,7 +143,7 @@
 #alltabs-button {
   height: 30px !important;
   min-height: 30px !important;
-  align-self: bottom !important;
+  align-self: flex-end !important;
   margin: 0 !important;
   padding: 0 !important;
 }
