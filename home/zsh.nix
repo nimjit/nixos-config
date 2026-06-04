@@ -15,8 +15,8 @@
 
     shellAliases = {
       # NixOS shortcuts
-      rebuild  = "sudo nixos-rebuild switch --flake /etc/nixos#desktop";
-      update   = "cd /etc/nixos && git pull && sudo nixos-rebuild switch --flake .#$(hostname)";
+      rebuild  = "nh os switch /etc/nixos -H desktop";
+      update   = "cd /etc/nixos && git pull && nh os switch /etc/nixos -H desktop";
       gc       = "sudo nix-collect-garbage --delete-older-than 30d";
       gens     = "sudo nixos-rebuild list-generations";
 
@@ -25,6 +25,15 @@
       la  = "ls -A";
       ".." = "cd ..";
       "..." = "cd ../..";
+
+      # Navigation
+      nixos   = "cd /etc/nixos";
+      backup  = "cd ~/Documents/BACKUP";
+      vault   = "cd ~/Documents/BACKUP/Obsidian/Rennaissance_Vault_Structure";
+      uni     = "cd ~/Documents/BACKUP/Uni";
+      ricing  = "cd ~/Documents/BACKUP/Ricing";
+      misc    = "cd ~/Documents/BACKUP/Misc";
+      books   = "cd ~/Documents/BACKUP/Books";
 
       # Use Yazi instead of plain file browsing
       # (the 'y' wrapper is set in yazi.nix)

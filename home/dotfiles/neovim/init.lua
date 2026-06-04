@@ -180,6 +180,58 @@ vim.keymap.set("n", "<leader>f", function()
     vim.cmd("startinsert")
 end)
 
+                   -- Hotkey reference
+vim.keymap.set("n", "<leader>?", function()
+    local lines = {
+        "  Key           Action                    ",
+        " ─────────────────────────────────────── ",
+        "  <leader>?     This help popup           ",
+        " ─────────────────────────────────────── ",
+        "  Files & Navigation                      ",
+        "  <leader>f     Yazi file picker          ",
+        " ─────────────────────────────────────── ",
+        "  Python                                  ",
+        "  <leader>r     Run file                  ",
+        "  <leader>c     Run cell (# %%)           ",
+        " ─────────────────────────────────────── ",
+        "  Terminal                                ",
+        "  <leader>t     Open terminal split       ",
+        " ─────────────────────────────────────── ",
+        "  Git                                     ",
+        "  <leader>gs    git status                ",
+        "  <leader>gd    git diff                  ",
+        "  <leader>gp    git pull                  ",
+        "  <leader>gP    git push                  ",
+        "  <leader>gc    git commit                ",
+        "  <leader>gu    git fetch + status        ",
+        " ─────────────────────────────────────── ",
+        "  Windows                                 ",
+        "  <C-h/j/k/l>   Navigate windows          ",
+        "  <C-↑↓←→>      Resize windows            ",
+        " ─────────────────────────────────────── ",
+        "  q / <Esc>     Close this popup          ",
+    }
+    local width = 46
+    local height = #lines
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.bo[buf].modifiable = false
+    local win = vim.api.nvim_open_win(buf, true, {
+        relative = "editor",
+        width = width,
+        height = height,
+        row = math.floor((vim.o.lines - height) / 2),
+        col = math.floor((vim.o.columns - width) / 2),
+        style = "minimal",
+        border = "rounded",
+    })
+    for _, key in ipairs({ "q", "<Esc>" }) do
+        vim.keymap.set("n", key, function()
+            vim.api.nvim_win_close(win, true)
+        end, { buffer = buf, nowait = true })
+    end
+end)
+
                    -- Git shortcuts
 vim.keymap.set("n", "<leader>gs", ":!git status<CR>")
 vim.keymap.set("n", "<leader>gd", ":!git diff<CR>")
