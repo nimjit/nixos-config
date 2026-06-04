@@ -14,6 +14,9 @@
   --ff-bg-alt: #4e4340;
   --ff-bg-dark: #372d29;
 
+  /* Text */
+  --ff-text: #ccc2b7;
+
   /* Accent */
   --ff-accent: #ba945f;
 
@@ -97,6 +100,16 @@
   padding: 0 !important;
 }
 
+
+/* ================================
+   Toolbar background (replaces theme — no theme needed)
+   ================================ */
+
+#navigator-toolbox,
+#TabsToolbar {
+  background-color: var(--ff-bg-dark) !important;
+  color: var(--ff-text) !important;
+}
 
 /* ================================
    Tabs: true rectangles
