@@ -27,13 +27,13 @@
       "..." = "cd ../..";
 
       # Navigation
-      nixos   = "cd /etc/nixos";
-      backup  = "cd ~/Documents/BACKUP";
-      vault   = "cd ~/Documents/BACKUP/Obsidian/Rennaissance_Vault_Structure";
-      uni     = "cd ~/Documents/BACKUP/Uni";
-      ricing  = "cd ~/Documents/BACKUP/Ricing";
-      misc    = "cd ~/Documents/BACKUP/Misc";
-      books   = "cd ~/Documents/BACKUP/Books";
+      nixos   = "yazi /etc/nixos";
+      backup  = "yazi ~/Documents/BACKUP";
+      vault   = "yazi ~/Documents/BACKUP/Obsidian/Rennaissance_Vault_Structure";
+      uni     = "yazi ~/Documents/BACKUP/Uni";
+      ricing  = "yazi ~/Documents/BACKUP/Ricing";
+      misc    = "yazi ~/Documents/BACKUP/Misc";
+      books   = "yazi ~/Documents/BACKUP/Books";
 
       # Use Yazi instead of plain file browsing
       # (the 'y' wrapper is set in yazi.nix)
