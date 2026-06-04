@@ -47,9 +47,19 @@
       # direnv hook (activates .envrc in project folders)
       eval "$(direnv hook zsh)"
 
-      # Show current nixos generation in prompt (optional)
-      # Uncomment if you want it:
-      # NIXGEN=$(nixos-rebuild list-generations 2>/dev/null | tail -1 | awk '{print $1}')
+      # Greeting: only in interactive top-level shells, never inside neovim :terminal
+      if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
+        echo ""
+        echo " Go to:"
+        echo "  nixos   → /etc/nixos"
+        echo "  backup  → ~/Documents/BACKUP"
+        echo "  vault   → ~/Documents/BACKUP/Obsidian/Rennaissance_Vault_Structure"
+        echo "  uni     → ~/Documents/BACKUP/Uni"
+        echo "  books   → ~/Documents/BACKUP/Books"
+        echo "  ricing  → ~/Documents/BACKUP/Ricing"
+        echo "  misc    → ~/Documents/BACKUP/Misc"
+        echo ""
+      fi
     '';
     dotDir = "${config.xdg.configHome}/zsh";
   };
