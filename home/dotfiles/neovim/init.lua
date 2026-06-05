@@ -216,6 +216,7 @@ vim.keymap.set("n", "<leader>?", function()
         "  uni-code      Current coding project    ",
         "  vault-work    Personal vault + Claude   ",
         "  nixos-work    NixOS config + Claude     ",
+        "  messages      WhatsApp (nchat)          ",
     }
     local width = 48
     local height = #lines

@@ -52,6 +52,7 @@
       uni-code()   { nvim -c WorkflowCode; }
       vault-work() { nvim -c WorkflowVault; }
       nixos-work() { nvim -c WorkflowNixos; }
+      messages()   { nchat; }
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
@@ -70,6 +71,7 @@
         echo "  uni-code  →   Current coding project"
         echo "  vault-work→   Personal vault + Claude"
         echo "  nixos-work→   NixOS config + Claude"
+        echo "  messages  →   WhatsApp (nchat)"
         echo ""
       fi
     '';

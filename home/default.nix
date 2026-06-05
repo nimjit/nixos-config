@@ -8,6 +8,8 @@
     ./mpv.nix
     ./zsh.nix
     ./rofi.nix
+    ./nchat.nix
+    ./calcurse.nix
   #  ./autostart.nix  # KDE session restart is fine, the script runs even when session restore is active, which is annoying.
   ];
 
@@ -42,6 +44,18 @@
     };
   };
 
+
+  # ── New tab page server ───────────────────────────────────────────────────
+  # Serves ~/.config/newtab/index.html at http://localhost:8080
+  # Set that URL in "New Tab Override" extension in Firefox.
+  systemd.user.services.newtab-server = {
+    Unit.Description = "Local new tab page server";
+    Install.WantedBy = [ "default.target" ];
+    Service = {
+      ExecStart = "${pkgs.python3}/bin/python3 -m http.server 8080 --directory %h/.config/newtab --bind 127.0.0.1";
+      Restart = "on-failure";
+    };
+  };
 
  # ── Warnings? ─────────────────────────────────────────────────────────────
   programs.neovim.withRuby = false;
