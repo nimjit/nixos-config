@@ -63,6 +63,10 @@
     # AI
     claude-code
 
+    # CLI tools
+    nchat          # WhatsApp in terminal (desktop notifications, no browser tab)
+    lastpass-cli   # lpass CLI — same vault as LastPass extension
+
     # Media
     spotify
 
