@@ -10,6 +10,7 @@
     ./rofi.nix
     ./nchat.nix
     ./calcurse.nix
+    ./btop.nix
   #  ./autostart.nix  # KDE session restart is fine, the script runs even when session restore is active, which is annoying.
   ];
 
