@@ -276,7 +276,11 @@ vim.api.nvim_create_user_command("WorkflowUni", function()
 end, {})
 
 vim.api.nvim_create_user_command("WorkflowCode", function()
-    workflow_open(vim.g.uni_code_path, nil)
+    workflow_open(vim.g.uni_code_path, function(
+    )
+        vim.cmd("vsplit | terminal claude --continue")
+        vim.cmd("1wincmd w")
+    end)
 end, {})
 
 vim.api.nvim_create_user_command("WorkflowVault", function()
