@@ -23,24 +23,11 @@
       };
 
       folders = {
-        # First folder: BACKUP at /home/thijmen/BACKUP
-        "BACKUP" = {
-          path = "/home/${username}/BACKUP";
-          devices = [ "nixos-desktop" "zbook-laptop" ];
-          versioning = {
-            type = "staggered";
-            params = {
-              cleanInterval = "3600";
-              maxAge = "2592000";
-            };
-          };
-        };
-
-        # Second folder: Documents/BACKUP synced with both devices
         "vq5vt-g7nas" = {
           label = "Documents";
           path = "/home/${username}/Documents/BACKUP";
           devices = [ "nixos-desktop" "zbook-laptop" ];
+          ignoreDelete = false;
           ignores.lines = [
             # Git repositories - sync files but not git internals
             "**/.git"
