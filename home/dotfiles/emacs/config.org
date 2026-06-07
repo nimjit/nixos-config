@@ -44,9 +44,16 @@ so this config stays clean.
 (delete-selection-mode   1)  ; typing replaces selection
 (electric-pair-mode      1)  ; auto-close brackets
 
+;; Smooth pixel-level scrolling (Emacs 29+, essential on Wayland/pgtk)
+(pixel-scroll-precision-mode 1)
+(setq pixel-scroll-precision-large-scroll-height 40.0)
+
 ;; Save minibuffer history across sessions
 (savehist-mode 1)
 (setq savehist-additional-variables '(kill-ring search-ring regexp-search-ring))
+
+;; Open dashboard on startup instead of scratch buffer
+(setq initial-buffer-choice (expand-file-name "~/org/dashboard.org"))
 #+end_src
 
 * Evil Mode
@@ -309,8 +316,8 @@ All faces are defined there — no Stylix injection needed.
   :custom (olivetti-body-width 90)
   :hook (org-mode . olivetti-mode))
 
-;; Typewriter scroll: cursor stays near center (replaces cm-typewriter-scroll)
-(setq scroll-margin 8)
+;; Typewriter scroll: cursor stays near center
+(setq scroll-margin 6)
 
 ;; Prettier org headings
 (use-package org-superstar
