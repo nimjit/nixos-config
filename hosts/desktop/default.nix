@@ -15,8 +15,8 @@
 
   # ── GPU ───────────────────────────────────────────────────────────────────
   # Intel iGPU (PCI:0:2:0) + Nvidia GTX 1060 (PCI:1:0:0)
-  # Monitors are on the Nvidia card; use PRIME reverseSync so KWin renders
-  # directly on Nvidia instead of copying frames via the Intel→Nvidia path.
+  # Monitors are on the Nvidia card. Tell KWin to use it directly via
+  # KWIN_DRM_DEVICES; skip PRIME sync (not supported by 535 legacy driver).
 
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.nvidia.modesetting.enable = true;
@@ -25,17 +25,10 @@
   hardware.nvidia.nvidiaSettings = true;
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_535;
   hardware.graphics.enable = true;
-  hardware.graphics.extraPackages = with pkgs; [ intel-media-driver ];
   boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 
-  # PRIME reverseSync: Nvidia as primary render/display, Intel in sync
-  hardware.nvidia.prime = {
-    reverseSync.enable = true;
-    intelBusId  = "PCI:0:2:0";
-    nvidiaBusId = "PCI:1:0:0";
-  };
-
-  # Tell KWin to use the Nvidia card directly (stable by-path address)
+  # Force KWin to render on the Nvidia card (stable PCI path, avoids
+  # the broken Intel→Nvidia PRIME copy path that caused 20Hz rendering).
   environment.variables.KWIN_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card";
 
   # Wait for Nvidia DRM device before starting display manager
