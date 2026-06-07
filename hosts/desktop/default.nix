@@ -14,13 +14,10 @@
   boot.loader.efi.efiSysMountPoint = "/boot";
 
   # ── GPU ───────────────────────────────────────────────────────────────────
-  # Uncomment the block matching your GPU:
+  # Intel iGPU (PCI:0:2:0) + Nvidia GTX 1060 (PCI:1:0:0)
+  # Monitors are on the Nvidia card; use PRIME reverseSync so KWin renders
+  # directly on Nvidia instead of copying frames via the Intel→Nvidia path.
 
-  # AMD:
-  # hardware.opengl.enable = true;
-  # hardware.opengl.driSupport = true;
-
-  # Nvidia (proprietary):
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.nvidia.modesetting.enable = true;
   hardware.nvidia.powerManagement.enable = true;
@@ -28,11 +25,22 @@
   hardware.nvidia.nvidiaSettings = true;
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_535;
   hardware.graphics.enable = true;
+  hardware.graphics.extraPackages = with pkgs; [ intel-media-driver ];
   boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 
+  # PRIME reverseSync: Nvidia as primary render/display, Intel in sync
+  hardware.nvidia.prime = {
+    reverseSync.enable = true;
+    intelBusId  = "PCI:0:2:0";
+    nvidiaBusId = "PCI:1:0:0";
+  };
+
+  # Tell KWin to use the Nvidia card directly (stable by-path address)
+  environment.variables.KWIN_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card";
+
   # Wait for Nvidia DRM device before starting display manager
-  systemd.services.display-manager.after = [ "dev-dri-card1.device" ];
-  systemd.services.display-manager.wants = [ "dev-dri-card1.device" ];
+  systemd.services.display-manager.after = [ "dev-dri-card2.device" ];
+  systemd.services.display-manager.wants = [ "dev-dri-card2.device" ];
 
   # ── Desktop environment ───────────────────────────────────────────────────
   services.xserver.enable = true;

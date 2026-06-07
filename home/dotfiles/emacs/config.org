@@ -48,6 +48,15 @@ so this config stays clean.
 (pixel-scroll-precision-mode 1)
 (setq pixel-scroll-precision-large-scroll-height 40.0)
 
+;; Rendering performance — bidi analysis runs on every line by default,
+;; killing redraws for anyone writing only left-to-right text.
+(setq-default bidi-paragraph-direction 'left-to-right)
+(setq bidi-inhibit-bpa t)
+;; Don't compact font caches during GC (avoids redisplay stalls)
+(setq inhibit-compacting-font-caches t)
+;; Allow fast imprecise scrolling (skips fontification mid-scroll)
+(setq fast-but-imprecise-scrolling t)
+
 ;; Save minibuffer history across sessions
 (savehist-mode 1)
 (setq savehist-additional-variables '(kill-ring search-ring regexp-search-ring))
