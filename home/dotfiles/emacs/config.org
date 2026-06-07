@@ -1,0 +1,1015 @@
+#+title: Emacs Configuration
+#+author: Thijmen
+#+startup: fold
+#+options: toc:nil num:nil
+
+All =#+begin_src emacs-lisp= blocks are tangled to =~/.cache/emacs/config.el=
+by =init.el= on startup. Re-tangle happens automatically after each rebuild.
+
+* Bootstrap
+
+=use-package= is built in to Emacs 29+. Packages come from Nix — disable
+downloading from ELPA. Store auto-generated custom settings in a separate file
+so this config stays clean.
+
+#+begin_src emacs-lisp
+(require 'use-package)
+(setq use-package-always-ensure nil)
+
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+(when (file-exists-p custom-file) (load custom-file))
+#+end_src
+
+* Core Settings
+
+#+begin_src emacs-lisp
+(setq-default
+  indent-tabs-mode nil
+  tab-width 2
+  fill-column 88)
+
+(setq
+  make-backup-files        nil
+  auto-save-default        nil
+  create-lockfiles         nil
+  ring-bell-function       'ignore
+  scroll-conservatively    101
+  scroll-margin            4
+  sentence-end-double-space nil
+  recentf-max-saved-items  200
+  display-time-default-load-average nil)
+
+(recentf-mode            1)
+(global-auto-revert-mode 1)  ; reload files changed on disk
+(delete-selection-mode   1)  ; typing replaces selection
+(electric-pair-mode      1)  ; auto-close brackets
+
+;; Save minibuffer history across sessions
+(savehist-mode 1)
+(setq savehist-additional-variables '(kill-ring search-ring regexp-search-ring))
+#+end_src
+
+* Evil Mode
+
+Full Vim emulation with evil-collection covering every major mode.
+evil-surround: cs, ds, ys.  evil-commentary: gc.  evil-goggles: visual flash.
+
+#+begin_src emacs-lisp
+(use-package evil
+  :init
+  (setq evil-want-integration    t)
+  (setq evil-want-keybinding     nil)  ; required before evil-collection
+  (setq evil-undo-system         'undo-redo)
+  (setq evil-want-C-u-scroll     t)    ; C-u scrolls half page (like vim)
+  (setq evil-search-module       'evil-search)
+  (setq evil-split-window-below  t)
+  (setq evil-vsplit-window-right t)
+  :config
+  (evil-mode 1))
+
+(use-package evil-collection
+  :after evil
+  :config (evil-collection-init))
+
+(use-package evil-surround
+  :after evil
+  :config (global-evil-surround-mode 1))
+
+(use-package evil-commentary
+  :after evil
+  :config (evil-commentary-mode))
+
+(use-package evil-goggles
+  :after evil
+  :config
+  (evil-goggles-mode)
+  (evil-goggles-use-diff-faces))
+#+end_src
+
+* SPC Leader Keybindings
+
+=general.el= creates a SPC-leader that works in normal and visual state.
+Comma (,) is a secondary local leader used for mode-specific commands.
+
+** Leader setup
+
+#+begin_src emacs-lisp
+(use-package general
+  :config
+  (general-create-definer spc!
+    :keymaps '(normal visual emacs motion)
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+  (general-create-definer local!
+    :keymaps '(normal visual)
+    :prefix ","))
+#+end_src
+
+** File, buffer, search
+
+#+begin_src emacs-lisp
+(spc!
+  ;; Files
+  "f"   '(:ignore t :wk "file")
+  "ff"  'find-file
+  "fr"  'consult-recent-file
+  "fs"  'save-buffer
+  "fS"  'save-some-buffers
+  "fR"  'rename-visited-file
+
+  ;; Buffers
+  "b"   '(:ignore t :wk "buffer")
+  "bb"  'consult-buffer
+  "bd"  'kill-current-buffer
+  "bR"  'revert-buffer
+  "bn"  'next-buffer
+  "bp"  'previous-buffer
+
+  ;; Search
+  "s"   '(:ignore t :wk "search")
+  "ss"  'consult-line
+  "sg"  'consult-grep
+  "sp"  'consult-ripgrep
+  "si"  'consult-imenu)
+#+end_src
+
+** Git, notes, agenda, RSS
+
+#+begin_src emacs-lisp
+(spc!
+  ;; Git
+  "g"   '(:ignore t :wk "git")
+  "gg"  'magit-status
+  "gb"  'magit-blame
+  "gl"  'magit-log-current
+  "gd"  'magit-diff
+
+  ;; Notes (org-roam)
+  "n"   '(:ignore t :wk "notes")
+  "nf"  'org-roam-node-find
+  "ni"  'org-roam-node-insert
+  "nb"  'org-roam-buffer-toggle
+  "ng"  'org-roam-ui-open
+  "nc"  'org-capture
+  "nd"  'org-roam-dailies-goto-today
+  "nD"  'org-roam-dailies-goto-date
+
+  ;; Agenda
+  "a"   'org-agenda
+
+  ;; RSS / elfeed
+  "r"   'elfeed)
+#+end_src
+
+** Open, windows, toggles, workspaces
+
+#+begin_src emacs-lisp
+(spc!
+  ;; Open
+  "o"   '(:ignore t :wk "open")
+  "ot"  'vterm
+  "op"  'projectile-find-file
+  "ov"  'open-personal-snowflake
+  "ou"  'open-uni-snowflake
+  "on"  'open-nixos-snowflake
+  "oV"  'regenerate-snowflakes
+
+  ;; Window (mirrors Super+hjkl sway layout)
+  "w"   '(:ignore t :wk "window")
+  "wh"  'evil-window-left
+  "wj"  'evil-window-down
+  "wk"  'evil-window-up
+  "wl"  'evil-window-right
+  "ws"  'evil-window-split
+  "wv"  'evil-window-vsplit
+  "wd"  'evil-window-delete
+  "w="  'balance-windows
+  "wm"  'delete-other-windows  ; maximize current
+
+  ;; Toggles
+  "t"   '(:ignore t :wk "toggle")
+  "tp"  'org-typst-preview-mode
+  "tP"  'org-typst-preview-buffer
+  "te"  'dired-sidebar-toggle-sidebar
+  "tl"  'display-line-numbers-mode
+  "tw"  'olivetti-mode
+  "tt"  'org-transclusion-mode
+  "ts"  'emms-toggle-sidebar
+
+  ;; Music
+  "m"   '(:ignore t :wk "music")
+  "mm"  'emms-toggle-sidebar
+  "m "  'emms-pause
+  "mn"  'emms-next
+  "mp"  'emms-previous
+  "ms"  'emms-stop
+  "mr"  'emms-random-next
+  "mi"  'emms-show
+
+  ;; Workspaces (perspective)
+  "TAB"    '(:ignore t :wk "workspace")
+  "TAB p"  'perspective-personal
+  "TAB u"  'perspective-uni
+  "TAB TAB" 'persp-switch
+  "TAB d"  'persp-kill
+  "TAB r"  'persp-rename
+
+  ;; Quit
+  "q"   '(:ignore t :wk "quit")
+  "qq"  'save-buffers-kill-emacs
+  "qf"  'delete-frame)
+#+end_src
+
+* Completion Stack
+
+Vertico (minibuffer), consult (enhanced commands), orderless (fuzzy matching),
+marginalia (annotations), embark (act on candidates), which-key (key hints).
+
+#+begin_src emacs-lisp
+(use-package vertico
+  :init (vertico-mode))
+
+(use-package marginalia
+  :init (marginalia-mode))
+
+(use-package orderless
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles basic partial-completion)))))
+
+(use-package consult
+  :bind ([remap switch-to-buffer] . consult-buffer)
+  :custom
+  (consult-preview-key "M-.")
+  (xref-show-xrefs-function #'consult-xref))
+
+(use-package embark
+  :bind ("C-." . embark-act))
+
+(use-package embark-consult
+  :after (embark consult))
+
+(use-package which-key
+  :init (which-key-mode)
+  :custom (which-key-idle-delay 0.4))
+#+end_src
+
+* Navigation
+
+Avy for on-screen jumping (equivalent to vim-sneak / easy-motion).
+Projectile for project-aware operations.
+
+#+begin_src emacs-lisp
+(use-package avy
+  :bind ("C-;" . avy-goto-char-2))
+
+(use-package projectile
+  :init (projectile-mode)
+  :custom (projectile-completion-system 'default))
+#+end_src
+
+* Git
+
+Magit is the best git interface on any platform. diff-hl adds gutter indicators.
+
+#+begin_src emacs-lisp
+(use-package magit
+  :custom
+  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+(use-package diff-hl
+  :hook (prog-mode . diff-hl-mode)
+  :config (global-diff-hl-mode))
+#+end_src
+
+* Appearance
+
+Stylix auto-generates an Emacs theme from the Ukiyo palette. The overrides below
+tune specific org-mode faces to the exact palette colors.
+
+Ukiyo palette (from themes/ukiyo.nix):
+  base00 #372d29  bg        base08 #c72626  red
+  base01 #413632  bg+       base09 #e77a59  orange
+  base02 #504431  selection base0A #ba945f  yellow
+  base03 #868074  comment   base0B #9aad6e  green
+  base04 #b2a699  dark txt  base0C #7ab5a0  cyan
+  base05 #ccc2b7  main txt  base0D #e0ba86  gold (blue slot)
+  base06 #ddd5cc  light txt base0E #ba945f  warm yellow
+  base07 #eee8e2  lightest  base0F #645743  brown
+
+#+begin_src emacs-lisp
+;; Org heading level colors using Ukiyo palette
+(with-eval-after-load 'org
+  (set-face-attribute 'org-level-1 nil :foreground "#e0ba86" :weight 'bold   :height 1.15)
+  (set-face-attribute 'org-level-2 nil :foreground "#7ab5a0" :weight 'bold   :height 1.10)
+  (set-face-attribute 'org-level-3 nil :foreground "#e77a59" :weight 'bold   :height 1.05)
+  (set-face-attribute 'org-level-4 nil :foreground "#9aad6e" :weight 'normal :height 1.0)
+  (set-face-attribute 'org-level-5 nil :foreground "#ba945f" :weight 'normal)
+  (set-face-attribute 'org-level-6 nil :foreground "#7ab5a0" :weight 'normal)
+  (set-face-attribute 'org-link     nil :foreground "#e0ba86" :underline t)
+  (set-face-attribute 'org-code     nil :foreground "#9aad6e" :background "#413632")
+  (set-face-attribute 'org-block    nil :background "#2b2320")
+  (set-face-attribute 'org-block-begin-line nil :foreground "#868074" :background "#2b2320")
+  (set-face-attribute 'org-block-end-line   nil :foreground "#868074" :background "#2b2320")
+  (set-face-attribute 'org-tag      nil :foreground "#868074")
+  (set-face-attribute 'org-todo     nil :foreground "#c72626" :weight 'bold)
+  (set-face-attribute 'org-done     nil :foreground "#9aad6e" :weight 'normal))
+#+end_src
+
+#+begin_src emacs-lisp
+;; Variable pitch in org prose, monospace in code/tables
+(use-package mixed-pitch
+  :hook (org-mode . mixed-pitch-mode))
+
+;; Centered writing (like Obsidian's focus mode)
+(use-package olivetti
+  :custom (olivetti-body-width 90)
+  :hook (org-mode . olivetti-mode))
+
+;; Typewriter scroll: cursor stays near center (replaces cm-typewriter-scroll)
+(setq scroll-margin 8)
+
+;; Prettier org headings
+(use-package org-superstar
+  :hook (org-mode . org-superstar-mode)
+  :custom
+  (org-superstar-headline-bullets-list '("◈" "◆" "◇" "▸" "▹"))
+  (org-superstar-item-bullet-alist '((?- . ?•) (?* . ?◦))))
+
+;; Modern org rendering (tables, tags, todo keywords)
+(use-package org-modern
+  :hook ((org-mode          . org-modern-mode)
+         (org-agenda-finalize . org-modern-agenda)))
+
+;; Line numbers only in programming modes, not in prose/org
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+#+end_src
+
+* Org-mode Core
+
+#+begin_src emacs-lisp
+(use-package org
+  :ensure nil
+  :custom
+  (org-directory          "~/org")
+  (org-agenda-files       '("~/org/agenda.org" "~/org/inbox.org" "~/org/uni/"))
+  (org-default-notes-file "~/org/inbox.org")
+  (org-log-done           'time)
+  (org-return-follows-link t)
+  (org-hide-emphasis-markers t)
+  (org-pretty-entities    t)    ; render sub/superscripts visually
+  (org-startup-folded     'content)
+  (org-startup-indented   t)
+  (org-image-actual-width '(500))
+  (org-ellipsis           " ▾")
+
+  ;; Agenda settings
+  (org-agenda-span              'week)
+  (org-agenda-start-on-weekday  1)    ; Monday
+  (org-agenda-time-grid
+   '((daily today require-timed)
+     (800 1000 1200 1400 1600 1800 2000)
+     "......"
+     "──────────────────────────"))
+
+  ;; TODO keywords
+  (org-todo-keywords
+   '((sequence "TODO(t)" "IN-PROGRESS(i)" "|" "DONE(d)" "CANCELLED(c)")))
+  (org-todo-keyword-faces
+   '(("TODO"        . (:foreground "#c72626" :weight bold))
+     ("IN-PROGRESS" . (:foreground "#e77a59" :weight bold))
+     ("DONE"        . (:foreground "#9aad6e"))
+     ("CANCELLED"   . (:foreground "#868074"))))
+
+  :config
+  ;; Active languages in org-babel
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (python     . t)
+     (shell      . t)))
+  (setq org-confirm-babel-evaluate nil))
+#+end_src
+
+* Org-roam
+
+Single database spanning =~/org/=. Perspectives separate personal and uni —
+not separate databases. Daily notes live in =~/org/daily/=.
+
+#+begin_src emacs-lisp
+(use-package org-roam
+  :custom
+  (org-roam-directory "~/org")
+  (org-roam-dailies-directory "daily/")
+  (org-roam-completion-everywhere t)
+  (org-roam-node-display-template
+   (concat "${title:60} " (propertize "${tags:30}" 'face 'org-tag)))
+  :config
+  (org-roam-db-autosync-mode))
+
+(use-package org-roam-ui
+  :after org-roam
+  :custom
+  (org-roam-ui-sync-theme       t)
+  (org-roam-ui-follow           t)
+  (org-roam-ui-update-on-save   t)
+  (org-roam-ui-open-on-start    nil))
+#+end_src
+
+* Org-ql (replaces Dataview)
+
+=org-ql= queries run against your org files. Replaces Obsidian's Dataview tables.
+
+Common queries for dashboard files:
+- Recent notes:       =(ts :from -7 :to today)=
+- Upcoming deadlines: =(and (deadline :from today :to +14) (todo))=
+- Notes by tag:       =(tags "physics")=
+- Notes in directory: implicitly scoped via =:from=
+
+#+begin_src emacs-lisp
+(use-package org-ql
+  :after org)
+#+end_src
+
+* Typst Math Preview
+
+Custom implementation rendering =$...$= Typst fragments as inline SVG overlays.
+Cursor leaves fragment → renders via =typst compile --format svg=.
+Cursor enters fragment → shows source for editing.
+
+This mirrors typst-mate behavior in Obsidian, using the Typst CLI already installed.
+
+#+begin_src emacs-lisp
+(defgroup org-typst-preview nil
+  "Preview Typst math fragments inline in org-mode."
+  :group 'org)
+
+(defcustom org-typst-preview-scale 0.9
+  "SVG scale factor for rendered math."
+  :type 'number :group 'org-typst-preview)
+
+;; Ukiyo base05 (main text color) — update if you change themes
+(defcustom org-typst-preview-text-color "#ccc2b7"
+  "Typst text color for rendered fragments; should match your theme."
+  :type 'string :group 'org-typst-preview)
+
+(defvar-local org-typst-preview--last-point nil)
+
+(defun org-typst-preview--find-fragment (pos)
+  "Return (beg . end) of the $...$ fragment containing POS, or nil.
+Only matches single-line fragments without nested dollar signs."
+  (save-excursion
+    (let ((line-beg (line-beginning-position))
+          (line-end (line-end-position))
+          result)
+      (goto-char line-beg)
+      (while (and (not result)
+                  (re-search-forward "\\$\\([^$\n]+\\)\\$" line-end t))
+        (when (and (>= pos (match-beginning 0))
+                   (<= pos (match-end 0)))
+          (setq result (cons (match-beginning 0) (match-end 0)))))
+      result)))
+
+(defun org-typst-preview--render (beg end)
+  "Compile the Typst fragment at BEG..END to SVG and display as an overlay."
+  ;; Clear any existing overlay at this location
+  (dolist (ov (overlays-in beg end))
+    (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))
+  (let* ((fragment (buffer-substring-no-properties beg end))
+         (tmp-dir  (make-temp-file "org-typst-" t))
+         (typ-file (expand-file-name "math.typ" tmp-dir))
+         (svg-file (expand-file-name "math.svg" tmp-dir)))
+    (with-temp-file typ-file
+      (insert "#set page(width: auto, height: auto, margin: (x: 2pt, y: 3pt), fill: none)\n")
+      (insert (format "#set text(size: 10.5pt, fill: rgb(\"%s\"))\n"
+                      org-typst-preview-text-color))
+      (insert fragment "\n"))
+    (when (zerop (call-process "typst" nil nil nil
+                               "compile" "--format" "svg" typ-file svg-file))
+      (let ((ov (make-overlay beg end)))
+        (overlay-put ov 'display
+                     (create-image svg-file 'svg nil
+                                   :scale org-typst-preview-scale))
+        (overlay-put ov 'org-typst-preview t)
+        (overlay-put ov 'evaporate t)))))
+
+(defun org-typst-preview-buffer ()
+  "Render all $...$ fragments in the current buffer."
+  (interactive)
+  (dolist (ov (overlays-in (point-min) (point-max)))
+    (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "\\$\\([^$\n]+\\)\\$" nil t)
+      (let ((beg (match-beginning 0)) (end (match-end 0)))
+        ;; Don't render the fragment the cursor is currently inside
+        (unless (and (>= (point) beg) (<= (point) end))
+          (org-typst-preview--render beg end))))))
+
+(defun org-typst-preview--post-command ()
+  "Auto-toggle preview when cursor moves in or out of a math fragment."
+  (when (and (eq major-mode 'org-mode) (not (minibufferp)))
+    (let ((prev org-typst-preview--last-point)
+          (curr (point)))
+      (setq org-typst-preview--last-point curr)
+      (when prev
+        (let ((prev-frag (org-typst-preview--find-fragment prev))
+              (curr-frag (org-typst-preview--find-fragment curr)))
+          ;; Moved OUT of a fragment → render it
+          (when (and prev-frag (not (equal prev-frag curr-frag)))
+            (unless (seq-find (lambda (o) (overlay-get o 'org-typst-preview))
+                              (overlays-in (car prev-frag) (cdr prev-frag)))
+              (org-typst-preview--render (car prev-frag) (cdr prev-frag))))
+          ;; Moved INTO a fragment → remove overlay to show source
+          (when (and curr-frag (not (equal curr-frag prev-frag)))
+            (dolist (ov (overlays-in (car curr-frag) (cdr curr-frag)))
+              (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))))))))
+
+(define-minor-mode org-typst-preview-mode
+  "Auto-preview Typst math $...$ fragments in org-mode buffers."
+  :lighter " TypPrev"
+  (if org-typst-preview-mode
+      (progn
+        (add-hook 'post-command-hook #'org-typst-preview--post-command nil t)
+        (org-typst-preview-buffer))
+    (remove-hook 'post-command-hook #'org-typst-preview--post-command t)
+    (dolist (ov (overlays-in (point-min) (point-max)))
+      (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))))
+#+end_src
+
+* Typst Files
+
+Full tree-sitter mode + tinymist LSP for dedicated =.typ= documents.
+Compile to PDF with =SPC m c=; watch mode with =SPC m w=.
+
+#+begin_src emacs-lisp
+(use-package typst-ts-mode
+  :mode "\\.typ\\'"
+  :custom
+  (typst-ts-mode-watch-options "--open"))
+
+;; Typst local keybindings via comma leader
+(with-eval-after-load 'typst-ts-mode
+  (local! :keymaps 'typst-ts-mode-map
+    "c" 'typst-ts-compile
+    "w" 'typst-ts-mode-watch-toggle
+    "p" 'typst-ts-preview))
+
+;; ox-typst: org → Typst exporter
+;; Uncomment after confirming it's in nixpkgs 26.05:
+;; (with-eval-after-load 'ox (require 'ox-typst))
+#+end_src
+
+* Context Workspaces
+
+=perspective.el= creates named workspaces with separate buffer lists.
+Opening to personal perspective = opening the personal Obsidian vault.
+Opening to uni perspective = opening the uni Obsidian vault.
+
+#+begin_src emacs-lisp
+(use-package perspective
+  :custom
+  (persp-mode-prefix-key (kbd "C-c C-p"))
+  (persp-initial-frame-name "personal")
+  :init (persp-mode))
+
+(defun perspective-personal ()
+  "Switch to personal perspective and open dashboard."
+  (interactive)
+  (persp-switch "personal")
+  (find-file "~/org/personal/dashboard.org"))
+
+(defun perspective-uni ()
+  "Switch to uni perspective and open dashboard."
+  (interactive)
+  (persp-switch "uni")
+  (find-file "~/org/uni/dashboard.org"))
+#+end_src
+
+* Google Calendar Sync
+
+=org-gcal= provides two-way sync with Google Calendar. Credentials are read from
+=~/.authinfo.gpg= (never committed to git).
+
+#+begin_src emacs-lisp
+(use-package org-gcal
+  :config
+  ;; Credentials live in ~/.authinfo.gpg:
+  ;; machine org-gcal login client-id password YOUR_CLIENT_ID
+  ;; machine org-gcal login client-secret password YOUR_CLIENT_SECRET
+  (setq org-gcal-client-id
+        (auth-source-pick-first-password :host "org-gcal" :user "client-id"))
+  (setq org-gcal-client-secret
+        (auth-source-pick-first-password :host "org-gcal" :user "client-secret"))
+  (setq org-gcal-fetch-file-alist
+        '(("tidemanus@gmail.com" . "~/org/gcal.org")))
+  ;; Auto-sync when opening agenda
+  (add-hook 'org-agenda-mode-hook #'org-gcal-fetch))
+#+end_src
+
+One-time setup:
+1. Create Google Cloud project → enable Calendar API → create OAuth2 credentials
+2. Extract client_id and client_secret from credentials.json
+3. Run: =gpg --edit-key YOUR_KEY_ID= to ensure you have a GPG key
+4. Write: =M-x auth-source-pass-enable= then edit =~/.authinfo=:
+   =machine org-gcal login client-id password YOUR_ID=
+   =machine org-gcal login client-secret password YOUR_SECRET=
+5. Encrypt: =gpg --symmetric ~/.authinfo= → saves as =~/.authinfo.gpg=
+6. First sync: =M-x org-gcal-fetch=
+
+* PDF Tools
+
+View PDFs inside Emacs. Evil keybindings added so =hjkl= works throughout.
+
+#+begin_src emacs-lisp
+(use-package pdf-tools
+  :config
+  (pdf-tools-install)
+  ;; Evil-compatible scroll and navigation
+  (evil-define-key 'normal pdf-view-mode-map
+    "j"  #'pdf-view-scroll-up-or-next-page
+    "k"  #'pdf-view-scroll-down-or-previous-page
+    "J"  #'pdf-view-next-page
+    "K"  #'pdf-view-previous-page
+    "H"  #'pdf-view-fit-height-to-window
+    "W"  #'pdf-view-fit-width-to-window
+    "gg" #'pdf-view-first-page
+    "G"  #'pdf-view-last-page
+    "+"  #'pdf-view-enlarge
+    "-"  #'pdf-view-shrink
+    "/"  #'pdf-occur))
+#+end_src
+
+* File Browsing (dired-sidebar)
+
+Persistent left sidebar replacing the Obsidian file tree.
+Evil hjkl navigation throughout.
+
+#+begin_src emacs-lisp
+(use-package dired-sidebar
+  :commands dired-sidebar-toggle-sidebar
+  :custom
+  (dired-sidebar-width 32)
+  (dired-sidebar-use-term-integration t)
+  (dired-sidebar-no-delete-other-windows t))
+
+;; Evil bindings in dired (dired itself, not sidebar)
+(with-eval-after-load 'dired
+  (evil-define-key 'normal dired-mode-map
+    "h"  #'dired-up-directory
+    "l"  #'dired-find-file
+    "j"  #'dired-next-line
+    "k"  #'dired-previous-line
+    "H"  #'dired-hide-dotfiles-mode
+    "q"  #'quit-window
+    "r"  #'revert-buffer
+    "c"  #'dired-do-copy
+    "d"  #'dired-do-delete
+    "m"  #'dired-do-rename
+    "+"  #'dired-create-directory))
+#+end_src
+
+* RSS & YouTube (elfeed)
+
+Feeds managed in =~/.config/emacs/elfeed.org= via elfeed-org.
+elfeed-tube fetches YouTube metadata; =RET= opens video in mpv.
+
+#+begin_src emacs-lisp
+(use-package elfeed
+  :custom
+  (elfeed-search-filter "@2-weeks-ago +unread")
+  :config
+  (evil-define-key 'normal elfeed-search-mode-map
+    "q" #'elfeed-kill-buffer
+    "r" #'elfeed-search-untag-all-unread
+    "u" #'elfeed-search-tag-all-unread
+    "R" #'elfeed-update
+    "b" #'elfeed-search-browse-url))
+
+(use-package elfeed-org
+  :after elfeed
+  :config
+  (setq rmh-elfeed-org-files
+        (list (expand-file-name "elfeed.org" user-emacs-directory)))
+  (elfeed-org))
+
+(use-package elfeed-tube
+  :after elfeed
+  :config
+  (elfeed-tube-setup)
+  (setq elfeed-tube-mpv-options '("--no-terminal"))
+  :bind (:map elfeed-show-mode-map
+         ("F" . elfeed-tube-fetch)
+         ([remap save-buffer] . elfeed-tube-save)
+         :map elfeed-search-mode-map
+         ("F" . elfeed-tube-fetch)
+         ([remap save-buffer] . elfeed-tube-save)))
+#+end_src
+
+To add your YouTube subscriptions:
+1. Google Takeout → select "YouTube and YouTube Music" → subscriptions.csv
+2. Run the conversion script from within Emacs: =M-x shell-command= →
+   =scripts/youtube-feeds.sh ~/Downloads/subscriptions.csv >> ~/.config/emacs/elfeed.org=
+3. =M-x elfeed-update= to populate the feed
+
+* Citations (citar)
+
+Book and paper metadata lives in =~/org/library.bib=.
+=citar= provides fuzzy search over title/author for inserting citations.
+=org-roam-bibtex= links .bib entries to org-roam notes.
+
+BibTeX book entry format:
+#+begin_example
+@book{feynman1964lectures,
+  author    = {Feynman, Richard P. and Leighton, Robert B.},
+  title     = {The Feynman Lectures on Physics},
+  year      = {1964},
+  publisher = {Addison-Wesley},
+  volume    = {1},
+  keywords  = {physics, classical},
+}
+#+end_example
+
+A single library.bib scales fine to 500+ books — citar searches by author/title
+in milliseconds. For the visual book grid, see =~/org/personal/library.org=.
+
+#+begin_src emacs-lisp
+(use-package citar
+  :custom
+  (citar-bibliography '("~/org/library.bib"))
+  (citar-notes-paths  '("~/org/personal/sources/books/"
+                        "~/org/personal/sources/papers/"))
+  :bind ([remap org-cite-insert] . citar-insert-citation))
+
+(use-package org-roam-bibtex
+  :after (org-roam citar)
+  :config (org-roam-bibtex-mode))
+#+end_src
+
+* Org-transclusion
+
+Embeds sections from other org files live. Used for the lecture → summary workflow:
+open summary on right, lecture on left, transclude lecture sections into summary.
+
+#+begin_src emacs-lisp
+(use-package org-transclusion
+  :after org
+  :config
+  (setq org-transclusion-add-all-on-activate t))
+
+;; Activate transclusion in org-mode via comma leader
+(with-eval-after-load 'org
+  (local! :keymaps 'org-mode-map
+    "t"  'org-transclusion-mode
+    "ta" 'org-transclusion-add
+    "td" 'org-transclusion-remove
+    "tr" 'org-transclusion-refresh))
+#+end_src
+
+* Spell Check (jinx)
+
+Fast spell checking via enchant2 (supports multiple dictionaries simultaneously).
+
+#+begin_src emacs-lisp
+(use-package jinx
+  :hook (emacs-startup . global-jinx-mode)
+  :bind ([remap ispell-word] . jinx-correct)
+  :custom
+  (jinx-languages "en_US nl_NL"))
+#+end_src
+
+* Music Player (EMMS)
+
+In-Emacs music player backed by mpv (already installed).
+Library: Artist / Album / FLAC tracks at
+=/home/thijmen/Documents/BACKUP/Music Library/=.
+
+SPC m SPC = pause/play. SPC t s = toggle sidebar.
+
+#+begin_src emacs-lisp
+(use-package emms
+  :config
+  (require 'emms-setup)
+  (require 'emms-browser)
+  (emms-all)
+
+  ;; mpv as the sole player backend (already installed system-wide)
+  (setq emms-player-list '(emms-player-mpv))
+  (setq emms-player-mpv-parameters
+        '("--no-terminal" "--audio-display=no"))
+
+  ;; Library root
+  (setq emms-source-file-default-directory
+        "/home/thijmen/Documents/BACKUP/Music Library/")
+
+  ;; Show "Artist — Title" in EMMS and mode-line
+  (setq emms-track-description-function
+        (lambda (track)
+          (let ((artist (emms-track-get track 'info-artist "Unknown"))
+                (title  (emms-track-get track 'info-title
+                          (file-name-sans-extension
+                           (file-name-nondirectory
+                            (emms-track-get track 'name ""))))))
+            (format "%s — %s" artist title))))
+
+  ;; Show current track in mode-line
+  (emms-mode-line-mode 1)
+  (emms-playing-time-mode 1))
+
+;; Sidebar toggle: opens EMMS browser in a 32-column right window
+(defun emms-toggle-sidebar ()
+  "Toggle the EMMS browser in a dedicated right-side window."
+  (interactive)
+  (if-let ((win (get-buffer-window emms-browser-buffer-name)))
+      (delete-window win)
+    (let ((cur (selected-window)))
+      (select-window (split-window-right -32))
+      (emms-browser)
+      (set-window-dedicated-p (selected-window) t)
+      (select-window cur))))
+#+end_src
+
+To scan the library on first use:
+1. =M-x emms-add-directory-tree= → enter =/home/thijmen/Documents/BACKUP/Music Library/=
+2. EMMS caches the library; subsequent startups load instantly via =emms-cache=.
+   Add =(emms-cache-enable)= below if you want persistent cache across restarts.
+
+* Snowflake Visualizations
+
+Open the three D3.js vault/config snowflakes in the browser.
+Regenerate all by running the Python scripts (SPC o V).
+
+#+begin_src emacs-lisp
+(defun open-personal-snowflake ()
+  "Open personal vault snowflake in browser."
+  (interactive)
+  (browse-url
+   "file:///home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/vault_snowflake.html"))
+
+(defun open-uni-snowflake ()
+  "Open uni vault snowflake in browser."
+  (interactive)
+  (browse-url
+   "file:///home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni/uni_snowflake.html"))
+
+(defun open-nixos-snowflake ()
+  "Open NixOS config snowflake in browser."
+  (interactive)
+  (browse-url "file:///etc/nixos/nixos_snowflake.html"))
+
+(defun regenerate-snowflakes ()
+  "Regenerate all three snowflake HTML files."
+  (interactive)
+  (async-shell-command
+   (mapconcat #'identity
+     '("python3 /home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/vault_snowflake.py"
+       "python3 /home/thijmen/Documents/BACKUP/Uni/Obsidian/uni_snowflake.py"
+       "python3 /etc/nixos/nixos_snowflake.py")
+     " && ")
+   "*snowflake-regen*"))
+#+end_src
+
+* Org Capture Templates
+
+Templates for org-roam nodes. Captures go to the correct folder automatically.
+
+#+begin_src emacs-lisp
+(use-package org-roam
+  :ensure nil  ; already configured above; extend here
+  :config
+  (setq org-roam-capture-templates
+    '(;; ── Personal ───────────────────────────────────────────────────────
+
+      ("pc" "concept" plain
+       "#+filetags: :concept:\n\n%?"
+       :target (file+head "personal/concepts/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n")
+       :unnarrowed t)
+
+      ("pe" "essay" plain
+       "#+filetags: :essay:\n\n%?"
+       :target (file+head "personal/essays/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n")
+       :unnarrowed t)
+
+      ("pb" "book" plain
+       "#+filetags: :book:source:\n\n* About\n%?\n\n* Notes\n\n* Quotes\n"
+       :target (file+head "personal/sources/books/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+author:\n#+year:\n#+status: reading\n")
+       :unnarrowed t)
+
+      ("pp" "paper" plain
+       "#+filetags: :paper:source:\n\n* Abstract\n%?\n\n* Notes\n"
+       :target (file+head "personal/sources/papers/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+authors:\n#+year:\n")
+       :unnarrowed t)
+
+      ("pk" "known person" plain
+       "#+filetags: :person:known:\n\n* About\n%?\n\n* Context\n\n* Topics\n"
+       :target (file+head "personal/people/known/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n")
+       :unnarrowed t)
+
+      ("pf" "famous person" plain
+       "#+filetags: :person:famous:\n\n* Period and field\n%?\n\n* Major works\n\n* Key ideas\n\n* In my notes\n"
+       :target (file+head "personal/people/famous/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+period:\n#+field:\n")
+       :unnarrowed t)
+
+      ;; ── Uni ────────────────────────────────────────────────────────────
+
+      ("uc" "class" plain
+       "#+filetags: :class:\n\n* Overview\n%?\n\n* Lectures\n\n* Assignments\n"
+       :target (file+head "uni/classes/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+professor:\n#+year:\n#+Q:\n")
+       :unnarrowed t)
+
+      ("ul" "lecture" plain
+       "#+filetags: :lecture:\n\n%?"
+       :target (file+head "uni/lectures/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+class:\n#+date: %<%Y-%m-%d>\n#+number:\n")
+       :unnarrowed t)
+
+      ("ua" "assignment" plain
+       "#+filetags: :assignment:\n\n* Problem\n%?\n\n* Solution\n"
+       :target (file+head "uni/assignments/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+class:\n#+deadline:\n#+grade:\n")
+       :unnarrowed t)
+
+      ;; ── Quick capture ──────────────────────────────────────────────────
+
+      ("i" "inbox" entry
+       "* %?\n%U\n"
+       :target (file "inbox.org")
+       :prepend t)))
+
+  ;; Daily note template
+  (setq org-roam-dailies-capture-templates
+    '(("d" "default" entry
+       "* %<%H:%M> %?"
+       :target (file+head "%<%Y-%m-%d>.org"
+                          "#+title: %<%Y-%m-%d>\n#+created: %U\n")))))
+#+end_src
+
+* Org Directory Initialization
+
+Run =M-x org-setup= on first Emacs startup to create the =~/org/= directory structure.
+
+#+begin_src emacs-lisp
+(defun org-setup ()
+  "Create the ~/org/ directory structure and initial files if they don't exist."
+  (interactive)
+  (let ((dirs '("~/org/personal/concepts"
+                "~/org/personal/knowledge/physics"
+                "~/org/personal/knowledge/philosophy"
+                "~/org/personal/knowledge/mathematics"
+                "~/org/personal/knowledge/languages"
+                "~/org/personal/essays"
+                "~/org/personal/sources/books"
+                "~/org/personal/sources/papers"
+                "~/org/personal/sources/youtube"
+                "~/org/personal/people/known"
+                "~/org/personal/people/famous"
+                "~/org/personal/misc"
+                "~/org/uni/classes"
+                "~/org/uni/lectures"
+                "~/org/uni/assignments"
+                "~/org/uni/summary"
+                "~/org/uni/thesis"
+                "~/org/daily")))
+    (dolist (dir dirs) (make-directory dir t)))
+
+  ;; Create stub files
+  (let ((stubs
+         '(("~/org/inbox.org"
+            "#+title: Inbox\n\nProcess regularly with SPC n c → i.\n")
+           ("~/org/agenda.org"
+            "#+title: Agenda\n\n* Tasks\n")
+           ("~/org/library.bib"
+            "% BibTeX library — add books and papers here.\n% citar searches this file.\n")
+           ("~/org/personal/dashboard.org"
+            "#+title: Personal\n#+startup: content\n\n* Inbox\n#+BEGIN: org-ql-table :query (todo \"TODO\") :from \"~/org/inbox.org\"\n#+END:\n\n* Recent notes\n#+BEGIN: org-ql-table :query (ts :from -7) :columns (file ts) :from \"~/org/personal/\"\n#+END:\n")
+           ("~/org/uni/dashboard.org"
+            "#+title: Uni\n#+startup: content\n\n* Upcoming deadlines\n#+BEGIN: org-ql-table :query (and (tags \"assignment\") (not (property \"grade\")) (deadline :from today :to +30)) :columns (file (property \"deadline\") (property \"class\")) :from \"~/org/uni/\"\n#+END:\n\n* Classes\n#+BEGIN: org-ql-table :query (tags \"class\") :columns (file (property \"year\") (property \"Q\")) :from \"~/org/uni/classes/\"\n#+END:\n"))))
+    (pcase-dolist (`(,path ,content) stubs)
+      (let ((expanded (expand-file-name path)))
+        (unless (file-exists-p expanded)
+          (with-temp-file expanded (insert content))))))
+
+  (message "org/ structure created. Run M-x org-roam-db-sync to build the database."))
+#+end_src
+
+* Startup Behavior
+
+On startup: open personal perspective and its dashboard.
+
+#+begin_src emacs-lisp
+(add-hook 'emacs-startup-hook
+  (lambda ()
+    ;; Build org-roam DB silently on first run
+    (when (fboundp 'org-roam-db-autosync-mode)
+      (org-roam-db-autosync-mode 1))
+    ;; Open personal dashboard
+    (when (file-exists-p (expand-file-name "~/org/personal/dashboard.org"))
+      (perspective-personal))))
+#+end_src

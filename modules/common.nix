@@ -73,6 +73,11 @@
     # Theming tools
     nwg-look      # GTK theme tweaker
 
+    # Emacs dependencies
+    tinymist   # Typst LSP (used by typst-ts-mode via eglot)
+    enchant2   # spell-check backend for jinx
+    (hunspellWithDicts [ hunspellDicts.en_US hunspellDicts.nl_NL ])
+
     # Languages
       # Python
     (python3.withPackages (ps: with ps; [

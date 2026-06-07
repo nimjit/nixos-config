@@ -1,0 +1,19 @@
+#+title: RSS Feeds
+#+startup: fold
+
+All feeds are loaded automatically by elfeed-org on startup.
+Tags are inherited from parent headings.
+
+* Feeds
+** Physics                                                              :physics:
+*** [[https://arxiv.org/rss/quant-ph][arXiv: Quantum Physics]]
+*** [[https://arxiv.org/rss/cond-mat][arXiv: Condensed Matter]]
+*** [[https://arxiv.org/rss/physics.hist-ph][arXiv: History & Philosophy of Physics]]
+** Mathematics                                                             :math:
+*** [[https://arxiv.org/rss/math.HO][arXiv: History and Overview of Mathematics]]
+** Tech / Programming                                                       :tech:
+*** [[https://news.ycombinator.com/rss][Hacker News]]
+** Blogs                                                                    :blog:
+** YouTube                                                               :youtube:
+;; Run scripts/youtube-feeds.sh to populate from Google Takeout subscriptions.csv
+;; Each entry: *** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCXXX][Channel Name]]

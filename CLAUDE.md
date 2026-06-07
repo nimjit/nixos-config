@@ -60,6 +60,17 @@ Tracks `nixpkgs` and `home-manager` on `release-26.05` (stable).
 - Obsidian vault has a redundant double-folder: `Obsidian/Rennaissance_Vault_Structure/` — consider flattening.
 - Python path in nvim (`vim.g.python_path`) is hardcoded to `/run/current-system/sw/bin/python3`. Should eventually be generalised (e.g. respect virtual envs or `NVIM_PYTHON` env var that is already set).
 
+### Larger projects
+
+- **Snowflake visualisers**: `vault_snowflake.py` (personal), `uni_snowflake.py` (uni),
+  `nixos_snowflake.py` (this repo) — run with `python3 <script>` to regenerate HTML.
+- **Window manager switch** (KDE → Sway): full step plan in `plans/window-manager.md`.
+  Key open item: test Nvidia legacy_535 + Wayland (`WLR_RENDERER=vulkan`).
+  Strategy: keep KDE, add sway as parallel SDDM session, test before removing KDE.
+- **Emacs setup**: full step plan in `plans/emacs.md`.
+  Decision pending: Doom vs vanilla config. Core use-cases: evil editing, org-roam
+  (Obsidian replacement), LaTeX for physics, separate nixos/uni/personal note systems.
+
 ### CLI migration
 
 - **nchat**: Replace WhatsApp Web browser tab with `nchat` (in nixpkgs, uses whatsmeow). Gives desktop notifications without keeping a browser tab open. Add to packages + make a `messages()` workflow function.
