@@ -65,7 +65,10 @@ evil-surround: cs, ds, ys.  evil-commentary: gc.  evil-goggles: visual flash.
   (setq evil-split-window-below  t)
   (setq evil-vsplit-window-right t)
   :config
-  (evil-mode 1))
+  (evil-mode 1)
+  ;; Free SPC for use as leader key — evil binds it to forward-char by default
+  (define-key evil-motion-state-map (kbd "SPC") nil)
+  (define-key evil-normal-state-map (kbd "SPC") nil))
 
 (use-package evil-collection
   :after evil
@@ -95,9 +98,10 @@ Comma (,) is a secondary local leader used for mode-specific commands.
 
 #+begin_src emacs-lisp
 (use-package general
+  :after evil
   :config
   (general-create-definer spc!
-    :keymaps '(normal visual emacs motion)
+    :keymaps '(normal visual motion)
     :prefix "SPC"
     :global-prefix "C-SPC")
   (general-create-definer local!
