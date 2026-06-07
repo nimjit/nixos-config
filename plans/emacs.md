@@ -1,5 +1,383 @@
 # Emacs Setup Plan
 
+---
+
+## ── IMPLEMENTATION LOG (written 2026-06-08) ──────────────────────────────────
+
+This section documents everything that happened during the initial implementation
+session. It is written for Claude's future self. Read this before touching anything.
+
+---
+
+### What was built
+
+A complete Emacs configuration replacing Obsidian, covering:
+
+- **Evil + general.el SPC leader** — vim keybindings everywhere, comma local leader
+- **Literate config** — `config.org` tangled to `~/.cache/emacs/config.el` by `init.el` on startup; re-tangles automatically when config.org is newer than the cached .el
+- **Standalone ukiyo theme** — `ukiyo-theme.el` in `~/.config/emacs/themes/`; loaded manually because Stylix cannot inject themes when `init.el` is overridden
+- **607 vault notes converted** — pure Python script at `/home/thijmen/convert_vaults.py`; personal (446) + uni (161) notes in `~/org/`
+- **org-roam DB** — 607 nodes, autosync enabled; `org-roam-directory` = `~/org/`
+- **Dashboard** — `~/org/dashboard.org` with live `#+begin_src emacs-lisp :results value raw` blocks using `org-ql-select`
+- **GPU rendering fix** — `KWIN_DRM_DEVICES` env var pointing KWin at the Nvidia card
+- **All packages declared in Nix** — `home/emacs.nix`; packages come from Nix, ELPA disabled
+
+---
+
+### File map (what is where)
+
+```
+/etc/nixos/
+  home/
+    emacs.nix                          -- Nix package list + xdg file sources
+    dotfiles/emacs/
+      early-init.el                    -- UI disable, GC threshold
+      init.el                          -- tangle-on-demand bootstrap (NO byte-compile)
+      config.org                       -- full literate config (the canonical source)
+      ukiyo-theme.el                   -- standalone theme converted from ukiyo.nix palette
+      elfeed.org                       -- RSS feed list (stub; YouTube channels not yet added)
+  modules/
+    common.nix                         -- added: tinymist, enchant2, hunspellWithDicts
+  hosts/desktop/default.nix            -- GPU fix: KWIN_DRM_DEVICES
+  plans/emacs.md                       -- this file
+
+/home/thijmen/
+  convert_vaults.py                    -- vault conversion script (already ran; 607 notes out)
+  org/
+    dashboard.org                      -- main dashboard (opens at startup)
+    inbox.org
+    agenda.org
+    daily/                             -- org-roam dailies
+    personal/                          -- converted personal vault
+    uni/                               -- converted uni vault
+    knowledge/                         -- symlinked? check
+```
+
+---
+
+### Architecture decisions made (irreversible or load-bearing)
+
+**1. No byte-compilation of config.el — ever.**
+
+`spc!` is defined at runtime by `(general-create-definer spc! ...)`. The byte-compiler
+doesn't see this macro definition, so any call to `spc!` in a byte-compiled file
+produces "Invalid function: spc!" at load time. `init.el` was briefly changed to
+byte-compile after tangling. This broke everything. Reverted.
+`init.el` must always just call `(load-file el)` — never `(byte-compile-file ...)`.
+
+**2. init.el is sourced via `xdg.configFile."emacs/init.el".source` — this bypasses Stylix.**
+
+When you set `xdg.configFile."emacs/init.el".source = ./dotfiles/emacs/init.el`,
+home-manager uses your file verbatim instead of generating one. Stylix's emacs target
+works by injecting `(load-theme ...)` into the home-manager *generated* init.el.
+Since we override init.el entirely, Stylix injection never fires.
+Fix: standalone `ukiyo-theme.el` in `themes/` subdirectory, loaded manually.
+Do NOT attempt to re-enable `stylix.targets.emacs.enable`; it will conflict.
+
+**3. org-roam-directory must be set BEFORE the use-package form.**
+
+`org-roam` autoloads can trigger before use-package evaluates the `:custom` block.
+If `org-roam-directory` is not set early, it defaults to `~/org-roam/` and the DB
+returns 0 nodes even after `org-roam-db-sync`. The fix is an explicit `(setq
+org-roam-directory ...)` immediately before the `use-package org-roam` form.
+This line exists in config.org at line 400 — do not remove it.
+
+**4. `:PROPERTIES:` drawer MUST come before `#+title:` in org files for org-id to work.**
+
+`org-id-get` parses the first drawer it finds. If `#+title:` comes first, the
+properties drawer is ignored and the node gets no ID. Tested with `org-id-get` on
+a temp buffer — confirmed. The vault converter (`convert_vaults.py`) was fixed to
+place `:PROPERTIES:` + `:ID:` first, then `#+title:`. All 607 notes follow this
+convention. Do not reformat org file headers without preserving this order.
+
+**5. `:keymaps '(normal visual motion)` — NOT `'override`, NOT including `emacs` state.**
+
+The original plan used `'(normal visual emacs)`. This caused SPC to fire in insert
+state (briefly) and conflicted with evil-collection's emacs-state buffers (e.g.
+magit). The working value is `'(normal visual motion)`. Do not add `emacs` back.
+
+---
+
+### Every bug hit and its fix
+
+#### Bug: "Key sequence SPC f f starts with non-prefix key SPC"
+
+**Cause**: Evil binds SPC to `evil-forward-char` in `evil-motion-state-map` before
+general.el gets a chance to claim it as a prefix. The binding order matters.
+
+**Fix** (already in config.org, Evil Mode section):
+```elisp
+:config
+(evil-mode 1)
+(define-key evil-motion-state-map (kbd "SPC") nil)
+(define-key evil-normal-state-map (kbd "SPC") nil)
+```
+These two lines MUST appear inside evil's `:config`, AFTER `(evil-mode 1)`.
+Three fix iterations were needed before landing on this. Do not move or remove them.
+
+Also: `(setq evil-want-keybinding nil)` must be in evil's `:init` (before evil loads),
+not in `:config`. It is already there. Do not reorder.
+
+#### Bug: "Key sequence SPC m n starts with non-prefix key SPC m"
+
+**Cause**: The music pause keybinding was `"m " 'emms-pause` — the space character
+in the key string makes SPC-m itself non-prefix.
+
+**Fix**: Changed to `"mt" 'emms-pause`. Already corrected in config.org.
+
+#### Bug: ", t a starts with non-prefix key , t"
+
+**Cause**: Binding `"t" 'org-transclusion-mode` directly AND using `"ta"`, `"td"`,
+`"tr"` as sub-keys. You cannot bind a key and use it as a prefix simultaneously.
+
+**Fix**: Changed the toggle to `"tt"` (not `"t"`). Already in config.org.
+
+#### Bug: "Unable to find theme file for 'base16-ukiyo'"
+
+**Cause**: Stylix generates a `base16-ukiyo` theme via home-manager's init.el
+injection. Our custom `init.el` bypasses this injection entirely.
+
+**Fix**: Standalone `ukiyo-theme.el` built from the ukiyo.nix palette values, placed
+in `~/.config/emacs/themes/`. Loaded via:
+```elisp
+(add-to-list 'custom-theme-load-path (expand-file-name "themes" user-emacs-directory))
+(load-theme 'ukiyo t)
+```
+The user rejected the fallback (modus-vivendi-tinted). The current ukiyo-theme.el
+covers: default faces, cursor, region, mode-line, font-lock, org headings 1–8, org
+blocks/code/tags/todo, search, completions, parens, magit diffs, vertico, which-key,
+dired, marginalia, elfeed. It is in `home/dotfiles/emacs/ukiyo-theme.el`.
+
+#### Bug: `undefined variable 'citar-org'` during nixos-rebuild
+
+**Cause**: `citar-org` is not a separate package in nixpkgs; it is included inside
+the `citar` package. The plan listed it as a separate package.
+
+**Fix**: Removed `citar-org` from the extraPackages list in `home/emacs.nix`.
+The `citar` package itself provides citar-org functionality.
+
+#### Bug: org-roam `(org-roam-node-list)` returns 0 nodes
+
+Two separate root causes:
+
+**Cause 1**: `org-roam-directory` defaulting to `~/org-roam/` (see architecture
+decision #3 above). Fix: early `(setq org-roam-directory ...)`.
+
+**Cause 2**: `:PROPERTIES:` drawer after `#+title:` (see architecture decision #4).
+All 607 converted notes had title first. Fix: restructured `convert_vaults.py`
+`build_org_file()` to emit `:PROPERTIES:` before `#+title:`. Re-ran conversion.
+After both fixes: `(org-roam-db-clear-all)` + `(org-roam-db-sync)` → 607 nodes.
+
+#### Bug: `#+BEGIN: org-ql-block` produces "void-function org-dblock-write:org-ql-block"
+
+**Cause**: `org-ql-block` is not a dynamic block handler — it exists only as an
+org-agenda custom command type. `org-dblock-write:org-ql-block` does not exist.
+Verified with `(all-completions "org-dblock-write:" obarray #'fboundp)` — only
+`clocktable` and `columnview` exist in this Emacs/org-ql version.
+
+**Fix**: All dashboard "dynamic blocks" replaced with:
+```org
+#+begin_src emacs-lisp :results value raw :exports results
+(org-ql-select FILES QUERY :action '(...))
+#+end_src
+```
+Refresh any block with `C-c C-c` on its `#+begin_src` line (not `C-c C-x C-u`).
+The dashboard at `~/org/dashboard.org` already uses this pattern.
+
+#### Bug: "Invalid function: spc!" after byte-compilation
+
+**Cause**: Added byte-compilation to init.el: `(byte-compile-file el)`. The
+byte-compiler resolves `spc!` as an undefined function because `general-create-definer`
+runs at load time, not compile time.
+
+**Fix**: Reverted init.el to the simple tangle-and-load version. Do not byte-compile.
+User also needed to run `rm ~/.cache/emacs/config.el` after every config.org change
+during debugging — this forces re-tangle. Without deleting the cached file, old broken
+configs kept loading. The re-tangle check compares mtime, so editing config.org in
+place (not via symlink replacement) does trigger retangle; but during a NixOS rebuild
+the symlink target changes and the mtime comparison may need the cache cleared manually.
+
+#### Bug: System crash after GPU PRIME fix
+
+**Cause**: Added `hardware.nvidia.prime.reverseSync.enable = true` to try fixing
+the 20Hz rendering lag. The GTX 1060 uses the `legacy_535` driver which does NOT
+support PRIME reverse sync. The system crashed on rebuild.
+
+**Fix**: User rolled back to the previous NixOS generation. Removed reverseSync.
+
+**The correct GPU fix** (already in `hosts/desktop/default.nix`):
+```nix
+environment.variables.KWIN_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card";
+systemd.services.display-manager.after = [ "dev-dri-card2.device" ];
+systemd.services.display-manager.wants = [ "dev-dri-card2.device" ];
+```
+This forces KWin to use the Nvidia card directly (Nvidia = card2, PCI:1:0:0).
+The 20Hz lag was caused by KWin rendering on Intel then failing the PRIME copy path.
+
+**CRITICAL: do NOT add `hardware.nvidia.prime.reverseSync.enable = true`.**
+It crashes the `legacy_535` driver on GTX 1060. The only safe fix is the env var above.
+
+#### Bug: Vault conversion — tags lost (ToNote disappeared from org-ql results)
+
+**Cause**: The converter stripped `tags: ...` YAML frontmatter lines before extracting
+inline `#Tag` Obsidian tags. So `#ToNote` appeared after the `tags:` line was stripped,
+giving nothing to extract.
+
+**Fix**: `extract_inline_tags()` now runs BEFORE `strip_zoottelkeeper()` and
+`strip_frontmatter_line()`. Order matters. Already fixed in `convert_vaults.py`.
+
+#### Bug: Vault conversion — Bruno Latour classified as personal contact
+
+**Cause**: Famous/notable people use the same template as personal contacts, with all
+personal fields (phone, email, city, birthday, occupation, context) present but empty.
+`is_personal_person()` checked for key existence, not non-empty values.
+
+**Fix**: `is_personal_person()` now checks `bool(frontmatter.get(key, '').strip())`
+for at least one personal key having a non-empty value. Already fixed in `convert_vaults.py`.
+
+---
+
+### GPU hardware facts (desktop machine)
+
+```
+card0  = simple-framebuffer (boot framebuffer — not a real GPU)
+card1  = Intel iGPU, PCI:0:2:0, vendor 0x8086
+         /dev/dri/by-path/pci-0000:00:02.0-card
+card2  = Nvidia GTX 1060, PCI:1:0:0, vendor 0x10de
+         /dev/dri/by-path/pci-0000:01:00.0-card
+```
+
+Monitors are connected to the Nvidia card. KWin default was using Intel for rendering
+then copying via PRIME offload path — this failed ("couldn't find dev node for drm
+device") and caused the compositor to drop events ("Key repeat discarded").
+`KWIN_DRM_DEVICES` bypasses Intel entirely.
+
+Driver: `config.boot.kernelPackages.nvidiaPackages.legacy_535` (GTX 1060 max).
+Do not upgrade to a non-legacy driver — GTX 1060 is not supported.
+
+---
+
+### What was observed to NOT work yet (as of end of session)
+
+**olivetti, mixed-pitch, org-modern, org-superstar hooks not firing:**
+These packages are all declared with `:hook (org-mode . ...)`. When tested in a live
+org buffer after startup, these modes showed as `nil`. The packages load (no errors at
+startup) but the hooks may not be triggering. Possible causes:
+- org-mode itself not loading early enough for hooks to register
+- `use-package :hook` fires at package load time, but org may be loaded before the
+  use-package forms evaluate (org ships with Emacs)
+- Try: add `(require 'org)` before the appearance use-package blocks, or switch to
+  `(add-hook 'org-mode-hook ...)` forms explicitly instead of `:hook`
+
+**Dashboard blocks not tested interactively:**
+The `~/org/dashboard.org` file was written and committed. The emacsclient calls during
+the session timed out because Emacs was initializing. The blocks (`C-c C-c` to refresh)
+have not been confirmed working. When testing: make sure `org-babel-load-languages`
+includes `emacs-lisp`, and `org-confirm-babel-evaluate` is nil. Both are set in config.org.
+
+**Perspectives not tested:**
+`perspective.el` is declared and `perspective-personal` / `perspective-uni` functions
+are defined. The startup hook calls `perspective-personal` on startup. Not confirmed
+that it opens the correct dashboard.
+
+**org-gcal warning on startup:**
+`org-gcal` prints a warning about missing `client-id`/`client-secret`. This is harmless
+until credentials are configured. The `auth-source-pick-first-password` calls return
+nil when `~/.authinfo.gpg` doesn't exist. To suppress until credentials are ready,
+wrap the config in a condition: `(when (file-exists-p "~/.authinfo.gpg") ...)`.
+
+**EMMS library not scanned:**
+`M-x emms-add-directory-tree` on `/home/thijmen/Documents/BACKUP/Music Library/` has
+not been run. The library is empty. EMMS player is configured and mpv backend set up,
+but no tracks visible until the scan.
+
+**ox-typst availability:**
+The config has ox-typst commented out. Need to check: `nix search nixpkgs#emacs-packages.ox-typst`.
+If it exists in nixpkgs 26.05, uncomment the `(with-eval-after-load 'ox (require 'ox-typst))` line
+and add `ox-typst` to `home/emacs.nix` extraPackages. If not in nixpkgs, leave commented.
+
+---
+
+### Current working state (confirmed)
+
+- Emacs launches without errors
+- ukiyo theme loads (dark background, correct palette colors)
+- Evil mode active — hjkl, dd, yy, /, visual mode all work
+- SPC leader shows which-key hints
+- `SPC f f` opens find-file, `SPC g g` opens magit, `SPC b b` opens consult-buffer
+- org-roam DB has 607 nodes (verified with `(length (org-roam-node-list))`)
+- `SPC n f` finds org-roam nodes with completion
+- dashboard.org opens at startup (via `initial-buffer-choice`)
+- org-gcal warning on startup (harmless)
+
+---
+
+### TODO for next session (priority order)
+
+**1. Fix org-mode appearance hooks** — `olivetti-mode`, `mixed-pitch-mode`, `org-modern-mode`
+and `org-superstar-mode` are not activating in org buffers. These are the biggest
+daily-experience improvements. Debugging approach: open an org buffer, run `M-x olivetti-mode`
+manually to confirm the package works, then trace why the hook isn't firing.
+Fix candidates: explicit `(add-hook 'org-mode-hook #'olivetti-mode)` outside use-package,
+or add `:defer nil` to force eager loading.
+
+**2. Test dashboard C-c C-c blocks** — open `~/org/dashboard.org`, place cursor on
+a `#+begin_src emacs-lisp` line, press `C-c C-c`. Should produce a table below the block.
+If it asks to confirm evaluation, check `org-confirm-babel-evaluate` is nil.
+
+**3. Test capture templates** — `SPC n c` should show the capture menu with all templates
+(pc, pe, pb, pp, pk, pf, uc, ul, ua, i). Create a test concept note and a test inbox entry.
+
+**4. Test daily note** — `SPC n d` should open or create today's daily in `~/org/daily/`.
+
+**5. Check keybinding parity with neovim** — read `/etc/nixos/home/dotfiles/neovim/init.lua`
+and compare SPC bindings. Add any missing ones to config.org.
+
+**6. Set up org-gcal credentials** — follow the one-time setup in the Google Calendar
+section of config.org (or in Phase 3d of this plan below). Until done, the startup
+warning will persist and `SPC a` will not show Google Calendar events.
+
+**7. Scan EMMS library** — `M-x emms-add-directory-tree` on the Music Library path.
+Then add `(emms-cache-enable)` to the EMMS block in config.org so the scan persists
+across restarts.
+
+**8. Check ox-typst** — `nix search nixpkgs#emacs-packages.ox-typst` and decide.
+
+**9. Perspective-personal startup** — confirm the startup hook opens the personal
+dashboard in the "personal" perspective correctly. If it's opening dashboard.org but
+not switching to the personal perspective, the `perspective-personal` function call in
+the startup hook may be running before persp-mode initializes.
+
+**10. Verify GPU fix applied** — the KWIN_DRM_DEVICES fix was in the last rebuild before
+the session ended. Confirm 60Hz rendering is now stable (no 20Hz cursor lag). If lag
+persists, check `journalctl -b | grep -i "key repeat discarded"`.
+
+---
+
+### How to apply changes going forward
+
+```bash
+# Edit config.org
+# Then rebuild and force re-tangle:
+rebuild && rm -f ~/.cache/emacs/config.el (done by user, because it requires root access)
+# Then restart Emacs (or eval-buffer the tangled file)
+```
+
+If only changing keybindings or small elisp:
+```bash
+rm -f ~/.cache/emacs/config.el
+# Restart Emacs — init.el will re-tangle on next startup
+```
+
+If changing `home/emacs.nix` (adding/removing packages) or any `.nix` file:
+```bash
+rebuild   # alias for: nh os switch /etc/nixos -H desktop
+```
+
+---
+
+## ── ORIGINAL PLAN (written before implementation) ──────────────────────────────
+
 ## What I found in your vaults
 
 ### Personal vault structure
@@ -168,11 +546,8 @@ Uni/
 
       # ── Citations / library ──────────────────────────────────────────────
       citar              # citation management (books + papers, .bib backend)
-      citar-org          # org-cite integration for citar
+      # NOTE: citar-org is NOT a separate package — it is included inside citar
       org-roam-bibtex    # link bibtex entries to org-roam notes
-
-      # ── Planning ─────────────────────────────────────────────────────────
-      # org-timeblock    # visual time blocking — check if in nixpkgs 26.05
 
       # ── Reading / RSS ────────────────────────────────────────────────────
       elfeed
@@ -212,13 +587,17 @@ Uni/
 
   xdg.configFile."emacs/init.el".source       = ./dotfiles/emacs/init.el;
   xdg.configFile."emacs/early-init.el".source = ./dotfiles/emacs/early-init.el;
+  xdg.configFile."emacs/config.org".source    = ./dotfiles/emacs/config.org;
   xdg.configFile."emacs/elfeed.org".source    = ./dotfiles/emacs/elfeed.org;
+  xdg.configFile."emacs/themes/ukiyo-theme.el".source = ./dotfiles/emacs/ukiyo-theme.el;
 }
 ```
 
 ### Add to `modules/common.nix` packages:
 ```nix
 tinymist   # Typst LSP (used by typst-ts-mode via eglot)
+enchant2   # spell-check backend for jinx
+(hunspellWithDicts [ hunspellDicts.en_US hunspellDicts.nl_NL ])
 ```
 
 ### Add to `home/default.nix` imports:
@@ -237,7 +616,6 @@ tinymist   # Typst LSP (used by typst-ts-mode via eglot)
 (push '(tool-bar-lines  . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
 (push '(internal-border-width . 0) default-frame-alist)
-(push '(undecorated . t) default-frame-alist)  ; no title bar decorations
 (setq gc-cons-threshold most-positive-fixnum)
 (add-hook 'emacs-startup-hook
   (lambda () (setq gc-cons-threshold (* 16 1024 1024))))
@@ -252,12 +630,15 @@ tinymist   # Typst LSP (used by typst-ts-mode via eglot)
 (use-package evil
   :init
   (setq evil-want-integration t)
-  (setq evil-want-keybinding nil)   ; required before evil-collection
+  (setq evil-want-keybinding nil)   ; MUST be before evil-collection, in :init
   (setq evil-undo-system 'undo-redo)
   (setq evil-want-C-u-scroll t)     ; C-u scrolls (like vim)
   (setq evil-search-module 'evil-search)
   :config
-  (evil-mode 1))
+  (evil-mode 1)
+  ;; CRITICAL: unbind SPC from evil-motion-state before general claims it
+  (define-key evil-motion-state-map (kbd "SPC") nil)
+  (define-key evil-normal-state-map (kbd "SPC") nil))
 
 (use-package evil-collection
   :after evil
@@ -272,74 +653,18 @@ tinymist   # Typst LSP (used by typst-ts-mode via eglot)
 
 ### 3b: SPC leader (general.el)
 ```elisp
+;; CRITICAL: :keymaps must be '(normal visual motion), NOT '(normal visual emacs)
+;; Adding 'emacs causes conflicts with evil-collection's emacs-state buffers
 (use-package general
+  :after evil
   :config
   (general-create-definer spc!
-    :keymaps '(normal visual emacs)
-    :prefix "SPC")
-
-  (spc!
-    ;; Files
-    "f"  '(:ignore t :wk "file")
-    "ff" 'find-file
-    "fr" 'consult-recent-file
-    "fs" 'save-buffer
-    "fS" 'save-some-buffers
-
-    ;; Buffers
-    "b"  '(:ignore t :wk "buffer")
-    "bb" 'consult-buffer
-    "bd" 'kill-buffer
-    "bR" 'revert-buffer
-
-    ;; Search
-    "s"  '(:ignore t :wk "search")
-    "ss" 'consult-line
-    "sg" 'consult-grep
-    "sp" 'consult-ripgrep   ; ripgrep across project
-
-    ;; Git
-    "g"  '(:ignore t :wk "git")
-    "gg" 'magit-status
-    "gb" 'magit-blame
-
-    ;; Notes (org-roam)
-    "n"  '(:ignore t :wk "notes")
-    "nf" 'org-roam-node-find
-    "ni" 'org-roam-node-insert
-    "nb" 'org-roam-buffer-toggle  ; backlinks panel
-    "ng" 'org-roam-ui-open        ; graph in browser
-    "nc" 'org-capture
-    "nd" 'org-roam-dailies-goto-today
-
-    ;; Agenda
-    "a"  'org-agenda
-
-    ;; RSS
-    "r"  'elfeed
-
-    ;; Open
-    "o"  '(:ignore t :wk "open")
-    "ot" 'vterm
-    "op" 'projectile-find-file
-    "ov" 'open-personal-snowflake   ; personal vault snowflake
-    "ou" 'open-uni-snowflake        ; uni vault snowflake
-    "on" 'open-nixos-snowflake      ; nixos snowflake
-    "oV" 'regenerate-snowflakes     ; regenerate all three
-
-    ;; Window (mirrors your hjkl system)
-    "w"  '(:ignore t :wk "window")
-    "wh" 'evil-window-left
-    "wj" 'evil-window-down
-    "wk" 'evil-window-up
-    "wl" 'evil-window-right
-    "ws" 'evil-window-split
-    "wv" 'evil-window-vsplit
-    "wd" 'evil-window-delete
-
-    ;; Quit
-    "q"  '(:ignore t :wk "quit")
-    "qq" 'save-buffers-kill-emacs))
+    :keymaps '(normal visual motion)
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+  (general-create-definer local!
+    :keymaps '(normal visual)
+    :prefix ","))
 ```
 
 ### 3c: Completion
@@ -360,24 +685,22 @@ tinymist   # Typst LSP (used by typst-ts-mode via eglot)
 
 ### 3d: Appearance
 ```elisp
-;; Stylix auto-generates ~/.config/emacs/stylix-theme.el — load it:
-(load-theme 'modus-operandi-tinted t)  ; fallback if stylix hasn't generated yet
-;; (The stylix theme load is injected by home-manager automatically when
-;;  stylix.targets.emacs.enable = true, which it is by default)
+;; Standalone ukiyo theme (Stylix injection disabled — see architecture decisions)
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes" user-emacs-directory))
+(load-theme 'ukiyo t)
 
 ;; Line numbers in code modes, not in org/prose
 (add-hook 'prog-mode-hook 'display-line-numbers-mode)
 
 ;; Variable pitch in org, mono in code blocks
+;; NOTE: if mixed-pitch-mode doesn't activate, try explicit (add-hook ...) form
 (use-package mixed-pitch :hook (org-mode . mixed-pitch-mode))
 
 ;; Centered writing
 (use-package olivetti
-  :custom (olivetti-body-width 88)
+  :custom (olivetti-body-width 90)
   :hook (org-mode . olivetti-mode))
-
-;; Typewriter scroll (you used cm-typewriter-scroll in Obsidian)
-(setq scroll-margin 8)
 
 ;; Prettier org
 (use-package org-superstar :hook (org-mode . org-superstar-mode))
@@ -534,30 +857,16 @@ feels like switching to a different app context — same Emacs instance, differe
 
 * Recent
 # org-ql block showing recent personal notes
-#+BEGIN: org-ql-table :query (ts :from -7) :columns (file ts) :from "~/org/personal/"
-#+END:
-
-* Inbox
-#+BEGIN: org-ql-table :query (todo "TODO") :from "~/org/inbox.org"
-#+END:
+#+begin_src emacs-lisp :results value raw :exports results
+(let* ((files (org-roam-list-files))
+       (results (org-ql-select files '(ts :from -7)
+                  :action '(list (org-get-heading t t t t) (buffer-file-name)))))
+  ...)
+#+end_src
 ```
 
-`~/org/uni/dashboard.org` (replaces Uni MOC.md):
-```org
-#+title: Uni
-#+STARTUP: content
-
-* Classes
-#+BEGIN: org-ql-table :query (tags "class") :columns (file (property "year") (property "Q")) :sort '(property "year") :from "~/org/uni/classes/"
-#+END:
-
-* Upcoming deadlines
-#+BEGIN: org-ql-table :query (and (tags "assignment") (not (property "grade")) (deadline :from today :to +30)) :columns (file (property "deadline") (property "class")) :from "~/org/uni/"
-#+END:
-
-* Today's schedule
-[[id:...][Today's daily note]]
-```
+Note: `#+BEGIN: org-ql-block` does NOT work — use `#+begin_src emacs-lisp` with
+`org-ql-select` instead. The `org-dblock-write:org-ql-block` function does not exist.
 
 ---
 
@@ -568,36 +877,30 @@ Cloud OAuth2 project — similar to what calcurse-caldav needed.
 
 ```elisp
 (use-package org-gcal
-  :custom
-  (org-gcal-client-id     "YOUR_CLIENT_ID")
-  (org-gcal-client-secret "YOUR_CLIENT_SECRET")
-  (org-gcal-fetch-file-alist
-   '(("tidemanus@gmail.com" . "~/org/gcal.org")))
   :config
-  ;; Sync on org-agenda open
+  (setq org-gcal-client-id
+    (auth-source-pick-first-password :host "org-gcal" :user "client-id"))
+  (setq org-gcal-client-secret
+    (auth-source-pick-first-password :host "org-gcal" :user "client-secret"))
+  (setq org-gcal-fetch-file-alist
+   '(("tidemanus@gmail.com" . "~/org/gcal.org")))
   (add-hook 'org-agenda-mode-hook 'org-gcal-fetch))
 ```
 
 **Important**: `org-gcal-client-id` and `org-gcal-client-secret` must NOT be in
-git. Store them in `~/.authinfo.gpg` (encrypted) and reference via `auth-source`:
-```elisp
-;; Instead of hardcoding, let auth-source read ~/.authinfo.gpg:
-(setq org-gcal-client-id
-  (auth-source-pick-first-password :host "org-gcal" :user "client-id"))
-(setq org-gcal-client-secret
-  (auth-source-pick-first-password :host "org-gcal" :user "client-secret"))
-```
+git. Store them in `~/.authinfo.gpg` (encrypted) and reference via `auth-source`.
 
 **Setup steps** (one-time, after rebuild):
 1. Create a Google Cloud project → enable Calendar API → create OAuth2 credentials
 2. Download `credentials.json` → extract client_id and client_secret
-3. Write to `~/.authinfo.gpg`:
+3. Write to `~/.authinfo` (then encrypt to `.gpg`):
    ```
    machine org-gcal login client-id password YOUR_CLIENT_ID
    machine org-gcal login client-secret password YOUR_CLIENT_SECRET
    ```
-4. Run `M-x org-gcal-fetch` — browser opens for OAuth approval
-5. Events appear in `~/org/gcal.org`, visible in org-agenda
+4. Encrypt: `gpg --symmetric ~/.authinfo` → saves as `~/.authinfo.gpg`
+5. Run `M-x org-gcal-fetch` — browser opens for OAuth approval
+6. Events appear in `~/org/gcal.org`, visible in org-agenda
 
 ---
 
@@ -669,9 +972,12 @@ perspective it shows `~/org/uni/`.
 
 ### Core setup
 ```elisp
+;; MUST set this before the use-package form — autoloads can trigger early
+(setq org-roam-directory (expand-file-name "~/org"))
+
 (use-package org-roam
   :custom
-  (org-roam-directory "~/org")
+  (org-roam-directory (expand-file-name "~/org"))
   (org-roam-dailies-directory "daily/")
   (org-roam-db-location "~/.local/share/org-roam/org-roam.db")
   :config
@@ -687,50 +993,8 @@ perspective it shows `~/org/uni/`.
      :target (file+head "personal/concepts/${slug}.org"
                         "#+title: ${title}\n#+filetags: :concept:\n")
      :unnarrowed t)
-
-    ;; Personal: essay
-    ("e" "essay" plain "%?"
-     :target (file+head "personal/essays/${slug}.org"
-                        "#+title: ${title}\n#+filetags: :essay:\n#+date: %<%Y-%m-%d>\n")
-     :unnarrowed t)
-
-    ;; Personal: book (replaces Sources/Books/ + book template)
-    ("b" "book" plain
-     "#+author: %^{Author}\n#+year: %^{Year}\n#+status: reading\n\n* Reading Notes\n\n%?\n\n* Summary\n\n* Historical context"
-     :target (file+head "personal/sources/books/${slug}.org"
-                        "#+title: ${title}\n#+filetags: :book:source:\n")
-     :unnarrowed t)
-
-    ;; Personal: person (replaces People/ + People template)
-    ("p" "person" plain
-     ":PROPERTIES:\n:birthday: \n:context: \n:occupation: \n:phone: \n:email: \n:city: \n:group: \n:END:\n\n* Bio\n\n* Personal Notes\n\n* Topics we share"
-     :target (file+head "personal/people/${slug}.org"
-                        "#+title: ${title}\n#+filetags: :person:\n")
-     :unnarrowed t)
-
-    ;; Uni: class (replaces Classes/ + Classes template)
-    ("u" "class" plain
-     ":PROPERTIES:\n:year: %^{Year}\n:Q: %^{Quarter}\n:professor: %^{Professor}\n:code: %^{Code}\n:shorthand: %^{Shorthand}\n:END:\n\n* Lectures\n#+BEGIN: org-ql-table :query (and (property \"class\" \"${title}\") (tags \"lecture\")) :columns (file date (property \"lecture_number\"))\n#+END:\n\n* Assignments\n#+BEGIN: org-ql-table :query (and (property \"class\" \"${title}\") (tags \"assignment\")) :columns (file (property \"deadline\") (property \"grade\"))\n#+END:\n\n* Summary\n\n* Files\n"
-     :target (file+head "uni/classes/${slug}.org"
-                        "#+title: ${title}\n#+filetags: :uni:class:\n")
-     :unnarrowed t)
-
-    ;; Uni: lecture (replaces Lecture/ + Lecture template)
-    ("l" "lecture" plain
-     ":PROPERTIES:\n:class: %^{Class}\n:date: %^{Date}\n:lecture_number: %^{Number}\n:END:\n\n* Summary\n\n%?\n\n* Notes"
-     :target (file+head "uni/lectures/${slug}.org"
-                        "#+title: ${title}\n#+filetags: :uni:lecture:\n")
-     :unnarrowed t)
-
-    ;; Uni: assignment (replaces Assignments/ + Assignments template)
-    ("a" "assignment" entry
-     "* TODO %^{Title}\n:PROPERTIES:\n:class: %^{Class}\n:deadline: %^{Deadline}\n:type: %^{Type}\n:grade: \n:END:"
-     :target (file "uni/assignments/assignments.org")
-     :unnarrowed t)
-
-    ;; Quick inbox capture
-    ("i" "inbox" entry (file "~/org/inbox.org")
-     "* %?\n  %U")))
+    ;; ... (full templates in config.org Org Capture Templates section)
+    ))
 ```
 
 ### Daily notes (replaces personal Dailies/ and uni loose session notes)
@@ -745,6 +1009,20 @@ perspective it shows `~/org/uni/`.
 
 ## Phase 5 — Org-ql (replaces Dataview)
 
+### IMPORTANT: org-ql dynamic blocks do NOT exist
+
+The syntax `#+BEGIN: org-ql-block ...` in org files calls a dynamic block handler
+`org-dblock-write:org-ql-block` which does not exist. This produces a void-function
+error. The `org-ql-block` function is only for org-agenda custom commands.
+
+**Always use this pattern instead:**
+```org
+#+begin_src emacs-lisp :results value raw :exports results
+(org-ql-select FILES QUERY :action '(list (org-get-heading t t t t) ...))
+#+end_src
+```
+Refresh with `C-c C-c` on the `#+begin_src` line.
+
 ### Core setup
 ```elisp
 (use-package org-ql
@@ -753,22 +1031,14 @@ perspective it shows `~/org/uni/`.
 
 ### Replacing the key Dataview queries:
 
-**Uni MOC — all classes** (replaces `table year, Q from "Classes" sort year, Q`):
+**All uni classes** (replaces `table year, Q from "Classes"`):
 ```elisp
 (org-ql-search "~/org/uni/classes/"
   '(tags "class")
   :sort '(property "year"))
 ```
-As a named agenda view (SPC a → c → classes):
-```elisp
-(add-to-list 'org-agenda-custom-commands
-  '("uc" "All uni classes"
-    (org-ql-block '(tags "class")
-                  ((org-ql-block-header "Classes")
-                   (org-agenda-files '("~/org/uni/classes/"))))))
-```
 
-**Uni MOC — upcoming deadlines** (replaces `where !grade and date > today sort date asc`):
+**Upcoming deadlines** (replaces `where !grade and date > today`):
 ```elisp
 (add-to-list 'org-agenda-custom-commands
   '("ud" "Upcoming deadlines"
@@ -777,29 +1047,6 @@ As a named agenda view (SPC a → c → classes):
                          (deadline :from today))
                    ((org-ql-block-header "Assignments due")
                     (org-agenda-files '("~/org/uni/assignments/")))))))
-```
-
-**Class page — lectures by class** (org-ql dynamic block, lives inside the class .org file):
-The template above already inserts:
-```org
-#+BEGIN: org-ql-table :query (and (property "class" "X") (tags "lecture")) ...
-#+END:
-```
-Update with `C-c C-c` on the block, or `org-dblock-update`.
-
-### Global custom agenda (your main dashboard — replaces Uni MOC):
-```elisp
-(setq org-agenda-custom-commands
-  '(("d" "Dashboard"
-     ((agenda "" ((org-agenda-span 7)))
-      (org-ql-block '(and (tags "assignment")
-                          (not (property "grade"))
-                          (deadline :from today :to +30))
-                    ((org-ql-block-header "Assignments (30 days)")
-                     (org-agenda-files '("~/org/uni/"))))
-      (org-ql-block '(todo "TODO")
-                    ((org-ql-block-header "Inbox")
-                     (org-agenda-files '("~/org/inbox.org"))))))))
 ```
 
 ---
@@ -821,17 +1068,6 @@ Update with `C-c C-c` on the block, or `org-dblock-update`.
 1. Open `.typ` file in Emacs → typst-ts-mode activates
 2. `M-x typst-ts-mode-watch-start` → typst compiles on save, PDF auto-refreshes
 3. Or: use a split window — left: `.typ` file, right: PDF in zathura
-
-**SPC keybindings to add for Typst:**
-```elisp
-(general-define-key
-  :keymaps 'typst-ts-mode-map
-  :states '(normal)
-  "SPC m w" 'typst-ts-mode-watch-start
-  "SPC m W" 'typst-ts-mode-watch-stop
-  "SPC m p" '(lambda () (interactive)
-               (find-file (concat (file-name-sans-extension buffer-file-name) ".pdf"))))
-```
 
 ---
 
@@ -893,61 +1129,21 @@ And Emacs renders the "Notes" section of that lecture file inline in your summar
 When you edit the transclusion, you're editing the source lecture file. When you
 update the source, the summary updates on next refresh.
 
-This means the class summary is not a separate copy — it's a structured view over
-the lecture files, with your own synthesis written around the transcluded sections.
-
 ### Setup
 ```elisp
 (use-package org-transclusion
   :after org
-  :hook (org-mode . org-transclusion-mode)
-  :bind (:map org-mode-map
-         ("C-c t a" . org-transclusion-add)
-         ("C-c t A" . org-transclusion-add-all)
-         ("C-c t r" . org-transclusion-refresh-all)))
+  :config
+  (setq org-transclusion-add-all-on-activate t))
+
+;; Comma leader: "tt" toggles transclusion mode (NOT "t" alone — that blocks sub-keys)
+(with-eval-after-load 'org
+  (local! :keymaps 'org-mode-map
+    "tt" 'org-transclusion-mode   ; IMPORTANT: "tt" not "t"
+    "ta" 'org-transclusion-add
+    "td" 'org-transclusion-remove
+    "tr" 'org-transclusion-refresh))
 ```
-
-### Class summary file structure (replaces restructured copy-paste)
-```org
-#+title: Advanced Quantum Mechanics — Summary
-#+filetags: :uni:summary:
-
-* Overview
-[Your own synthesis here]
-
-* Lecture 1 — [Topic]
-#+transclude: [[file:../lectures/aQM-lecture-01.org::*Notes]] :level 2
-
-* Lecture 2 — [Topic]
-#+transclude: [[file:../lectures/aQM-lecture-02.org::*Notes]] :level 2
-
-* Key concepts
-[Your synthesis — written here, not transcluded]
-```
-
-With `org-transclusion-add-all` (bound to `C-c t A`), all `#+transclude:` blocks
-render live. Toggle off with `C-c t a` to see the raw links.
-
-**Workflow in practice:**
-1. After each lecture: write notes in `uni/lectures/aQM-lecture-N.org`
-2. Summary file: add a new `#+transclude:` block pointing to that lecture's Notes section
-3. Write your synthesis between the blocks
-4. The copy-paste step is eliminated — the lecture content is always live in the summary
-
-### Personal knowledge file (the extraction step)
-
-When a class connects to your personal interests ("Varies a lot"):
-
-- If close to an existing concept: open the concept file, add an org-roam link back
-  to the uni summary, add your personal synthesis. The backlinks panel shows the
-  connection from uni → personal.
-- If it becomes a standalone concept: create a new concept node with `SPC n c`.
-  Transclude the relevant summary section there too, if you want the content present.
-  Or just link: `[[id:...][Advanced Quantum Mechanics Summary]]`
-
-The key shift from Obsidian: instead of copying text, you either link or transclude.
-The original content stays in one place; references point to it. This keeps personal
-and uni knowledge connected rather than duplicated.
 
 ### SPC keybindings for this workflow
 ```elisp
@@ -961,66 +1157,21 @@ and uni knowledge connected rather than duplicated.
 
 ## Phase 9 — Book library (replaces Obsidian Canvas book grid)
 
-The Obsidian Canvas book grid (cover image + metadata at a glance) is one of
-the things Obsidian genuinely does well. Emacs won't match it visually, but
-`citar` provides a much more powerful underlying system, with a visual component.
-
-### What citar gives you
-
 ```elisp
 (use-package citar
   :custom
-  (citar-bibliography '("~/org/library.bib"))  ; single .bib file, Syncthing-synced
+  (citar-bibliography '("~/org/library.bib"))
   (citar-notes-paths '("~/org/personal/sources/books/"
                        "~/org/personal/sources/papers/"))
   (citar-open-always-create-notes t))
 
-(use-package citar-org
-  :after (citar org)
-  :custom (org-cite-insert-processor 'citar)
-          (org-cite-follow-processor 'citar)
-          (org-cite-activate-processor 'citar))
+;; NOTE: citar-org is NOT a separate nixpkgs package; it is bundled inside citar.
+;; Do NOT add citar-org to extraPackages in emacs.nix.
 
 (use-package org-roam-bibtex
   :after (org-roam citar)
   :config (org-roam-bibtex-mode))
 ```
-
-### library.bib as the source of truth
-
-Every book and paper you read gets an entry in `~/org/library.bib`. This is a
-standard BibTeX file — manageable with `citar`, usable in Typst documents directly.
-
-When you open a citar entry, it either finds the existing org-roam note or creates
-one using the book capture template. The note gets the title, author, year from the
-.bib entry automatically.
-
-### The book grid equivalent
-
-Org-mode can display images inline. Create `~/org/personal/sources/books/index.org`:
-
-```org
-#+title: Books
-#+STARTUP: inlineimages
-
-* Currently reading
-** Landau & Lifshitz — Mechanics
-   [[file:covers/landau-mechanics.jpg]]
-   :PROPERTIES:
-   :status: reading
-   :author: Landau, Lifshitz
-   :year: 1976
-   :END:
-   [[id:...][Reading notes]]
-```
-
-Toggle image display with `C-c C-x C-v` (`org-toggle-inline-images`).
-Not a pixel-perfect grid, but functional — and you can sort, filter, and search
-in ways Obsidian Canvas can't.
-
-For an actual grid view: `citar` has a `citar-open` interface that lists all
-entries with metadata in a filterable minibuffer. Fast search across your entire
-library by title, author, year, or tag.
 
 ### YouTube RSS feed generation
 
@@ -1084,63 +1235,24 @@ Check if `pkgs.emacsPackages.org-timeblock` exists in nixpkgs 26.05; if not, ski
 
 ## Phase 13 — Conversion: Markdown → Org
 
-**Tool**: `pandoc` — already in common.nix packages (or add it).
+**Actual approach used**: Pure Python (not pandoc — not installed on the system).
+Conversion script: `/home/thijmen/convert_vaults.py`. Already ran; 607 notes in `~/org/`.
 
-### Conversion script
+**Critical converter facts:**
+- `extract_inline_tags()` MUST run BEFORE `strip_zoottelkeeper()` — otherwise tags are lost
+- `:PROPERTIES:` + `:ID:` MUST come before `#+title:` — otherwise org-id-get returns nil
+- `is_personal_person()` checks for non-empty values, not just key presence
+- Personal contacts → `people/personal/`, famous/notable → `people/notable/`
+- WikiLinks: `[[Title]]` → `[[file:~/org/path.org][alias]]`
+- Dataview blocks → `# [org-ql query goes here]` (comment placeholder)
+
+If conversion needs to be re-run:
 ```bash
-#!/usr/bin/env bash
-# convert_vault.sh — run once to migrate both vaults
-# Run from: /home/thijmen/
-
-PERSONAL_IN="Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure"
-UNI_IN="Documents/BACKUP/Uni/Obsidian/Uni"
-OUT_BASE="org"
-
-convert_dir() {
-  local src="$1" dst="$2"
-  mkdir -p "$dst"
-  find "$src" -name "*.md" -not -path "*/.obsidian/*" | while read -r md; do
-    rel="${md#$src/}"
-    org="$dst/${rel%.md}.org"
-    mkdir -p "$(dirname "$org")"
-    pandoc --from=markdown --to=org \
-           --wrap=none \
-           "$md" -o "$org"
-    echo "converted: $org"
-  done
-}
-
-convert_dir "$PERSONAL_IN" "$OUT_BASE/personal"
-convert_dir "$UNI_IN"      "$OUT_BASE/uni"
+python3 /home/thijmen/convert_vaults.py
+# Then in Emacs:
+# M-x org-roam-db-clear-all
+# M-x org-roam-db-sync
 ```
-
-### What pandoc handles automatically:
-- YAML frontmatter → org `:PROPERTIES:` drawer
-- `**bold**`, `*italic*` → `*bold*`, `/italic/`
-- `# Headings` → `* Headings`
-- `[[wikilinks]]` → broken links (needs post-processing — see below)
-- Code blocks → `#+begin_src ... #+end_src`
-- Tables → org tables
-- `> blockquotes` → `#+begin_quote ... #+end_quote`
-
-### Post-conversion: fix wikilinks
-Obsidian `[[Note Name]]` links become org-roam `[[id:...][Note Name]]` links.
-Run org-roam's import after conversion:
-```elisp
-;; After placing all .org files in ~/org/:
-M-x org-roam-db-sync  ; builds the database
-;; Then use org-roam-unlinked-references to find/fix broken links
-```
-
-### What to do with Dataview blocks:
-After conversion, dataview blocks become literal code blocks:
-```org
-#+begin_src dataview
-table class, lecture_number from "Lecture" ...
-#+end_src
-```
-Replace these manually with org-ql dynamic blocks (see Phase 5).
-Do this one class file at a time — it's a few hours of work total.
 
 ---
 
@@ -1149,18 +1261,28 @@ Do this one class file at a time — it's a few hours of work total.
 After rebuild:
 
 **Core:**
-- [ ] `emacs` launches, Stylix Ukiyo theme applied
+- [ ] `emacs` launches, ukiyo theme applied (dark background)
 - [ ] Evil mode: hjkl movement, `dd`, `yy`, `/` search, `SPC` opens which-key
-- [ ] `SPC n f` finds org-roam nodes
+- [ ] `SPC n f` finds org-roam nodes (should show ~607)
 - [ ] `SPC g g` opens magit
 - [ ] `SPC a` opens org-agenda
 
+**Appearance hooks (currently suspect — verify these):**
+- [ ] `olivetti-mode` active in org buffers (text should be centered)
+- [ ] `mixed-pitch-mode` active (serif for prose, mono for code blocks)
+- [ ] `org-modern-mode` active (modern table borders, prettier tags)
+- [ ] `org-superstar-mode` active (custom heading bullets)
+
 **Notes:**
-- [ ] `SPC n c` opens capture menu, templates listed (concept/essay/lecture/etc.)
+- [ ] `SPC n c` opens capture menu, templates listed (pc/pe/pb/pp/pk/pf/uc/ul/ua/i)
 - [ ] Create a new lecture note — frontmatter properties populated
-- [ ] Create a new class note — org-ql dynamic block present
+- [ ] `SPC n d` creates/opens today's daily note
 - [ ] `SPC n b` shows backlinks panel
-- [ ] `SPC n g` opens org-roam graph in browser
+
+**Dashboard:**
+- [ ] dashboard.org opens on startup
+- [ ] `C-c C-c` on a `#+begin_src emacs-lisp` block executes and produces a table
+- [ ] Birthdays, Work Queue, Open Tasks, Recent Notes sections all populate
 
 **Typst:**
 - [ ] Open a `.typ` file → typst-ts-mode activates, syntax highlighting works
@@ -1179,15 +1301,15 @@ After rebuild:
 - [ ] SCHEDULED items appear in time-grid
 
 **Math rendering:**
-- [ ] Type `$\int_0^1 f(x)\,dx$` in an org buffer — moves cursor away → renders as image
-- [ ] `C-c C-x C-l` renders all fragments in buffer
-- [ ] Math visible at correct scale (not too small)
+- [ ] Enable `org-typst-preview-mode` in an org buffer with `$...$` math
+- [ ] Moving cursor away from fragment → renders as SVG overlay
+- [ ] Moving cursor into fragment → shows source
+- [ ] `SPC t P` renders all fragments in buffer
 
 **Workspaces:**
-- [ ] `SPC TAB p` switches to personal perspective, opens dashboard.org
+- [ ] `SPC TAB p` switches to personal perspective, opens personal/dashboard.org
 - [ ] `SPC TAB u` switches to uni perspective, opens uni/dashboard.org
 - [ ] Buffer lists are separate between perspectives
-- [ ] `SPC e` toggles dired-sidebar with correct root per perspective
 
 **PDF:**
 - [ ] Open a `.pdf` file — pdf-view-mode activates
@@ -1198,28 +1320,29 @@ After rebuild:
 - [ ] After auth: events appear in `~/org/gcal.org`
 - [ ] Events visible in `SPC a` org-agenda
 
-**Misc:**
-- [ ] `jinx-mode` active in org-mode (spell check — test with a Dutch word)
-- [ ] `mixed-pitch-mode` applied (serif/sans for prose, mono for code blocks)
-- [ ] `olivetti-mode` centers org buffer
-- [ ] Tables render nicely (org-modern)
+**Music:**
+- [ ] `M-x emms-add-directory-tree` scans Music Library
+- [ ] `SPC m m` opens EMMS sidebar
+- [ ] `SPC m t` toggles play/pause
 
 ---
 
 ## Remaining open questions
 
-- [ ] **org-timeblock vs time-grid**: org-agenda time-grid is planned. If you want
-      a visual drag-and-drop schedule, add `org-timeblock`. Check if it's in nixpkgs 26.05.
+- [ ] **org-mode appearance hooks**: olivetti, mixed-pitch, org-modern, org-superstar
+      not confirmed firing. Debug by opening org buffer and checking `M-x describe-mode`.
+- [ ] **ox-typst**: check `nix search nixpkgs#emacs-packages.ox-typst`. If available,
+      add to emacs.nix and uncomment the `(with-eval-after-load 'ox ...)` line in config.org.
 - [ ] **org-gcal credentials**: you'll need to create a Google Cloud project and enable
-      the Calendar API. The OAuth2 setup is the same as for calcurse-caldav.
-      Credentials go in `~/.authinfo.gpg`, NOT in the nix config.
-- [ ] **People notes**: include the capture template but mark as low-priority.
-      Decide whether to structure by group (friends/colleagues/professors) when you
-      start using them.
+      the Calendar API. Credentials go in `~/.authinfo.gpg`, NOT in the nix config.
+- [ ] **EMMS library scan**: first-time setup requires `M-x emms-add-directory-tree`.
+      Add `(emms-cache-enable)` to config.org to persist across restarts.
 - [ ] **Neovim vs Emacs for code**: start with coexistence. If Emacs eglot + Python
       feels good after a month of use, consider switching fully. No need to decide now.
-- [ ] **SPC keybinding parity**: before writing final init.el, read
+- [ ] **SPC keybinding parity**: before finalizing config.org, read
       `home/dotfiles/neovim/init.lua` and map identical SPC bindings in Emacs.
-- [ ] **Conversion timing**: run pandoc conversion on a copy of both vaults first,
-      verify org-roam DB builds correctly, then switch. Keep Obsidian open until satisfied.
-- [ ] **Thesis**: capture template is included. Become active when thesis work starts.
+- [ ] **Perspective startup**: confirm the startup hook correctly opens the personal
+      perspective + dashboard. May need `run-with-idle-timer` wrapping if persp-mode
+      hasn't fully initialized when the hook fires.
+- [ ] **Thesis**: capture template is included. Becomes active when thesis work starts.
+- [ ] **YouTube RSS**: add channels to elfeed.org (Google Takeout → subscriptions.csv).
