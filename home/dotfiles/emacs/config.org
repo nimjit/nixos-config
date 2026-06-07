@@ -203,7 +203,7 @@ Comma (,) is a secondary local leader used for mode-specific commands.
   ;; Music
   "m"   '(:ignore t :wk "music")
   "mm"  'emms-toggle-sidebar
-  "m "  'emms-pause
+  "mt"  'emms-pause       ; t = toggle play/pause
   "mn"  'emms-next
   "mp"  'emms-previous
   "ms"  'emms-stop
@@ -286,39 +286,18 @@ Magit is the best git interface on any platform. diff-hl adds gutter indicators.
   :config (global-diff-hl-mode))
 #+end_src
 
-* Appearance
+* Theme
 
-Stylix auto-generates an Emacs theme from the Ukiyo palette. The overrides below
-tune specific org-mode faces to the exact palette colors.
-
-Ukiyo palette (from themes/ukiyo.nix):
-  base00 #372d29  bg        base08 #c72626  red
-  base01 #413632  bg+       base09 #e77a59  orange
-  base02 #504431  selection base0A #ba945f  yellow
-  base03 #868074  comment   base0B #9aad6e  green
-  base04 #b2a699  dark txt  base0C #7ab5a0  cyan
-  base05 #ccc2b7  main txt  base0D #e0ba86  gold (blue slot)
-  base06 #ddd5cc  light txt base0E #ba945f  warm yellow
-  base07 #eee8e2  lightest  base0F #645743  brown
+Standalone =ukiyo-theme.el= copied into =~/.config/emacs/themes/= by home-manager.
+All faces are defined there — no Stylix injection needed.
 
 #+begin_src emacs-lisp
-;; Org heading level colors using Ukiyo palette
-(with-eval-after-load 'org
-  (set-face-attribute 'org-level-1 nil :foreground "#e0ba86" :weight 'bold   :height 1.15)
-  (set-face-attribute 'org-level-2 nil :foreground "#7ab5a0" :weight 'bold   :height 1.10)
-  (set-face-attribute 'org-level-3 nil :foreground "#e77a59" :weight 'bold   :height 1.05)
-  (set-face-attribute 'org-level-4 nil :foreground "#9aad6e" :weight 'normal :height 1.0)
-  (set-face-attribute 'org-level-5 nil :foreground "#ba945f" :weight 'normal)
-  (set-face-attribute 'org-level-6 nil :foreground "#7ab5a0" :weight 'normal)
-  (set-face-attribute 'org-link     nil :foreground "#e0ba86" :underline t)
-  (set-face-attribute 'org-code     nil :foreground "#9aad6e" :background "#413632")
-  (set-face-attribute 'org-block    nil :background "#2b2320")
-  (set-face-attribute 'org-block-begin-line nil :foreground "#868074" :background "#2b2320")
-  (set-face-attribute 'org-block-end-line   nil :foreground "#868074" :background "#2b2320")
-  (set-face-attribute 'org-tag      nil :foreground "#868074")
-  (set-face-attribute 'org-todo     nil :foreground "#c72626" :weight 'bold)
-  (set-face-attribute 'org-done     nil :foreground "#9aad6e" :weight 'normal))
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes" user-emacs-directory))
+(load-theme 'ukiyo t)
 #+end_src
+
+* Appearance
 
 #+begin_src emacs-lisp
 ;; Variable pitch in org prose, monospace in code/tables
@@ -401,14 +380,18 @@ Single database spanning =~/org/=. Perspectives separate personal and uni —
 not separate databases. Daily notes live in =~/org/daily/=.
 
 #+begin_src emacs-lisp
+;; Must be set before org-roam loads (autoloads can trigger early)
+(setq org-roam-directory (expand-file-name "~/org"))
+
 (use-package org-roam
   :custom
-  (org-roam-directory "~/org")
+  (org-roam-directory (expand-file-name "~/org"))
   (org-roam-dailies-directory "daily/")
   (org-roam-completion-everywhere t)
   (org-roam-node-display-template
    (concat "${title:60} " (propertize "${tags:30}" 'face 'org-tag)))
   :config
+  (make-directory "~/org" t)
   (org-roam-db-autosync-mode))
 
 (use-package org-roam-ui
@@ -764,7 +747,7 @@ open summary on right, lecture on left, transclude lecture sections into summary
 ;; Activate transclusion in org-mode via comma leader
 (with-eval-after-load 'org
   (local! :keymaps 'org-mode-map
-    "t"  'org-transclusion-mode
+    "tt" 'org-transclusion-mode
     "ta" 'org-transclusion-add
     "td" 'org-transclusion-remove
     "tr" 'org-transclusion-refresh))

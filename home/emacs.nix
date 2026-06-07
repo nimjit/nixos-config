@@ -78,8 +78,9 @@
     ];
   };
 
-  xdg.configFile."emacs/early-init.el".source = ./dotfiles/emacs/early-init.el;
-  xdg.configFile."emacs/init.el".source       = ./dotfiles/emacs/init.el;
-  xdg.configFile."emacs/config.org".source    = ./dotfiles/emacs/config.org;
-  xdg.configFile."emacs/elfeed.org".source    = ./dotfiles/emacs/elfeed.org;
+  xdg.configFile."emacs/early-init.el".source          = ./dotfiles/emacs/early-init.el;
+  xdg.configFile."emacs/init.el".source                = ./dotfiles/emacs/init.el;
+  xdg.configFile."emacs/config.org".source             = ./dotfiles/emacs/config.org;
+  xdg.configFile."emacs/elfeed.org".source             = ./dotfiles/emacs/elfeed.org;
+  xdg.configFile."emacs/themes/ukiyo-theme.el".source  = ./dotfiles/emacs/ukiyo-theme.el;
 }
