@@ -1,0 +1,45 @@
+[calendars]
+
+[[personal]]
+path = ~/.local/share/calendars/*
+type = discover
+
+[sqlite]
+path = ~/.local/share/khal/khal.db
+
+[locale]
+timeformat = %H:%M
+dateformat = %Y-%m-%d
+datetimeformat = %Y-%m-%d %H:%M
+default_timezone = Europe/Amsterdam
+local_timezone = Europe/Amsterdam
+firstweekday = 0
+
+[default]
+timedelta = 7d
+show_week_numbers = True
+
+[palette]
+# Ukiyo base16 palette mapped to urwid 256-colour indices:
+#   h222 = warm gold  (base0D #e0ba86)
+#   h179 = amber      (base0A #ba945f)
+#   h251 = light warm (base05 #ccc2b7)
+#   h237 = dark warm  (base01 #413632)
+#   h235 = darkest    (base00 #372d29)
+#   h107 = green      (base0B #9aad6e)
+#   h160 = red        (base08 #c72626)
+header     = ['h222', 'default', 'bold']
+header_att = ['h235', 'h222', '']
+popupbg    = ['h251', 'h237', '']
+default    = ['h251', 'default', '']
+marked     = ['h235', 'h222', 'bold']
+options    = ['h222', 'default', '']
+frame      = ['h179', 'default', '']
+editfc     = ['h251', 'h237', 'bold']
+editbx     = ['h251', 'h237', '']
+editcp     = ['h235', 'h251', 'standout']
+alert      = ['h235', 'h160', 'bold']
+confirm    = ['h235', 'h107', 'bold']
+time_bg    = ['h179', 'default', '']
+time_focus = ['h222', 'default', 'bold']
+edit       = ['h251', 'h237', '']

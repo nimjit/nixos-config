@@ -40,6 +40,8 @@
     fd            # fast find
     unzip
     zip
+    khal          # terminal calendar (multi-calendar, ikhal TUI)
+    vdirsyncer    # syncs Google Calendar collections to local filesystem
     ghostscript   # required by ImageMagick (used by image.nvim)
     poppler-utils # pdftoppm + pdfinfo — terminal PDF rendering
     btop          # system monitor
