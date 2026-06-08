@@ -1,3 +1,6 @@
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+
 vim.cmd [[colorscheme Ukiyo]]
 vim.api.nvim_set_hl(0, "Directory", { link = "Type", underline = true })
 vim.api.nvim_set_hl(0, "netrwSymlink", { link = "Type", underline = true })
@@ -205,6 +208,7 @@ vim.keymap.set("n", "<leader>?", function()
     local lines = {
         "  Key           Action                    ",
         " ─────────────────────────────────────── ",
+        "  <Space> = leader key                    ",
         "  <leader>?     This help popup           ",
         " ─────────────────────────────────────── ",
         "  Files & Navigation                      ",
@@ -375,16 +379,23 @@ end, { nargs = "?" })
 -- Compiles ```typ blocks and renders them inline via image.nvim (kitty graphics).
 -- Falls back to a split preview if image.nvim is not available.
 
+-- Typst preamble: Ukiyo dark background + text color so rendered images match the terminal theme.
+local TYPST_PRE = table.concat({
+    '#set page(width: auto, height: auto, margin: 6pt, fill: rgb("#372d29"))',
+    '#set text(fill: rgb("#ccc2b7"), font: "JetBrainsMono Nerd Font Mono", size: 11pt)',
+    "",
+}, "\n")
+
 -- Compiles a math expression (LaTeX $...$ or $$...$$) via typst, returns PNG path or nil.
 local function compile_math_block(content, id)
     local src = "/tmp/nvim_typst_math_" .. id .. ".typ"
     local img = "/tmp/nvim_typst_math_" .. id .. ".png"
     local f = io.open(src, "w")
     if f then
-        f:write("#set page(width: auto, height: auto, margin: 0pt)\n$ " .. content .. " $\n")
+        f:write(TYPST_PRE .. "$ " .. content .. " $\n")
         f:close()
     end
-    vim.fn.system("typst compile " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(img) .. " 2>&1")
+    vim.fn.system("typst compile --ppi 200 " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(img) .. " 2>&1")
     return vim.v.shell_error == 0 and img or nil
 end
 
@@ -395,8 +406,8 @@ local function compile_typst_block(lines, start_line, end_line)
     local src   = "/tmp/nvim_typst_" .. id .. ".typ"
     local img   = "/tmp/nvim_typst_" .. id .. ".png"
     local f = io.open(src, "w")
-    if f then f:write(table.concat(block, "\n")); f:close() end
-    local out = vim.fn.system("typst compile " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(img) .. " 2>&1")
+    if f then f:write(TYPST_PRE .. table.concat(block, "\n")); f:close() end
+    local out = vim.fn.system("typst compile --ppi 200 " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(img) .. " 2>&1")
     return vim.v.shell_error == 0 and img or nil, out
 end
 
@@ -532,13 +543,22 @@ vim.api.nvim_create_autocmd("BufWritePost", {
 })
 
                    -- PDF viewer (<leader>z)
--- Opens the PDF linked on the current line in zathura, or prompts for a path.
+-- Opens zathura tiled to the right half of the screen via xdotool.
+local function open_zathura(pdf_path)
+    local geo = vim.fn.system("xdotool getdisplaygeometry 2>/dev/null"):match("(%d+)%s+%d+")
+    local sw = tonumber(geo) or 1920
+    local half = math.floor(sw / 2)
+    vim.fn.system(string.format(
+        "zathura %s & sleep 0.4 && " ..
+        "WID=$(xdotool search --sync --class zathura | tail -1) && " ..
+        "xdotool windowsize $WID %d 100%% windowmove $WID %d 0 &",
+        vim.fn.shellescape(pdf_path), half, half))
+end
+
 vim.keymap.set("n", "<leader>z", function()
     local line = vim.api.nvim_get_current_line()
-    -- Match ![[...pdf]] or [[...pdf]] obsidian links
     local pdf = line:match("!?%[%[(.-)%.pdf%]%]")
     if pdf then
-        -- Resolve relative to vault attachments
         local vault = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure"
         local uni   = "/home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni"
         local candidates = {
@@ -547,17 +567,13 @@ vim.keymap.set("n", "<leader>z", function()
             pdf .. ".pdf",
         }
         for _, p in ipairs(candidates) do
-            if vim.fn.filereadable(p) == 1 then
-                vim.fn.system("zathura " .. vim.fn.shellescape(p) .. " &")
-                return
-            end
+            if vim.fn.filereadable(p) == 1 then open_zathura(p); return end
         end
         vim.notify("PDF not found: " .. pdf, vim.log.levels.WARN)
         return
     end
-    -- Prompt
     local path = vim.fn.input("PDF path: ", vim.fn.expand("%:h") .. "/", "file")
-    if path ~= "" then vim.fn.system("zathura " .. vim.fn.shellescape(path) .. " &") end
+    if path ~= "" then open_zathura(path) end
 end)
 
                    -- Git shortcuts
