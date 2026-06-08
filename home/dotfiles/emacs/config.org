@@ -597,17 +597,15 @@ Opening to uni perspective = opening the uni Obsidian vault.
 #+begin_src emacs-lisp
 (use-package org-gcal
   :config
-  ;; Credentials live in ~/.authinfo.gpg:
-  ;; machine org-gcal login client-id password YOUR_CLIENT_ID
-  ;; machine org-gcal login client-secret password YOUR_CLIENT_SECRET
-  (setq org-gcal-client-id
-        (auth-source-pick-first-password :host "org-gcal" :user "client-id"))
-  (setq org-gcal-client-secret
-        (auth-source-pick-first-password :host "org-gcal" :user "client-secret"))
-  (setq org-gcal-fetch-file-alist
-        '(("tidemanus@gmail.com" . "~/org/gcal.org")))
-  ;; Auto-sync when opening agenda
-  (add-hook 'org-agenda-mode-hook #'org-gcal-fetch))
+  ;; Only activate when credentials file exists — suppresses startup warning
+  (when (file-exists-p "~/.authinfo.gpg")
+    (setq org-gcal-client-id
+          (auth-source-pick-first-password :host "org-gcal" :user "client-id"))
+    (setq org-gcal-client-secret
+          (auth-source-pick-first-password :host "org-gcal" :user "client-secret"))
+    (setq org-gcal-fetch-file-alist
+          '(("tidemanus@gmail.com" . "~/org/gcal.org")))
+    (add-hook 'org-agenda-mode-hook #'org-gcal-fetch)))
 #+end_src
 
 One-time setup:
