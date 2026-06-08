@@ -543,16 +543,45 @@ vim.api.nvim_create_autocmd("BufWritePost", {
 })
 
                    -- PDF viewer (<leader>z)
--- Opens zathura tiled to the right half of the screen via xdotool.
-local function open_zathura(pdf_path)
-    local geo = vim.fn.system("xdotool getdisplaygeometry 2>/dev/null"):match("(%d+)%s+%d+")
-    local sw = tonumber(geo) or 1920
-    local half = math.floor(sw / 2)
-    vim.fn.system(string.format(
-        "zathura %s & sleep 0.4 && " ..
-        "WID=$(xdotool search --sync --class zathura | tail -1) && " ..
-        "xdotool windowsize $WID %d 100%% windowmove $WID %d 0 &",
-        vim.fn.shellescape(pdf_path), half, half))
+-- Opens a right-split terminal running an interactive page-by-page PDF viewer
+-- using pdftoppm + kitten icat (kitty graphics protocol).
+-- Keys inside the split: n/l next  p/h prev  :N goto  q quit
+local function open_pdf_split(pdf_path)
+    local script = string.format([[
+#!/usr/bin/env bash
+PDF=%s
+PAGE=1
+TOTAL=$(pdfinfo "$PDF" 2>/dev/null | awk '/Pages:/ {print $2}')
+[ -z "$TOTAL" ] && TOTAL=999
+
+show_page() {
+  clear
+  rm -f /tmp/nvim_pdfv*.png
+  pdftoppm -r 150 -f "$PAGE" -l "$PAGE" -png "$PDF" /tmp/nvim_pdfv_p
+  IMG=$(ls /tmp/nvim_pdfv_p*.png 2>/dev/null | head -1)
+  [ -n "$IMG" ] && kitten icat --clear "$IMG" || echo "(render failed)"
+  printf "\n  Page %%d/%%s   [h/p] prev  [l/n] next  [:N] goto  [q] quit\n" "$PAGE" "$TOTAL"
+}
+
+show_page
+while IFS= read -rsn1 KEY; do
+  case "$KEY" in
+    n|l) [ "$PAGE" -lt "$TOTAL" ] && PAGE=$((PAGE+1)) && show_page ;;
+    p|h) [ "$PAGE" -gt 1 ] && PAGE=$((PAGE-1)) && show_page ;;
+    q)   clear; break ;;
+    :)   printf "  Goto page: "; read -r N
+         echo "$N" | grep -qE "^[0-9]+$" && [ "$N" -ge 1 ] && [ "$N" -le "$TOTAL" ] \
+           && PAGE=$N && show_page ;;
+  esac
+done
+]], vim.fn.shellescape(pdf_path))
+
+    local sf = "/tmp/nvim_pdfview.sh"
+    local f = io.open(sf, "w")
+    if f then f:write(script); f:close() end
+    vim.fn.system("chmod +x " .. sf)
+    vim.cmd("vsplit | terminal bash " .. sf)
+    vim.cmd("startinsert")
 end
 
 vim.keymap.set("n", "<leader>z", function()
@@ -567,13 +596,13 @@ vim.keymap.set("n", "<leader>z", function()
             pdf .. ".pdf",
         }
         for _, p in ipairs(candidates) do
-            if vim.fn.filereadable(p) == 1 then open_zathura(p); return end
+            if vim.fn.filereadable(p) == 1 then open_pdf_split(p); return end
         end
         vim.notify("PDF not found: " .. pdf, vim.log.levels.WARN)
         return
     end
     local path = vim.fn.input("PDF path: ", vim.fn.expand("%:h") .. "/", "file")
-    if path ~= "" then open_zathura(path) end
+    if path ~= "" then open_pdf_split(path) end
 end)
 
                    -- Git shortcuts

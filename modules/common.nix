@@ -40,6 +40,8 @@
     fd            # fast find
     unzip
     zip
+    ghostscript   # required by ImageMagick (used by image.nvim)
+    poppler-utils # pdftoppm + pdfinfo — terminal PDF rendering
     btop          # system monitor
     fastfetch     # system info (replaces neofetch)
     nh
