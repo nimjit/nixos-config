@@ -71,8 +71,10 @@
           nchat
       }
 
-      # rmpc in a dedicated kitty tab; falls back to current terminal if kitty remote control unavailable
+      # rmpc in a dedicated kitty tab; auto-queues full library if idle.
+      # Falls back to current terminal if kitty remote control unavailable.
       music() {
+        mpc playlist | grep -q . || (mpc add / && mpc shuffle && mpc play)
         kitty @ focus-tab --match title:music 2>/dev/null || \
           kitty @ launch --type=tab --tab-title music rmpc 2>/dev/null || \
           rmpc

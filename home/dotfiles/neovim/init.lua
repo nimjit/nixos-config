@@ -605,6 +605,18 @@ vim.keymap.set("n", "<leader>z", function()
     if path ~= "" then open_pdf_split(path) end
 end)
 
+                   -- Music split (<leader>m)
+-- Opens rmpc in a narrow right split. If MPD queue is empty, queues the full
+-- library shuffled and starts playback so something is always playing.
+vim.keymap.set("n", "<leader>m", function()
+    vim.fn.system(
+        "mpc playlist | grep -q . || (mpc add / && mpc shuffle && mpc play) &"
+    )
+    vim.cmd("vsplit | terminal rmpc")
+    vim.cmd("vertical resize 55")
+    vim.cmd("startinsert")
+end)
+
                    -- Git shortcuts
 vim.keymap.set("n", "<leader>gs", ":!git status<CR>")
 vim.keymap.set("n", "<leader>gd", ":!git diff<CR>")
