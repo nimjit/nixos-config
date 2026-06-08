@@ -43,6 +43,7 @@ so this config stays clean.
 (global-auto-revert-mode 1)  ; reload files changed on disk
 (delete-selection-mode   1)  ; typing replaces selection
 (electric-pair-mode      1)  ; auto-close brackets
+(blink-cursor-mode      -1)  ; no blink = no timer-driven redraws (helps at 4K)
 
 ;; Smooth pixel-level scrolling (Emacs 29+, essential on Wayland/pgtk)
 (pixel-scroll-precision-mode 1)
@@ -813,9 +814,10 @@ SPC m SPC = pause/play. SPC t s = toggle sidebar.
                             (emms-track-get track 'name ""))))))
             (format "%s — %s" artist title))))
 
-  ;; Show current track in mode-line
-  (emms-mode-line-mode 1)
-  (emms-playing-time-mode 1))
+  ;; Mode-line track display disabled — forces full-width redraw on every update,
+  ;; causing cursor lag in wide windows. Re-enable once a lighter solution exists.
+  (emms-mode-line-mode -1)
+  (emms-playing-time-mode -1))
 
 ;; Sidebar toggle: opens EMMS browser in a 32-column right window
 (defun emms-toggle-sidebar ()

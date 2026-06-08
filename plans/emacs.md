@@ -235,6 +235,42 @@ personal fields (phone, email, city, birthday, occupation, context) present but 
 **Fix**: `is_personal_person()` now checks `bool(frontmatter.get(key, '').strip())`
 for at least one personal key having a non-empty value. Already fixed in `convert_vaults.py`.
 
+#### Performance: Emacs is slow in large windows on 4K
+
+**Symptom**: Cursor movement is sluggish in large Emacs windows (and in Obsidian). Small
+windows are smooth. Firefox is smooth at any size. Scaling with window WIDTH, not height.
+
+**Root cause**: `emacs-pgtk` renders all buffer content via **Cairo on the CPU**.
+At 3840×2160 (4K) the Cairo surface is ~33MB. Every cursor move, mode line update,
+or cursor blink forces Cairo to rasterize glyphs into that surface. More pixels = more
+CPU work. This is structural to how pgtk Emacs works — there is no GPU-accelerated text
+renderer.
+
+Firefox avoids this entirely via WebRender (GPU-native compositing).
+Obsidian (Electron) has the same issue for the same reason.
+
+**Things tried and ruled out:**
+- `GDK_SCALE=1 emacs` — no effect; on Wayland, KWin communicates scale via the Wayland
+  protocol and GTK4 ignores `GDK_SCALE` in favour of that, so Emacs still renders at 4K
+- `__EGL_VENDOR_LIBRARY_FILENAMES=.../10_nvidia.json emacs` — no effect; the bottleneck
+  is Cairo CPU rasterization, not the GPU texture upload path
+- Disabling EMMS mode-line — no effect; mode line redraws were not the bottleneck
+- `(emms-playing-time-mode -1)` — no effect for same reason
+
+**NOT tried / future options:**
+- Reduce KDE display scale from 200% to 150% — would give ~44% fewer pixels, affects
+  whole desktop, probably the most impactful option if the performance becomes intolerable
+- Wait for GPU-accelerated Emacs text rendering — experimental patches exist, nothing
+  in mainline Emacs yet
+- Switch to `emacs` (non-pgtk, X11/XWayland) — might benefit from Nvidia XRender
+  acceleration, untested; would lose native Wayland features
+
+**Current decision**: Leave it. Use Emacs in a non-maximized window at a comfortable
+size. Revisit if fractional scaling or a GPU-accelerated Emacs build becomes available.
+
+**`(blink-cursor-mode -1)` is already in config.org** — eliminates timer-driven redraws
+even when idle. Small improvement, zero cost.
+
 ---
 
 ### GPU hardware facts (desktop machine)
