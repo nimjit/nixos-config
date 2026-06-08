@@ -69,36 +69,55 @@ local MONTHS = { "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","No
 local DAYS   = { "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday" }
 
 -- ── Table renderer ────────────────────────────────────────────────────────────
--- Converts markdown pipe tables to unicode box-drawing characters.
--- Only applied to table lines; non-table lines pass through unchanged.
+-- Converts markdown pipe tables to unicode box-drawing chars with aligned columns.
 function M.render_md_table(lines)
     if not lines or #lines == 0 then return lines end
 
-    -- Detect if these lines contain a markdown table
     local has_table = false
     for _, l in ipairs(lines) do
         if l:match("^%s*|") then has_table = true; break end
     end
     if not has_table then return lines end
 
+    local function is_sep(line) return line:match("^%s*|%s*[-:]+%s*|") ~= nil end
+
+    local function split_cells(line)
+        local cells = {}
+        for cell in line:gmatch("|([^|]*)") do
+            cells[#cells + 1] = cell:match("^%s*(.-)%s*$")
+        end
+        while #cells > 0 and cells[#cells] == "" do table.remove(cells) end
+        return cells
+    end
+
+    -- Measure column widths from data rows
+    local col_widths = {}
+    for _, line in ipairs(lines) do
+        if line:match("^%s*|") and not is_sep(line) then
+            for i, cell in ipairs(split_cells(line)) do
+                local w = #cell
+                if not col_widths[i] or w > col_widths[i] then col_widths[i] = w end
+            end
+        end
+    end
+
+    local ncols = #col_widths
+    if ncols == 0 then return lines end
+
     local result = {}
     for _, line in ipairs(lines) do
-        if line:match("^%s*|%s*[-:]+%s*|") then
-            -- Separator row |---|---| → ├───┼───┤
-            local new = line
-                :gsub("^(%s*)%|", "%1├")
-                :gsub("%|%s*$", "┤")
-                :gsub("|", "┼")
-                :gsub("[%-]+", function(s) return string.rep("─", #s) end)
-                :gsub("[:]+", "─")
-            result[#result + 1] = new
+        if is_sep(line) then
+            local parts = {}
+            for i = 1, ncols do parts[#parts + 1] = string.rep("─", (col_widths[i] or 1) + 2) end
+            result[#result + 1] = "├" .. table.concat(parts, "┼") .. "┤"
         elseif line:match("^%s*|") then
-            -- Data row: replace | with │
-            local new = line
-                :gsub("^(%s*)%|", "%1│")
-                :gsub("%|%s*$", "│")
-                :gsub("|", "│")
-            result[#result + 1] = new
+            local cells = split_cells(line)
+            local parts = {}
+            for i = 1, ncols do
+                local cell = cells[i] or ""
+                parts[#parts + 1] = " " .. cell .. string.rep(" ", (col_widths[i] or #cell) - #cell + 1)
+            end
+            result[#result + 1] = "│" .. table.concat(parts, "│") .. "│"
         else
             result[#result + 1] = line
         end

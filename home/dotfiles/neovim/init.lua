@@ -209,6 +209,7 @@ vim.keymap.set("n", "<leader>?", function()
         " ─────────────────────────────────────── ",
         "  Files & Navigation                      ",
         "  <leader>f     Yazi file picker          ",
+        "  <leader>D     Back to dashboard         ",
         " ─────────────────────────────────────── ",
         "  Python                                  ",
         "  <leader>r     Run file                  ",
@@ -334,6 +335,20 @@ vim.api.nvim_create_user_command("WorkflowNixos", function()
     end)
 end, {})
 
+-- Re-open the appropriate dashboard from any file; detects CWD.
+vim.api.nvim_create_user_command("Dashboard", function()
+    local cwd = vim.fn.getcwd()
+    local buf
+    if cwd:find("Uni/Obsidian/Uni", 1, true) or cwd:find("Uni/Master", 1, true) then
+        buf = dash.open_uni()
+    else
+        buf = dash.open_vault()
+    end
+    vim.api.nvim_set_current_buf(buf)
+end, {})
+
+vim.keymap.set("n", "<leader>D", "<cmd>Dashboard<CR>", { silent = true })
+
                    -- Daily note + weight
 local VAULT_DAILIES = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies"
 
@@ -359,6 +374,19 @@ end, { nargs = "?" })
                    -- Typst inline rendering (<leader>tp = current block, <leader>ta = all blocks)
 -- Compiles ```typ blocks and renders them inline via image.nvim (kitty graphics).
 -- Falls back to a split preview if image.nvim is not available.
+
+-- Compiles a math expression (LaTeX $...$ or $$...$$) via typst, returns PNG path or nil.
+local function compile_math_block(content, id)
+    local src = "/tmp/nvim_typst_math_" .. id .. ".typ"
+    local img = "/tmp/nvim_typst_math_" .. id .. ".png"
+    local f = io.open(src, "w")
+    if f then
+        f:write("#set page(width: auto, height: auto, margin: 0pt)\n$ " .. content .. " $\n")
+        f:close()
+    end
+    vim.fn.system("typst compile " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(img) .. " 2>&1")
+    return vim.v.shell_error == 0 and img or nil
+end
 
 local function compile_typst_block(lines, start_line, end_line)
     local block = {}
@@ -413,17 +441,42 @@ vim.keymap.set("n", "<leader>tp", function()
         if lines[i] and lines[i]:match("^```$") and i > (start_line or 0) then end_line = i; break end
     end
 
-    if not start_line or not end_line then
-        vim.notify("Not inside a ```typ block", vim.log.levels.WARN)
+    if start_line and end_line then
+        local img, err = compile_typst_block(lines, start_line, end_line)
+        if not img then vim.notify("Typst error:\n" .. (err or ""), vim.log.levels.ERROR); return end
+        render_typst_inline(buf, win, img, end_line)
         return
     end
 
-    local img, err = compile_typst_block(lines, start_line, end_line)
-    if not img then
-        vim.notify("Typst error:\n" .. (err or ""), vim.log.levels.ERROR)
+    -- Check for $$ display math block around cursor
+    local dstart, dend
+    for i = cursor, 1, -1 do
+        if lines[i] and lines[i]:match("^%s*%$%$$") then dstart = i; break end
+    end
+    if dstart then
+        for i = dstart + 1, #lines do
+            if lines[i] and lines[i]:match("^%s*%$%$$") then dend = i; break end
+        end
+    end
+    if dstart and dend then
+        local parts = {}
+        for i = dstart + 1, dend - 1 do parts[#parts + 1] = lines[i] end
+        local img = compile_math_block(table.concat(parts, " "), tostring(dstart))
+        if img then render_typst_inline(buf, win, img, dend)
+        else vim.notify("Math compile error", vim.log.levels.ERROR) end
         return
     end
-    render_typst_inline(buf, win, img, end_line)
+
+    -- Check for $...$ inline math on current line
+    local inline = (lines[cursor] or ""):match("%$([^$]+)%$")
+    if inline then
+        local img = compile_math_block(inline, tostring(cursor))
+        if img then render_typst_inline(buf, win, img, cursor)
+        else vim.notify("Math compile error", vim.log.levels.ERROR) end
+        return
+    end
+
+    vim.notify("Not inside a ```typ, $$ or $...$ block", vim.log.levels.WARN)
 end)
 
 -- Render ALL typst blocks in the current buffer
@@ -447,6 +500,25 @@ vim.keymap.set("n", "<leader>ta", function()
             start_line = nil
         end
     end
+    -- Also render $$ display math blocks
+    local dstart = nil
+    for i, line in ipairs(lines) do
+        if line:match("^%s*%$%$$") then
+            if not dstart then
+                dstart = i
+            else
+                local parts = {}
+                for j = dstart + 1, i - 1 do parts[#parts + 1] = lines[j] end
+                local img = compile_math_block(table.concat(parts, " "), tostring(dstart))
+                if img then
+                    render_typst_inline(buf, win, img, i)
+                    count = count + 1
+                end
+                dstart = nil
+            end
+        end
+    end
+
     if count > 0 then vim.notify("Rendered " .. count .. " typst block(s)", vim.log.levels.INFO) end
 end)
 

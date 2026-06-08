@@ -64,16 +64,18 @@
       vault-work() { nvim -c WorkflowVault; }
       nixos-work() { nvim -c WorkflowNixos; }
 
-      # nchat in a dedicated kitty tab (focus if already open, create otherwise)
+      # nchat in a dedicated kitty tab; falls back to current terminal if kitty remote control unavailable
       messages() {
         kitty @ focus-tab --match title:nchat 2>/dev/null || \
-          kitty @ launch --type=tab --tab-title nchat nchat
+          kitty @ launch --type=tab --tab-title nchat nchat 2>/dev/null || \
+          nchat
       }
 
-      # rmpc in a dedicated kitty tab
+      # rmpc in a dedicated kitty tab; falls back to current terminal if kitty remote control unavailable
       music() {
         kitty @ focus-tab --match title:music 2>/dev/null || \
-          kitty @ launch --type=tab --tab-title music rmpc
+          kitty @ launch --type=tab --tab-title music rmpc 2>/dev/null || \
+          rmpc
       }
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
