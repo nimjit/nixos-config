@@ -15,6 +15,9 @@
     extraPython3Packages = (ps: with ps; []);
   };
 
+  # Lua modules available via require() in neovim
+  xdg.configFile."nvim/lua/dashboard.lua".source = ./dotfiles/neovim/lua/dashboard.lua;
+
   # Stable Python path for g:python3_host_prog in init.vim
   home.sessionVariables = {
     NVIM_PYTHON = "${pkgs.python3}/bin/python3";

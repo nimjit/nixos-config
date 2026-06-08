@@ -29,11 +29,17 @@
       # Navigation
       nixos   = "yazi /etc/nixos";
       backup  = "yazi ~/Documents/BACKUP";
-      vault   = "yazi ~/Documents/BACKUP/Obsidian/Rennaissance_Vault_Structure";
-      uni     = "yazi ~/Documents/BACKUP/Uni";
+      vault   = "yazi ~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure";
+      uni     = "yazi ~/Documents/BACKUP/Uni/Obsidian/Uni";
       ricing  = "yazi ~/Documents/BACKUP/Ricing";
       misc    = "yazi ~/Documents/BACKUP/Misc";
       books   = "yazi ~/Documents/BACKUP/Books";
+
+      # Calendar — syncs then opens TUI
+      cal     = "calcurse-caldav --quiet && calcurse";
+
+      # Daily note shortcut
+      today   = "nvim -c DailyNote";
 
       # Use Yazi instead of plain file browsing
       # (the 'y' wrapper is set in yazi.nix)
@@ -41,6 +47,11 @@
       # Home-manager does not configure root, so nvim in root does not apply init.lua
       # this alias makes any nvim run in sudo, whilst perserving the environment:
       "sudo nvim" = "sudo -E nvim";
+    };
+
+    sessionVariables = {
+      # lpass --clip uses wl-copy on Wayland
+      LPASS_CLIPBOARD_COMMAND = "wl-copy";
     };
 
     initContent = ''
@@ -52,7 +63,18 @@
       uni-code()   { nvim -c WorkflowCode; }
       vault-work() { nvim -c WorkflowVault; }
       nixos-work() { nvim -c WorkflowNixos; }
-      messages()   { nchat; }
+
+      # nchat in a dedicated kitty tab (focus if already open, create otherwise)
+      messages() {
+        kitty @ focus-tab --match title:nchat 2>/dev/null || \
+          kitty @ launch --type=tab --tab-title nchat nchat
+      }
+
+      # rmpc in a dedicated kitty tab
+      music() {
+        kitty @ focus-tab --match title:music 2>/dev/null || \
+          kitty @ launch --type=tab --tab-title music rmpc
+      }
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
@@ -60,18 +82,19 @@
         echo " Go to:"
         echo "  nixos   → /etc/nixos"
         echo "  backup  → ~/Documents/BACKUP"
-        echo "  vault   → ~/Documents/BACKUP/Obsidian/Rennaissance_Vault_Structure"
-        echo "  uni     → ~/Documents/BACKUP/Uni"
+        echo "  vault   → Renaissance vault"
+        echo "  uni     → Uni vault"
         echo "  books   → ~/Documents/BACKUP/Books"
-        echo "  ricing  → ~/Documents/BACKUP/Ricing"
-        echo "  misc    → ~/Documents/BACKUP/Misc"
         echo ""
         echo "  Workflows:"
-        echo "  uni-work  →   Uni Obsidian vault"
-        echo "  uni-code  →   Current coding project"
-        echo "  vault-work→   Personal vault + Claude"
-        echo "  nixos-work→   NixOS config + Claude"
-        echo "  messages  →   WhatsApp (nchat)"
+        echo "  uni-work   →  Uni dashboard"
+        echo "  uni-code   →  Current coding project"
+        echo "  vault-work →  Personal vault + Claude"
+        echo "  nixos-work →  NixOS config + Claude"
+        echo "  today      →  Today's daily note"
+        echo "  messages   →  WhatsApp (nchat)"
+        echo "  music      →  Music player (rmpc)"
+        echo "  cal        →  Calendar (calcurse)"
         echo ""
       fi
     '';

@@ -211,12 +211,18 @@ vim.keymap.set("n", "<leader>?", function()
         " ─────────────────────────────────────── ",
         "  q / <Esc>     Close this popup          ",
         " ─────────────────────────────────────── ",
+        "  Typst                                    ",
+        "  <leader>tp    Preview typst block       ",
+        " ─────────────────────────────────────── ",
         "  Workflows (shell aliases)               ",
-        "  uni-work      Uni Obsidian vault        ",
+        "  uni-work      Uni dashboard + vault     ",
         "  uni-code      Current coding project    ",
         "  vault-work    Personal vault + Claude   ",
         "  nixos-work    NixOS config + Claude     ",
+        "  today         Today's daily note        ",
         "  messages      WhatsApp (nchat)          ",
+        "  music         Music player (rmpc)       ",
+        "  cal           Calendar (calcurse)       ",
     }
     local width = 48
     local height = #lines
@@ -240,9 +246,12 @@ vim.keymap.set("n", "<leader>?", function()
 end)
 
                    -- Workflow launchers
+local dash = require('dashboard')
+
 -- Update uni_code_path each course
 vim.g.uni_code_path = "/home/thijmen/Documents/BACKUP/Uni/Master/Computational Physics"
 
+-- Shared yazi picker used by WorkflowCode and WorkflowNixos
 local function workflow_open(path, after)
     vim.cmd("cd " .. vim.fn.fnameescape(path))
     local tmp = vim.fn.tempname()
@@ -272,20 +281,23 @@ local function workflow_open(path, after)
     vim.cmd("startinsert")
 end
 
+vim.api.nvim_create_user_command("WorkflowVault", function()
+    local buf = dash.open_vault()
+    vim.api.nvim_set_current_buf(buf)
+    vim.cmd("cd /home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure")
+    -- Claude session in a right split
+    vim.cmd("vsplit | terminal claude --continue")
+    vim.cmd("1wincmd w")
+end, {})
+
 vim.api.nvim_create_user_command("WorkflowUni", function()
-    workflow_open("/home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni", nil)
+    local buf = dash.open_uni()
+    vim.api.nvim_set_current_buf(buf)
+    vim.cmd("cd /home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni")
 end, {})
 
 vim.api.nvim_create_user_command("WorkflowCode", function()
-    workflow_open(vim.g.uni_code_path, function(
-    )
-        vim.cmd("vsplit | terminal claude --continue")
-        vim.cmd("1wincmd w")
-    end)
-end, {})
-
-vim.api.nvim_create_user_command("WorkflowVault", function()
-    workflow_open("/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure", function()
+    workflow_open(vim.g.uni_code_path, function()
         vim.cmd("vsplit | terminal claude --continue")
         vim.cmd("1wincmd w")
     end)
@@ -298,6 +310,65 @@ vim.api.nvim_create_user_command("WorkflowNixos", function()
         vim.cmd("1wincmd w")
     end)
 end, {})
+
+                   -- Daily note
+local VAULT_DAILIES = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies"
+
+vim.api.nvim_create_user_command("DailyNote", function()
+    local date = os.date("%Y-%m-%d")
+    local path = VAULT_DAILIES .. "/" .. date .. ".md"
+    if vim.fn.filereadable(path) == 0 then
+        local f = io.open(path, "w")
+        if f then
+            f:write("# " .. date .. "\n\n## Weight\n\n## Today\n\n## Italian\n\n## Notes\n")
+            f:close()
+        end
+    end
+    vim.cmd("edit " .. vim.fn.fnameescape(path))
+end, {})
+
+                   -- Typst preview (<leader>tp)
+-- Finds the ```typ block around cursor, compiles it, displays in a split.
+vim.keymap.set("n", "<leader>tp", function()
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local cursor = vim.api.nvim_win_get_cursor(0)[1]
+
+    -- Find enclosing ```typ ... ``` block
+    local start_line, end_line
+    for i = cursor, 1, -1 do
+        if lines[i] and lines[i]:match("^```typ") then
+            start_line = i + 1
+            break
+        end
+    end
+    for i = cursor, #lines do
+        if lines[i] and lines[i]:match("^```$") and start_line and i > start_line - 1 then
+            end_line = i - 1
+            break
+        end
+    end
+
+    -- Fall back to whole buffer if it's a .typ file
+    if not start_line then
+        if vim.bo.filetype == "typst" or vim.fn.expand("%:e") == "typ" then
+            vim.fn.system("typst compile " .. vim.fn.shellescape(vim.fn.expand("%:p")) .. " /tmp/nvim_typst_preview.png 2>&1")
+        else
+            vim.notify("Not inside a ```typ block", vim.log.levels.WARN)
+            return
+        end
+    else
+        local block = {}
+        for i = start_line, end_line do
+            block[#block + 1] = lines[i]
+        end
+        local f = io.open("/tmp/nvim_typst_preview.typ", "w")
+        if f then f:write(table.concat(block, "\n")); f:close() end
+        vim.fn.system("typst compile /tmp/nvim_typst_preview.typ /tmp/nvim_typst_preview.png 2>&1")
+    end
+
+    -- Show in a vertical split using kitten icat
+    vim.cmd("vsplit | terminal kitten icat /tmp/nvim_typst_preview.png; read -r -p 'Press enter to close'")
+end)
 
                    -- Git shortcuts
 vim.keymap.set("n", "<leader>gs", ":!git status<CR>")

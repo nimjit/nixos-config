@@ -15,6 +15,7 @@
 
 - [ ] **Nvidia + Wayland**: you have legacy_535 drivers. Need to test which renderer
       works — `vulkan` first, fall back to `gles2`. This is the main risk.
+      Another option is switching to X11, we still need to discuss what the differences are between them.
 - [ ] **Monitor IDs**: run `swaymsg -t get_outputs` after first sway launch to get
       exact output names (e.g. `DP-1`, `HDMI-A-1`) for positioning config.
 - [ ] **Okular**: do you want to keep it? `zathura` handles most PDFs already.

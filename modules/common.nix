@@ -69,6 +69,8 @@
 
     # Media
     spotify
+    mpc            # CLI control for MPD (mpc toggle, mpc next, etc.)
+    rmpc           # TUI music client with album art via kitty graphics protocol
 
     # Theming tools
     nwg-look      # GTK theme tweaker

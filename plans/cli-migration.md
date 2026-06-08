@@ -25,7 +25,7 @@ protocol WhatsApp Web uses). It gives desktop notifications without keeping a br
 tab open. Once paired, it runs headlessly and stays connected via a background
 process or by launching it when needed.
 
-### First-time pairing (one-time)
+### First-time pairing (one-time) - Done
 
 ```bash
 nchat
@@ -40,8 +40,8 @@ window narrower before running.
 
 ### Key bindings inside nchat
 
-nchat is a TUI. Default bindings:
-- `j / k` — next / previous chat
+nchat is a TUI. Bindings:
+- `ctrl+ j / k` — next / previous chat
 - `Enter` — open selected chat
 - `i` — enter compose mode
 - `Escape` — back to chat list
@@ -51,6 +51,16 @@ nchat is a TUI. Default bindings:
 
 All bindings are configurable in `~/.config/nchat/ui.conf`.
 
+I want them more neovim like:
+nchat is a TUI. Bindings:
+- `ctrl+ h / l` — move between chat content and chats list
+- `Enter/ l` — open selected chat
+- `i` — enter compose mode
+- `Escape` — back to normal mode
+- `:q` — quit
+- `j / k` — scroll message history
+Check init.lua - the neovim config - for keybindings.
+
 ### Desktop notifications
 
 nchat sends notifications via `libnotify` (notify-send) when it is not focused or
@@ -58,7 +68,7 @@ running in the background. On KDE this hits the KDE notification daemon. On Sway
 hits mako. No additional configuration needed.
 
 To keep nchat running in the background so it receives notifications even when the
-window is closed, run it inside a tmux session:
+window is closed, running it inside a tmux session is an option:
 
 ```bash
 # In zsh config or as an alias:
@@ -68,6 +78,8 @@ alias messages="tmux new-session -A -s nchat nchat"
 `tmux new-session -A -s nchat nchat` attaches to the existing nchat tmux session if
 it's already running, or creates a new one. This way nchat is always running and
 you just "attach" to check messages.
+
+Currently tmux is not setup yet. If this is required, install it, else mention another method for notifications.
 
 ### NixOS config additions needed
 
@@ -98,14 +110,12 @@ messages() {
 
 - [ ] **nchat config**: check if `~/.config/nchat/ui.conf` needs vim-key remapping
       (some builds ship with arrow-key defaults; may need to remap j/k manually)
-- [ ] **Multiple accounts**: if you have both personal and business WhatsApp, nchat
-      supports multiple accounts via `nchat --profile <name>`. One session per profile.
 - [ ] **Notification filtering**: if notification volume is too high, nchat allows
       per-chat mute. Check `~/.config/nchat/` docs after first run.
-
+- [ ] Multiple accounts: is it also possible to use nchat for different chatting apps, other than       whatsapp?
 ---
 
-## Tool 2 — New Tab Page (replace Tabliss)
+## Tool 2 — New Tab Page (replace Tabliss) - Done 
 
 ### The problem
 
@@ -286,6 +296,7 @@ setInterval(tick, 1000);
 - The WhatsApp link in "daily" can be removed once nchat is the primary interface
 - Colors are hardcoded to ukiyo palette; update `--bg`, `--fg`, `--accent` if the
   theme changes
+- The typography is a bit small, check tabliss.json in /home/thijmen/Documents/BACKUP/Ricing for a more detailed comparisson.
 
 ### Open questions
 
@@ -294,7 +305,8 @@ setInterval(tick, 1000);
 - [ ] **Tridactyl newtab setting**: Tridactyl has its own `set newtab <url>` command
       that overrides Firefox's new tab. If Tridactyl is managing the new tab, set it
       there instead: `:set newtab file:///home/thijmen/.config/firefox/newtab.html`
-- [ ] **Tabliss removal**: uninstall Tabliss from Firefox after the new page is working
+- [ ] **Tabliss removal**: disable Tabliss from Firefox after the new page is working
+      Do not uninstall, because other computers still use this extension on the same firefox account.
 
 ---
 
@@ -309,7 +321,7 @@ handles terminal access and scripting (rofi password picker, SSH key retrieval, 
 ### First-time login (one-time)
 
 ```bash
-lpass login tidemanus@gmail.com
+lpass login thijmen.nouwens@gmail.com
 ```
 
 This prompts for your LastPass master password. If 2FA is enabled, it will ask for
@@ -355,7 +367,7 @@ Add to `home/zsh.nix` environment or as a function:
 sessionVariables.LPASS_CLIPBOARD_COMMAND = "wl-copy";
 ```
 
-### Rofi password picker script
+### Rofi password picker script - Requires Rofi
 
 A script that fuzzy-searches your LastPass vault via rofi and copies the selected
 password to the clipboard. Trigger with a keyboard shortcut.

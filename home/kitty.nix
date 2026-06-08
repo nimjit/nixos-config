@@ -13,6 +13,9 @@
       hide_window_decorations = "yes";
       tab_bar_style = "powerline";
       tab_powerline_style = "slanted";
+      # Required for messages() and music() to manage kitty tabs via 'kitty @'
+      allow_remote_control = "yes";
+      listen_on = "unix:/tmp/kitty-control";
     };
 
     keybindings = {

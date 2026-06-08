@@ -45,7 +45,7 @@ Tracks `nixpkgs` and `home-manager` on `release-26.05` (stable).
 - KDE/Plasma config files in `~/.config` (kwinrc, kdeglobals, etc.) are **not** managed by Home Manager and can be edited directly, but won't be reproducible without declaring them.
 - `/etc/nixos` is now owned by `thijmen:users` so no `sudo` is needed for editing or git.
 - `sudo` is still required to run `nixos-rebuild switch`.
-- Theme is managed globally by [Stylix](https://github.com/danth/stylix) — `modules/stylix.nix`.
+- Theme is managed globally by [Stylix](https://github.com/danth/stylix) — `modules/stylix.nix`. But some apps use their own overrides.
 
 ## Workflow
 
@@ -58,6 +58,7 @@ Tracks `nixpkgs` and `home-manager` on `release-26.05` (stable).
 - `rebuild` alias hardcodes `-H desktop` — `$(hostname)` expansion fails in zsh alias context. Should be made hostname-aware once the root cause is understood.
 - Netrw sidebar workflow being migrated to yazi-based workflow. Netrw config is retained in `init.lua` for Windows compatibility but is no longer the primary navigation method on Linux.
 - Obsidian vault has a redundant double-folder: `Obsidian/Rennaissance_Vault_Structure/` — consider flattening.
+- Obsidian and Emacs run slow on larger window sizes. This should be fixed, in the mean time, the user is relying on neovim mostly.
 - Python path in nvim (`vim.g.python_path`) is hardcoded to `/run/current-system/sw/bin/python3`. Should eventually be generalised (e.g. respect virtual envs or `NVIM_PYTHON` env var that is already set).
 
 ### Larger projects
@@ -68,8 +69,6 @@ Tracks `nixpkgs` and `home-manager` on `release-26.05` (stable).
   Key open item: test Nvidia legacy_535 + Wayland (`WLR_RENDERER=vulkan`).
   Strategy: keep KDE, add sway as parallel SDDM session, test before removing KDE.
 - **Emacs setup**: full step plan in `plans/emacs.md`.
-  Decision pending: Doom vs vanilla config. Core use-cases: evil editing, org-roam
-  (Obsidian replacement), LaTeX for physics, separate nixos/uni/personal note systems.
 
 ### CLI migration
 
