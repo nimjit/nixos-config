@@ -20,26 +20,28 @@ timedelta = 7d
 show_week_numbers = True
 
 [palette]
-# Ukiyo base16 palette mapped to urwid 256-colour indices:
-#   h222 = warm gold  (base0D #e0ba86)
-#   h179 = amber      (base0A #ba945f)
-#   h251 = light warm (base05 #ccc2b7)
-#   h237 = dark warm  (base01 #413632)
-#   h235 = darkest    (base00 #372d29)
-#   h107 = green      (base0B #9aad6e)
-#   h160 = red        (base08 #c72626)
-header     = ['h222', 'default', 'bold']
-header_att = ['h235', 'h222', '']
-popupbg    = ['h251', 'h237', '']
-default    = ['h251', 'default', '']
-marked     = ['h235', 'h222', 'bold']
-options    = ['h222', 'default', '']
-frame      = ['h179', 'default', '']
-editfc     = ['h251', 'h237', 'bold']
-editbx     = ['h251', 'h237', '']
-editcp     = ['h235', 'h251', 'standout']
-alert      = ['h235', 'h160', 'bold']
-confirm    = ['h235', 'h107', 'bold']
-time_bg    = ['h179', 'default', '']
-time_focus = ['h222', 'default', 'bold']
-edit       = ['h251', 'h237', '']
+# Ukiyo base16 palette — format: low_fg, low_bg, mono, high_fg, high_bg
+# h222=gold(e0ba86) h179=amber(ba945f) h251=text(ccc2b7) h237=dark(413632)
+# h235=darkest(372d29) h107=green(9aad6e) h160=red(c72626)
+header              = '', '', bold,     h222, default
+date header         = '', '', '',       h251, h237
+date header focused = '', '', bold,     h235, h222
+date header selected = '', '', '',      h251, h235
+dayname             = '', '', '',       h179, default
+monthname           = '', '', '',       h179, default
+weeknumber_right    = '', '', '',       h179, default
+today               = '', '', '',       h235, h179
+today focus         = '', '', bold,     h235, h222
+list                = '', '', '',       h251, default
+list focused        = '', '', bold,     h235, h222
+edit                = '', '', '',       h251, h237
+edit focus          = '', '', bold,     h251, h222
+editbx              = '', '', '',       h251, h237
+editcp              = '', '', standout, h235, h251
+popupbg             = '', '', '',       h251, h237
+popupper            = '', '', '',       h235, h222
+alert               = '', '', bold,     h235, h160
+mark                = '', '', bold,     h235, h107
+frame               = '', '', '',       h179, default
+frame focus         = '', '', '',       h222, default
+caption             = '', '', bold,     h222, default
