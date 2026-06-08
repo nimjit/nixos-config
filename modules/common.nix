@@ -77,7 +77,7 @@
 
     # Emacs dependencies
     tinymist   # Typst LSP (used by typst-ts-mode via eglot)
-    enchant2   # spell-check backend for jinx
+    enchant_2   # spell-check backend for jinx
     (hunspellWithDicts [ hunspellDicts.en_US hunspellDicts.nl_NL ])
 
     # Languages

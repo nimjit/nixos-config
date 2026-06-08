@@ -4,6 +4,26 @@ vim.api.nvim_set_hl(0, "netrwSymlink", { link = "Type", underline = true })
 vim.cmd("syntax on")
 vim.cmd("filetype plugin indent on")
 
+-- image.nvim — inline image rendering via kitty graphics protocol
+-- Only active when running inside kitty; silently skipped otherwise.
+pcall(function()
+    require("image").setup({
+        backend = "kitty",
+        integrations = {
+            markdown = {
+                enabled = true,
+                clear_in_insert_mode = true,
+                download_remote_images = false,
+                only_render_image_at_cursor = false,
+                filetypes = { "markdown" },
+            },
+        },
+        max_height_window_percentage = 40,
+        window_overlap_clear_enabled = true,
+        editor_only_render_when_focused = true,
+    })
+end)
+
                     -- Vim Settings --
                     
 -- See `:help vim.o`
@@ -211,8 +231,11 @@ vim.keymap.set("n", "<leader>?", function()
         " ─────────────────────────────────────── ",
         "  q / <Esc>     Close this popup          ",
         " ─────────────────────────────────────── ",
-        "  Typst                                    ",
-        "  <leader>tp    Preview typst block       ",
+        "  Typst / PDF                              ",
+        "  <leader>tp    Render typst block inline ",
+        "  <leader>ta    Render all typst blocks   ",
+        "  <leader>z     Open PDF in zathura       ",
+        "  :LogWeight N  Log weight to vault       ",
         " ─────────────────────────────────────── ",
         "  Workflows (shell aliases)               ",
         "  uni-work      Uni dashboard + vault     ",
@@ -311,7 +334,7 @@ vim.api.nvim_create_user_command("WorkflowNixos", function()
     end)
 end, {})
 
-                   -- Daily note
+                   -- Daily note + weight
 local VAULT_DAILIES = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies"
 
 vim.api.nvim_create_user_command("DailyNote", function()
@@ -320,54 +343,149 @@ vim.api.nvim_create_user_command("DailyNote", function()
     if vim.fn.filereadable(path) == 0 then
         local f = io.open(path, "w")
         if f then
-            f:write("# " .. date .. "\n\n## Weight\n\n## Today\n\n## Italian\n\n## Notes\n")
+            -- No weight section here — log weight with :LogWeight or [w] in vault dashboard
+            f:write("# " .. date .. "\n\n## Today\n\n## Italian\n\n## Notes\n")
             f:close()
         end
     end
     vim.cmd("edit " .. vim.fn.fnameescape(path))
 end, {})
 
-                   -- Typst preview (<leader>tp)
--- Finds the ```typ block around cursor, compiles it, displays in a split.
+vim.api.nvim_create_user_command("LogWeight", function(opts)
+    local weight = opts.args ~= "" and opts.args or vim.fn.input("Weight (kg): ")
+    if weight ~= "" then dash.log_weight(weight) end
+end, { nargs = "?" })
+
+                   -- Typst inline rendering (<leader>tp = current block, <leader>ta = all blocks)
+-- Compiles ```typ blocks and renders them inline via image.nvim (kitty graphics).
+-- Falls back to a split preview if image.nvim is not available.
+
+local function compile_typst_block(lines, start_line, end_line)
+    local block = {}
+    for i = start_line + 1, end_line - 1 do block[#block + 1] = lines[i] end
+    local id    = tostring(start_line)
+    local src   = "/tmp/nvim_typst_" .. id .. ".typ"
+    local img   = "/tmp/nvim_typst_" .. id .. ".png"
+    local f = io.open(src, "w")
+    if f then f:write(table.concat(block, "\n")); f:close() end
+    local out = vim.fn.system("typst compile " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(img) .. " 2>&1")
+    return vim.v.shell_error == 0 and img or nil, out
+end
+
+local function render_typst_inline(buf, win, img_path, after_line)
+    local ok, image = pcall(require, "image")
+    if ok then
+        local img = image.from_file(img_path, {
+            id     = "typst_" .. after_line,
+            buffer = buf,
+            window = win,
+            with_virtual_padding = true,
+        })
+        img:render({ x = 0, y = after_line })
+    else
+        -- Fallback: split preview
+        vim.cmd("vsplit | terminal kitten icat " .. vim.fn.shellescape(img_path) ..
+            " ; read -r -p 'press enter to close'")
+    end
+end
+
 vim.keymap.set("n", "<leader>tp", function()
-    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-    local cursor = vim.api.nvim_win_get_cursor(0)[1]
+    local buf   = vim.api.nvim_get_current_buf()
+    local win   = vim.api.nvim_get_current_win()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local cursor = vim.api.nvim_win_get_cursor(win)[1]
+
+    -- If it's a .typ file, compile the whole file
+    if vim.bo.filetype == "typst" or vim.fn.expand("%:e") == "typ" then
+        local src = vim.fn.expand("%:p")
+        local img = "/tmp/nvim_typst_file.png"
+        vim.fn.system("typst compile " .. vim.fn.shellescape(src) .. " " .. vim.fn.shellescape(img))
+        render_typst_inline(buf, win, img, cursor)
+        return
+    end
 
     -- Find enclosing ```typ ... ``` block
     local start_line, end_line
     for i = cursor, 1, -1 do
-        if lines[i] and lines[i]:match("^```typ") then
-            start_line = i + 1
-            break
-        end
+        if lines[i] and lines[i]:match("^```typ") then start_line = i; break end
     end
-    for i = cursor, #lines do
-        if lines[i] and lines[i]:match("^```$") and start_line and i > start_line - 1 then
-            end_line = i - 1
-            break
-        end
+    for i = (start_line or cursor), #lines do
+        if lines[i] and lines[i]:match("^```$") and i > (start_line or 0) then end_line = i; break end
     end
 
-    -- Fall back to whole buffer if it's a .typ file
-    if not start_line then
-        if vim.bo.filetype == "typst" or vim.fn.expand("%:e") == "typ" then
-            vim.fn.system("typst compile " .. vim.fn.shellescape(vim.fn.expand("%:p")) .. " /tmp/nvim_typst_preview.png 2>&1")
-        else
-            vim.notify("Not inside a ```typ block", vim.log.levels.WARN)
-            return
-        end
-    else
-        local block = {}
-        for i = start_line, end_line do
-            block[#block + 1] = lines[i]
-        end
-        local f = io.open("/tmp/nvim_typst_preview.typ", "w")
-        if f then f:write(table.concat(block, "\n")); f:close() end
-        vim.fn.system("typst compile /tmp/nvim_typst_preview.typ /tmp/nvim_typst_preview.png 2>&1")
+    if not start_line or not end_line then
+        vim.notify("Not inside a ```typ block", vim.log.levels.WARN)
+        return
     end
 
-    -- Show in a vertical split using kitten icat
-    vim.cmd("vsplit | terminal kitten icat /tmp/nvim_typst_preview.png; read -r -p 'Press enter to close'")
+    local img, err = compile_typst_block(lines, start_line, end_line)
+    if not img then
+        vim.notify("Typst error:\n" .. (err or ""), vim.log.levels.ERROR)
+        return
+    end
+    render_typst_inline(buf, win, img, end_line)
+end)
+
+-- Render ALL typst blocks in the current buffer
+vim.keymap.set("n", "<leader>ta", function()
+    local buf   = vim.api.nvim_get_current_buf()
+    local win   = vim.api.nvim_get_current_win()
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local start_line = nil
+    local count = 0
+    for i, line in ipairs(lines) do
+        if line:match("^```typ") then
+            start_line = i
+        elseif start_line and line:match("^```$") then
+            local img, err = compile_typst_block(lines, start_line, i)
+            if img then
+                render_typst_inline(buf, win, img, i)
+                count = count + 1
+            else
+                vim.notify("Block at line " .. start_line .. " failed:\n" .. (err or ""), vim.log.levels.WARN)
+            end
+            start_line = nil
+        end
+    end
+    if count > 0 then vim.notify("Rendered " .. count .. " typst block(s)", vim.log.levels.INFO) end
+end)
+
+-- Auto-render typst blocks on BufEnter for markdown files
+vim.api.nvim_create_autocmd("BufWritePost", {
+    pattern = "*.md",
+    callback = function()
+        local ok = pcall(require, "image")
+        if ok then vim.cmd("silent! normal \\<leader>ta") end
+    end,
+})
+
+                   -- PDF viewer (<leader>z)
+-- Opens the PDF linked on the current line in zathura, or prompts for a path.
+vim.keymap.set("n", "<leader>z", function()
+    local line = vim.api.nvim_get_current_line()
+    -- Match ![[...pdf]] or [[...pdf]] obsidian links
+    local pdf = line:match("!?%[%[(.-)%.pdf%]%]")
+    if pdf then
+        -- Resolve relative to vault attachments
+        local vault = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure"
+        local uni   = "/home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni"
+        local candidates = {
+            vault .. "/Attachments/" .. pdf .. ".pdf",
+            uni   .. "/Attachments/" .. pdf .. ".pdf",
+            pdf .. ".pdf",
+        }
+        for _, p in ipairs(candidates) do
+            if vim.fn.filereadable(p) == 1 then
+                vim.fn.system("zathura " .. vim.fn.shellescape(p) .. " &")
+                return
+            end
+        end
+        vim.notify("PDF not found: " .. pdf, vim.log.levels.WARN)
+        return
+    end
+    -- Prompt
+    local path = vim.fn.input("PDF path: ", vim.fn.expand("%:h") .. "/", "file")
+    if path ~= "" then vim.fn.system("zathura " .. vim.fn.shellescape(path) .. " &") end
 end)
 
                    -- Git shortcuts

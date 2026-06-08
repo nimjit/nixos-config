@@ -35,8 +35,8 @@
       misc    = "yazi ~/Documents/BACKUP/Misc";
       books   = "yazi ~/Documents/BACKUP/Books";
 
-      # Calendar — syncs then opens TUI
-      cal     = "calcurse-caldav --quiet && calcurse";
+      # Calendar — syncs (stdout suppressed, errors shown) then opens TUI
+      cal     = "calcurse-caldav > /dev/null && calcurse";
 
       # Daily note shortcut
       today   = "nvim -c DailyNote";

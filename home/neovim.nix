@@ -10,6 +10,10 @@
     # Do not set a colorscheme here; Stylix owns that.
     initLua = builtins.readFile ./dotfiles/neovim/init.lua;
 
+    plugins = with pkgs.vimPlugins; [
+      image-nvim   # inline image rendering via kitty graphics protocol (used for typst)
+    ];
+
     # Python provider — points to the system Python
     # Used for running code directly from Neovim without plugins
     extraPython3Packages = (ps: with ps; []);
