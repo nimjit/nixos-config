@@ -14,9 +14,20 @@
   boot.loader.efi.efiSysMountPoint = "/boot";
 
   # ── GPU ───────────────────────────────────────────────────────────────────
-  # Intel iGPU (PCI:0:2:0) + Nvidia GTX 1060 (PCI:1:0:0)
-  # Monitors are on the Nvidia card. Tell KWin to use it directly via
-  # KWIN_DRM_DEVICES; skip PRIME sync (not supported by 535 legacy driver).
+  # Hardware: Intel iGPU (PCI:0:2:0) = card1, Nvidia GTX 1060 (PCI:1:0:0) = card2
+  # Monitors are physically connected to the Nvidia card.
+  #
+  # DO NOT enable hardware.nvidia.prime.reverseSync — it crashes the legacy_535
+  # driver at KWin startup (tested: gen 52 with PRIME enabled → blank screen).
+  #
+  # DO NOT wait for dev-dri-card2.device — the Nvidia DRM card (card2) with
+  # nvidia-drm.modeset=1 initializes slowly; systemd times out waiting for it
+  # and the display-manager never starts (tested: gens 52, 63, 64 → boot hang).
+  # Use card1 (Intel iGPU) instead: it appears almost instantly, and by the
+  # time it's up the Nvidia card is also ready. KWIN_DRM_DEVICES handles routing.
+  #
+  # DO NOT add intel-media-driver to hardware.graphics.extraPackages without PRIME —
+  # it was only needed for the PRIME offload path which we don't use.
 
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.nvidia.modesetting.enable = true;
@@ -27,13 +38,14 @@
   hardware.graphics.enable = true;
   boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 
-  # Force KWin to render on the Nvidia card (stable PCI path, avoids
-  # the broken Intel→Nvidia PRIME copy path that caused 20Hz rendering).
+  # Force KWin to render on the Nvidia card via stable PCI path, bypassing
+  # the broken Intel→Nvidia PRIME copy path that caused 20Hz rendering lag.
   environment.variables.KWIN_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card";
 
-  # Wait for Nvidia DRM device before starting display manager
-  systemd.services.display-manager.after = [ "dev-dri-card2.device" ];
-  systemd.services.display-manager.wants = [ "dev-dri-card2.device" ];
+  # Wait for Intel iGPU (card1) — NOT card2 (Nvidia). card1 appears fast;
+  # card2 with modesetting is too slow and causes display-manager to hang on boot.
+  systemd.services.display-manager.after = [ "dev-dri-card1.device" ];
+  systemd.services.display-manager.wants = [ "dev-dri-card1.device" ];
 
   # ── Desktop environment ───────────────────────────────────────────────────
   services.xserver.enable = true;
