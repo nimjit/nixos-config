@@ -543,10 +543,12 @@ vim.api.nvim_create_autocmd("BufWritePost", {
     end,
 })
 
-                   -- PDF viewer (<leader>z)
--- Opens a right-split terminal running an interactive page-by-page PDF viewer
--- using pdftoppm + kitten icat (kitty graphics protocol).
--- Keys inside the split: n/l next  p/h prev  :N goto  q quit
+                   -- PDF / image viewer (<leader>z)
+-- Opens a kitty vsplit panel (real kitty window, not neovim terminal) so that
+-- kitten icat can use the kitty graphics protocol without the pixel-query
+-- limitation that breaks image rendering inside neovim :terminal buffers.
+-- Requires allow_remote_control + listen_on in kitty.conf (already set).
+-- Keys inside the PDF split: n/l next  p/h prev  :N goto  q quit
 local function open_pdf_split(pdf_path)
     local script = string.format([[
 #!/usr/bin/env bash
@@ -560,8 +562,7 @@ show_page() {
   rm -f /tmp/nvim_pdfv*.png
   pdftoppm -r 150 -f "$PAGE" -l "$PAGE" -png "$PDF" /tmp/nvim_pdfv_p
   IMG=$(ls /tmp/nvim_pdfv_p*.png 2>/dev/null | head -1)
-  COLS=$(tput cols); ROWS=$(($(tput lines) - 2))
-  [ -n "$IMG" ] && kitten icat --clear --place "${COLS}x${ROWS}@0x0" "$IMG" || echo "(render failed)"
+  [ -n "$IMG" ] && kitten icat --clear "$IMG" || echo "(render failed)"
   printf "\n  Page %%d/%%s   [h/p] prev  [l/n] next  [:N] goto  [q] quit\n" "$PAGE" "$TOTAL"
 }
 
@@ -582,8 +583,7 @@ done
     local f = io.open(sf, "w")
     if f then f:write(script); f:close() end
     vim.fn.system("chmod +x " .. sf)
-    vim.cmd("vsplit | terminal bash " .. sf)
-    vim.cmd("startinsert")
+    vim.fn.system("kitty @ launch --type=window --location=vsplit --title pdf-preview bash " .. sf)
 end
 
 local IMG_EXTS = { "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "PNG", "JPG", "JPEG" }
@@ -595,14 +595,15 @@ local function is_image(name)
 end
 
 local function open_image_split(img_path)
-    local script = string.format(
-        "COLS=$(tput cols); ROWS=$(($(tput lines)-2));" ..
-        " kitten icat --clear --place \"${COLS}x${ROWS}@0x0\" %s;" ..
-        " echo; read -r -n1 -p '  [any key] close '",
-        vim.fn.shellescape(img_path)
+    local cmd = string.format(
+        "kitty @ launch --type=window --location=vsplit --title img-preview" ..
+        " bash -c %s",
+        vim.fn.shellescape(
+            "kitten icat --clear " .. vim.fn.shellescape(img_path) ..
+            "; read -r -n1 -p '  [any key] close '"
+        )
     )
-    vim.cmd("vsplit | terminal bash -c " .. vim.fn.shellescape(script))
-    vim.cmd("startinsert")
+    vim.fn.system(cmd)
 end
 
 vim.keymap.set("n", "<leader>z", function()
