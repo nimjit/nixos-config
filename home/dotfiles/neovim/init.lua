@@ -12,15 +12,24 @@ vim.cmd("filetype plugin indent on")
 -- Bold   → gold (#e0ba86, base0D, same as h2)
 -- Links  → label red, URL gold
 local function set_md_highlights()
-    vim.api.nvim_set_hl(0, "@markup.italic",      { fg = "#c72626", italic = true })
-    vim.api.nvim_set_hl(0, "@markup.strong",      { fg = "#e0ba86", bold   = true })
-    vim.api.nvim_set_hl(0, "@markup.link.label",  { fg = "#c72626" })
-    vim.api.nvim_set_hl(0, "@markup.link.url",    { fg = "#e0ba86", underline = true })
-    -- legacy group names (neovim < 0.10 / older parsers)
-    vim.api.nvim_set_hl(0, "@text.emphasis",      { fg = "#c72626", italic = true })
-    vim.api.nvim_set_hl(0, "@text.strong",        { fg = "#e0ba86", bold   = true })
-    vim.api.nvim_set_hl(0, "@text.reference",     { fg = "#c72626" })
-    vim.api.nvim_set_hl(0, "@text.uri",           { fg = "#e0ba86", underline = true })
+    -- vim built-in markdown syntax groups (no treesitter needed)
+    vim.api.nvim_set_hl(0, "markdownItalic",        { fg = "#c72626", italic = true })
+    vim.api.nvim_set_hl(0, "markdownBold",          { fg = "#e0ba86", bold   = true })
+    vim.api.nvim_set_hl(0, "markdownBoldItalic",    { fg = "#e0ba86", bold = true, italic = true })
+    vim.api.nvim_set_hl(0, "markdownLinkText",      { fg = "#e0ba86" })
+    vim.api.nvim_set_hl(0, "markdownUrl",           { fg = "#e0ba86", underline = true })
+    vim.api.nvim_set_hl(0, "markdownLink",          { fg = "#e0ba86" })
+    vim.api.nvim_set_hl(0, "markdownIdDeclaration", { fg = "#e0ba86" })
+    -- treesitter groups too, for if it ever gets added
+    vim.api.nvim_set_hl(0, "@markup.italic",        { fg = "#c72626", italic = true })
+    vim.api.nvim_set_hl(0, "@markup.strong",        { fg = "#e0ba86", bold   = true })
+    vim.api.nvim_set_hl(0, "@markup.link",          { fg = "#e0ba86" })
+    vim.api.nvim_set_hl(0, "@markup.link.label",    { fg = "#e0ba86" })
+    vim.api.nvim_set_hl(0, "@markup.link.url",      { fg = "#e0ba86", underline = true })
+    vim.api.nvim_set_hl(0, "@text.emphasis",        { fg = "#c72626", italic = true })
+    vim.api.nvim_set_hl(0, "@text.strong",          { fg = "#e0ba86", bold   = true })
+    vim.api.nvim_set_hl(0, "@text.reference",       { fg = "#e0ba86" })
+    vim.api.nvim_set_hl(0, "@text.uri",             { fg = "#e0ba86", underline = true })
 end
 set_md_highlights()
 vim.api.nvim_create_autocmd("ColorScheme", { callback = set_md_highlights })
@@ -578,7 +587,7 @@ TOTAL=$(pdfinfo "$PDF" 2>/dev/null | awk '/Pages:/ {print $2}')
 show_page() {
   clear
   rm -f /tmp/nvim_pdfv*.png
-  pdftoppm -r 150 -f "$PAGE" -l "$PAGE" -png "$PDF" /tmp/nvim_pdfv_p
+  pdftoppm -r 110 -f "$PAGE" -l "$PAGE" -png "$PDF" /tmp/nvim_pdfv_p
   IMG=$(ls /tmp/nvim_pdfv_p*.png 2>/dev/null | head -1)
   [ -n "$IMG" ] && kitten icat --clear "$IMG" || echo "(render failed)"
   printf "\n  Page %%d/%%s   [h/p] prev  [l/n] next  [:N] goto  [q] quit\n" "$PAGE" "$TOTAL"
