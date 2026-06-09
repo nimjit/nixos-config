@@ -18,6 +18,7 @@ pcall(function()
                 clear_in_insert_mode = true,
                 download_remote_images = false,
                 only_render_image_at_cursor = true,
+                enabled = false,  -- disable auto-render; images shown explicitly via <leader>z
                 filetypes = { "markdown" },
             },
         },
@@ -585,25 +586,69 @@ done
     vim.cmd("startinsert")
 end
 
+local IMG_EXTS = { "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "PNG", "JPG", "JPEG" }
+local function is_image(name)
+    for _, ext in ipairs(IMG_EXTS) do
+        if name:lower():match("%." .. ext:lower() .. "$") then return true end
+    end
+    return false
+end
+
+local function open_image_split(img_path)
+    local script = string.format(
+        "COLS=$(tput cols); ROWS=$(($(tput lines)-2));" ..
+        " kitten icat --clear --place \"${COLS}x${ROWS}@0x0\" %s;" ..
+        " echo; read -r -n1 -p '  [any key] close '",
+        vim.fn.shellescape(img_path)
+    )
+    vim.cmd("vsplit | terminal bash -c " .. vim.fn.shellescape(script))
+    vim.cmd("startinsert")
+end
+
 vim.keymap.set("n", "<leader>z", function()
     local line = vim.api.nvim_get_current_line()
-    local pdf = line:match("!?%[%[(.-)%.pdf%]%]")
-    if pdf then
-        local vault = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure"
-        local uni   = "/home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni"
-        local candidates = {
-            vault .. "/Attachments/" .. pdf .. ".pdf",
-            uni   .. "/Attachments/" .. pdf .. ".pdf",
-            pdf .. ".pdf",
-        }
-        for _, p in ipairs(candidates) do
-            if vim.fn.filereadable(p) == 1 then open_pdf_split(p); return end
+    local vault = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure"
+    local uni   = "/home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni"
+
+    -- Obsidian wiki link: ![[name]] or ![[name.ext]]
+    local wiki = line:match("!?%[%[(.-)%]%]")
+    if wiki then
+        local function try_candidates(stem, exts)
+            local dirs = { vault .. "/Attachments/", uni .. "/Attachments/", vim.fn.expand("%:h") .. "/" }
+            for _, dir in ipairs(dirs) do
+                for _, ext in ipairs(exts) do
+                    local p = dir .. stem .. (ext ~= "" and ("." .. ext) or "")
+                    if vim.fn.filereadable(p) == 1 then return p end
+                end
+            end
         end
-        vim.notify("PDF not found: " .. pdf, vim.log.levels.WARN)
-        return
+        if wiki:match("%.pdf$") or wiki:match("%.PDF$") then
+            local p = try_candidates(wiki:gsub("%.pdf$", ""):gsub("%.PDF$", ""), { "pdf", "PDF" })
+                   or try_candidates(wiki, { "" })
+            if p then open_pdf_split(p); return end
+            vim.notify("PDF not found: " .. wiki, vim.log.levels.WARN); return
+        end
+        if is_image(wiki) then
+            local p = try_candidates(wiki:match("(.+)%.[^.]+$") or wiki, { wiki:match("%.([^.]+)$") or "" })
+                   or try_candidates(wiki, { "" })
+            if p then open_image_split(p); return end
+            vim.notify("Image not found: " .. wiki, vim.log.levels.WARN); return
+        end
     end
-    local path = vim.fn.input("PDF path: ", vim.fn.expand("%:h") .. "/", "file")
-    if path ~= "" then open_pdf_split(path) end
+
+    -- Standard markdown image: ![alt](path)
+    local md_img = line:match("!%[.-%]%((.-)%)")
+    if md_img and is_image(md_img) then
+        local p = vim.fn.fnamemodify(vim.fn.expand("%:h") .. "/" .. md_img, ":p")
+        if vim.fn.filereadable(p) == 1 then open_image_split(p); return end
+        vim.notify("Image not found: " .. md_img, vim.log.levels.WARN); return
+    end
+
+    -- Fallback: prompt for a file path
+    local path = vim.fn.input("File path: ", vim.fn.expand("%:h") .. "/", "file")
+    if path == "" then return end
+    if is_image(path) then open_image_split(path)
+    else open_pdf_split(path) end
 end)
 
                    -- Music split (<leader>m)
