@@ -8,11 +8,14 @@ page) and can be replaced with something faster, keyboard-driven, and less RAM-h
 
 ## Current state
 
-All four packages are already in `modules/common.nix`:
-- `nchat` — installed, not yet configured
-- `lastpass-cli` — installed, not yet configured
-- `calcurse` — installed, not yet configured
-- New tab page — Tabliss still active; Tridactyl broken on it
+- `nchat` — installed and working; `messages()` opens/focuses a dedicated kitty tab
+- `lastpass-cli` — installed; `LPASS_CLIPBOARD_COMMAND=wl-copy` set in zsh; no rofi script yet
+- Calendar — **replaced calcurse with khal + vdirsyncer**; all 12 Google Calendars syncing; `cal` alias works
+- New tab page — done; localhost:8080 server, New Tab Override extension pointing at it
+- Music — MPD + rmpc installed; `<leader>m` neovim split works great; `music()` shell function has a bug (see Tool 5)
+- Neovim dashboard — vault and uni dashboards working via `WorkflowVault`/`WorkflowUni`; `:Dashboard`/`<leader>D` return from any buffer
+- Typst rendering — `<leader>tp` / `<leader>ta` work; math blocks `$...$` and `$$...$$` supported
+- PDF split viewer — implemented but broken (see Bugs section below)
 
 ---
 
@@ -79,32 +82,19 @@ alias messages="tmux new-session -A -s nchat nchat"
 it's already running, or creates a new one. This way nchat is always running and
 you just "attach" to check messages.
 
-Currently tmux is not setup yet. If this is required, install it, else mention another method for notifications.
+### NixOS config — done
 
-### NixOS config additions needed
+No tmux needed. `messages()` is a shell function in `home/zsh.nix` that uses kitty remote control:
 
-Add tmux to packages if not already present (check `modules/common.nix`):
-```nix
-tmux
-```
-
-Add to `home/zsh.nix` (or wherever aliases are defined):
-```nix
-shellAliases = {
-  messages = "tmux new-session -A -s nchat nchat";
-};
-```
-
-Or as a shell function with a message:
 ```bash
 messages() {
-  if ! tmux has-session -t nchat 2>/dev/null; then
-    echo "Starting nchat..."
-    tmux new-session -d -s nchat nchat
-  fi
-  tmux attach-session -t nchat
+  kitty @ focus-tab --match title:nchat 2>/dev/null || \
+    kitty @ launch --type=tab --tab-title nchat nchat 2>/dev/null || \
+    nchat
 }
 ```
+
+Focuses the existing nchat tab if open, otherwise opens a new one. Falls back to current terminal if kitty remote control is unavailable. Kitty remote control is enabled in `home/kitty.nix`.
 
 ### Open questions
 
@@ -438,149 +428,125 @@ Command/URL: `/home/thijmen/.local/bin/lpass-rofi` → assign a key (e.g. Super+
 
 ---
 
-## Tool 4 — calcurse + Google Calendar
+## Tool 4 — khal + vdirsyncer (Google Calendar) ✓ Done
 
-### Context: calcurse vs org-gcal
+### What was built
 
-Both calcurse and org-gcal (in Emacs) sync with Google Calendar. They serve different
-contexts:
-- **calcurse**: pure terminal, works without Emacs being open, fast TUI calendar
-- **org-gcal**: syncs Google Calendar into org-agenda, useful when Emacs is your
-  primary planning interface
+calcurse was abandoned — it only syncs one calendar path at a time. Replaced with:
+- **khal** — TUI calendar (`ikhal`), multi-calendar aware, themed with Ukiyo 256-colour palette
+- **vdirsyncer** — syncs all 12 Google Calendars to `~/.local/share/calendars/` via CalDAV + OAuth2
 
-The two can coexist — they sync the same Google Calendar independently. Use calcurse
-for a quick terminal `what's on today` check; use org-agenda for planning and editing.
-Both write to the same Google Calendar, so changes from either show up in the other
-after the next sync.
+`cal` alias in `home/zsh.nix`: `vdirsyncer sync > /dev/null 2>&1 && ikhal`
 
-### How calcurse stores data
+khal config managed by home-manager at `home/dotfiles/khal/config` → `~/.config/khal/config`.
+vdirsyncer config is manual at `~/.config/vdirsyncer/config` (not in git — contains OAuth credentials
+and gets modified by `vdirsyncer discover` on each new calendar added).
 
-calcurse uses three plain text files:
-- `~/.local/share/calcurse/apts` — appointments (timed events)
-- `~/.local/share/calcurse/todo` — TODO items
-- `~/.local/share/calcurse/conf` — configuration
+### vdirsyncer architecture
 
-(Default location; can be overridden with `-D` flag.)
+Google's CalDAV discovery only returns owned calendars. Shared calendars require separate
+pair+storage entries with explicit CalDAV URLs.
 
-### calcurse-caldav setup (Google Calendar sync)
+**Main pair** (`[pair calendar]`): discovers owned calendars automatically via `["from a", "from b"]`.
 
-`calcurse-caldav` is shipped with calcurse. It syncs via Google's CalDAV endpoint.
+**Shared calendar pairs**: one pair per shared calendar, each with `collections = ["from b"]` and
+an explicit `url = "https://apidata.googleusercontent.com/caldav/v2/CALENDAR_ID/"`.
 
-**Step 1 — Google App Password** (required because calcurse uses Basic Auth):
-1. Go to myaccount.google.com → Security
-2. Enable 2-Step Verification if not already on
-3. Search for "App passwords" → create one for "Other" → name it "calcurse"
-4. Note the 16-character app password (shown once)
+Calendars currently syncing (12 total):
+- Work, Sport, Fun, Semi-productive, Mindfullness, Feestdagen (owned)
+- D&D in Space, Lisan Shared 2, Lisan + Thijmen (writer access)
+- Bolk: Algemeen, TU Delft timetable (reader access)
+- Sport (cp7ljbsac30...) — unknown origin, syncs fine
 
-**Step 2 — Create calcurse-caldav config**:
-```bash
-mkdir -p ~/.config/calcurse/caldav
+Google Calendar API (JSON, `calendar.googleapis.com`) must be enabled in Google Cloud Console
+project 106728458834 in addition to the CalDAV API — needed to list shared calendar IDs.
+
+### Remaining / open
+
+- [ ] **khal look** — the TUI works but the visual style needs refinement. The Ukiyo palette
+      is applied but the overall layout/feel could be better. Explore khal themes and layout
+      options; check the khal 0.14 changelog for any new theme keys.
+- [ ] **org-gcal**: once Emacs org-gcal is set up, test that it reads the same calendars
+      without conflicting with vdirsyncer. They can coexist since vdirsyncer is the write path.
+- [ ] **Laptop sync**: replicate `~/.config/vdirsyncer/config` (with the same OAuth token or
+      a fresh OAuth flow) on the laptop when needed.
+
+---
+
+## Tool 5 — Music (MPD + rmpc) — Partially done
+
+### What was built
+
+- MPD service running via `home/mpd.nix`; music directory: `~/Documents/BACKUP/Music`
+- `rmpc` for TUI with album art via kitty graphics protocol
+- `mpc` for CLI control (toggle, next, prev)
+- `<leader>m` in neovim opens a 55-column vsplit terminal with rmpc; auto-queues the
+  full library and shuffles if the queue is empty
+
+### Bug — `music()` shell function opens empty queue
+
+The `music()` shell function in `home/zsh.nix` has the same auto-queue logic as the
+neovim keymap, but when launched via kitty tab it opens with an empty queue. The
+neovim `<leader>m` split works correctly.
+
+Likely cause: the `mpc add / && mpc shuffle && mpc play` command in the shell function
+runs in the parent shell before the kitty tab opens, but rmpc in the new tab doesn't
+see the populated queue (timing or state issue).
+
+**To fix**: either run the mpc commands inside the new kitty tab's shell, or add a
+short delay, or use `kitty @ launch --env` to pass a flag that triggers the queue fill.
+
+### Open
+
+- [ ] Fix `music()` shell function so it auto-queues before opening rmpc in the kitty tab
+- [ ] Consider a systemd user timer to auto-sync the music library (`mpc update`) periodically
+
+---
+
+## Bugs / known issues
+
+### image.nvim — magick_cli cannot open temp PNG
+
+Error appears as a Lua callback when image.nvim tries to display an image:
+
+```
+magick_cli.lua:36: identify: unable to open image '/tmp/nvim.thijmen/.../...-source.png':
+No such file or directory @ error/blob.c/OpenBlob/3683.
 ```
 
-`~/.config/calcurse/caldav/config`:
-```ini
-[caldav]
-hostname = apidata.googleusercontent.com
-path     = /caldav/v2/tidemanus%40gmail.com/events/
-authmethod = basic
-username = tidemanus@gmail.com
-password = <16-char-app-password>
-insecuressl = No
+The file is written to `/tmp/nvim.thijmen/` but image.nvim's `magick_cli` processor
+tries to open it before it exists (race condition), or the path it receives is stale.
+
+Possible causes:
+- image.nvim is receiving a path to a file that was already cleaned up
+- The `magick_cli` processor is being called for a file type it shouldn't handle
+- A temp file from a previous nvim session is being referenced
+
+**To investigate**: check if the error only appears for specific file types or on specific
+operations (`<leader>tp`, markdown images, etc.). May be worth trying the `magick_rock`
+backend instead of `magick_cli` in image.nvim setup.
+
+### PDF split viewer — pixel reporting unsupported
+
+The in-neovim PDF viewer (`<leader>z`) uses `pdftoppm` + `kitten icat` in a vsplit
+terminal. On the current setup it fails with:
+
+```
+Error: Terminal does not support reporting screen sizes in pixels,
+use a terminal such as kitty, WezTerm, Konsole, etc.
 ```
 
-Note: the email address in `path` must be URL-encoded (`@` → `%40`).
+This is unexpected since kitty is the terminal. Possible causes:
+- The neovim `:terminal` buffer does not pass through kitty's pixel-size reporting to
+  the inner process — `kitten icat` is running inside a neovim terminal, not directly
+  in kitty, so it can't query kitty's pixel dimensions
+- `TERM` or `KITTY_WINDOW_ID` env vars may not be available inside `:terminal`
 
-**Step 3 — First sync**:
-```bash
-# Pull from Google Calendar into calcurse (read-only test first)
-calcurse-caldav --init keep-remote
+**Fix approaches**:
+1. Use `kitten icat --transfer-mode=file` which doesn't need pixel reporting
+2. Or open the PDF viewer in a real kitty tab/window (not a neovim :terminal split),
+   similar to how `music()` and `messages()` work
+3. Or switch to sixel output which has different size negotiation
 
-# After verifying, do a full bidirectional sync:
-calcurse-caldav
-```
-
-`--init keep-remote` on first run tells calcurse to trust Google's data and pull
-everything down. Subsequent `calcurse-caldav` calls do a bidirectional sync.
-
-**Step 4 — Sync before opening calcurse** (shell alias):
-```bash
-alias cal="calcurse-caldav --quiet && calcurse"
-```
-
-Add to `home/zsh.nix` shellAliases. This syncs silently before opening the TUI.
-
-### calcurse key bindings (TUI)
-
-calcurse opens with a three-panel view: calendar (left), appointments (top right),
-TODO (bottom right). Focus switches with `Tab`.
-
-- `h / l` — previous / next day (in calendar panel)
-- `j / k` — navigate items in appointment/TODO panels
-- `a` — add appointment
-- `t` — add TODO item
-- `d` — delete selected item
-- `e` — edit selected item
-- `s` — save
-- `q` — quit
-- `?` — help
-
-### Syncthing consideration
-
-calcurse data lives in `~/.local/share/calcurse/`. If you want calendar access on
-the laptop as well, sync this directory via Syncthing. The files are plain text and
-merge cleanly. Add to Syncthing as a folder shared between desktop and laptop.
-
-Alternatively, rely purely on Google Calendar as the source of truth and just run
-`calcurse-caldav` on each machine independently.
-
-### Systemd timer for automatic sync (optional)
-
-To keep calcurse in sync without running `cal` alias:
-
-```nix
-# In home/default.nix or a new home/calcurse.nix:
-systemd.user.services.calcurse-sync = {
-  Unit.Description = "Sync calcurse with Google Calendar";
-  Service = {
-    Type = "oneshot";
-    ExecStart = "${pkgs.calcurse}/bin/calcurse-caldav --quiet";
-  };
-};
-
-systemd.user.timers.calcurse-sync = {
-  Unit.Description = "Sync calcurse every 15 minutes";
-  Timer = {
-    OnBootSec = "2min";
-    OnUnitActiveSec = "15min";
-    Persistent = true;
-  };
-  Install.WantedBy = [ "timers.target" ];
-};
-```
-
-This runs `calcurse-caldav` every 15 minutes in the background. When you open
-calcurse, it already has the latest events.
-
-### Storing the app password securely
-
-The app password in `~/.config/calcurse/caldav/config` is plain text. Mitigations:
-- The file is `~/.config/calcurse/caldav/config` which is only readable by your user
-  (mode 600 — set explicitly)
-- If this is uncomfortable, calcurse-caldav also accepts the password via environment
-  variable `CALCURSE_CALDAV_PASSWORD` — set it from `~/.authinfo.gpg` via a wrapper
-  script
-
-Plain text in a user-only config file is the standard approach for CalDAV clients
-(Thunderbird, GNOME Calendar, etc. all do the same).
-
-### Open questions
-
-- [ ] **Google Calendar ID**: the `path` in caldav config uses the primary calendar
-      (`tidemanus@gmail.com`). If you use multiple Google Calendars (work, personal,
-      uni), each needs its own `path` or a separate caldav config. Find calendar IDs
-      at: Google Calendar → Settings → calendar → scroll to "Calendar ID".
-- [ ] **org-gcal duplication**: once org-gcal is set up in Emacs, both tools sync
-      the same calendar. Test that creating an event in calcurse appears in org-agenda
-      after a sync cycle. They should not conflict.
-- [ ] **Laptop sync**: decide whether to replicate the caldav config on the laptop
-      (same app password, same Google account) or just use Google Calendar web there.
+The neovim split approach may fundamentally not work for pixel-based rendering inside
+`:terminal`. Option 2 (open as a kitty tab) is probably the cleanest fix.
