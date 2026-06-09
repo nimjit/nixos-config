@@ -207,11 +207,12 @@ function M.all_classes(classes_dir)
     local files = scan_dir(classes_dir)
     for _, fm in ipairs(files) do
         results[#results + 1] = {
-            name = fm._name,
-            year = fm.year or "",
-            Q    = fm.Q or "",
-            code = fm.code or "",
-            path = fm._path,
+            name      = fm._name,
+            year      = fm.year or "",
+            Q         = fm.Q or "",
+            code      = fm.code or "",
+            shorthand = fm.shorthand or fm._name,
+            path      = fm._path,
         }
     end
     table.sort(results, function(a, b)
@@ -364,8 +365,9 @@ end
 
 -- ── Buffer renderer ───────────────────────────────────────────────────────────
 
--- sections = list of { header, lines = { {text, path?} } }
--- Lines with a path get a "→" prefix and <CR> opens them.
+-- sections = list of { header, lines = { {text, path?, callback?} } }
+-- Lines with a path get "→" prefix and <CR> edits the file.
+-- Lines with a callback get "→" prefix and <CR> calls the callback instead.
 function M.render_buffer(title, sections, footer_keys)
     local buf = vim.api.nvim_create_buf(false, true)
     vim.bo[buf].buftype    = "nofile"
@@ -373,12 +375,14 @@ function M.render_buffer(title, sections, footer_keys)
     vim.bo[buf].swapfile   = false
     vim.bo[buf].modifiable = true
 
-    local raw_lines = {}
-    local path_map  = {}
+    local raw_lines    = {}
+    local path_map     = {}
+    local callback_map = {}
 
-    local function push(text, path)
+    local function push(text, path, callback)
         raw_lines[#raw_lines + 1] = text
-        if path then path_map[#raw_lines] = path end
+        if path     then path_map[#raw_lines]     = path     end
+        if callback then callback_map[#raw_lines] = callback end
     end
 
     -- Title bar
@@ -393,8 +397,9 @@ function M.render_buffer(title, sections, footer_keys)
             push("   — none —")
         else
             for _, entry in ipairs(section.lines) do
-                local prefix = entry.path and "  → " or "    "
-                push(prefix .. entry.text, entry.path)
+                local interactive = entry.path or entry.callback
+                local prefix = interactive and "  → " or "    "
+                push(prefix .. entry.text, entry.path, entry.callback)
             end
         end
         push("")
@@ -409,6 +414,8 @@ function M.render_buffer(title, sections, footer_keys)
 
     vim.keymap.set("n", "<CR>", function()
         local lnum = vim.api.nvim_win_get_cursor(0)[1]
+        local cb = callback_map[lnum]
+        if cb then cb(); return end
         local path = path_map[lnum]
         if path then vim.cmd("edit " .. vim.fn.fnameescape(path)) end
     end, { buffer = buf, nowait = true })
@@ -577,7 +584,8 @@ function M.open_uni()
     local class_lines = {}
     for _, c in ipairs(classes) do
         local text = string.format("%-40s  Q%-8s  %s", c.name, c.Q, c.code)
-        class_lines[#class_lines + 1] = { text = text, path = c.path }
+        local course = c
+        class_lines[#class_lines + 1] = { text = text, callback = function() M.course_view(course) end }
     end
 
     local plan_raw = M.read_planning_table(uni_moc_path)
@@ -613,6 +621,84 @@ function M.open_uni()
         local target = UNI .. "/Lecture/" .. class .. " " .. date .. ".md"
         local tf = io.open(template, "r")
         local content = tf and tf:read("*a") or ("# " .. class .. "\n\nDate: " .. date .. "\n\n")
+        if tf then tf:close() end
+        local nf = io.open(target, "w")
+        if nf then nf:write(content); nf:close() end
+        vim.api.nvim_buf_delete(buf, { force = true })
+        vim.cmd("edit " .. vim.fn.fnameescape(target))
+    end)
+
+    return buf
+end
+
+-- ── Course view ───────────────────────────────────────────────────────────────
+-- Opens a buffer listing all lecture notes for a given course.
+-- Matches by class frontmatter (shorthand, name, or code) with filename fallback.
+
+function M.course_view(course)
+    local shorthand = course.shorthand or course.name
+    local lecture_dir = UNI .. "/Lecture"
+
+    local handle = io.popen('find ' .. vim.fn.shellescape(lecture_dir) ..
+        ' -name "*.md" -type f 2>/dev/null')
+    local lectures = {}
+    if handle then
+        for path in handle:lines() do
+            local fm = parse_frontmatter(path)
+            local fname = path:match("([^/]+)%.md$") or ""
+            local cls = fm.class or ""
+            local matches = cls == shorthand
+                or cls == course.name
+                or cls == course.code
+                or (shorthand ~= "" and fname:lower():find(shorthand:lower(), 1, true) == 1)
+            if matches then
+                local date_str = fm.date or fname:match("%d%d%d%d%-%d%d%-%d%d") or ""
+                local dt = parse_date(date_str)
+                lectures[#lectures + 1] = {
+                    name     = fm.title or fname,
+                    path     = path,
+                    date_str = date_str,
+                    dt       = dt,
+                }
+            end
+        end
+        handle:close()
+    end
+
+    table.sort(lectures, function(a, b)
+        local ta = a.dt and os.time({ year=a.dt.year, month=a.dt.month, day=a.dt.day, hour=12 }) or 0
+        local tb = b.dt and os.time({ year=b.dt.year, month=b.dt.month, day=b.dt.day, hour=12 }) or 0
+        return ta < tb
+    end)
+
+    local lec_lines = {}
+    for i, lec in ipairs(lectures) do
+        local date_part = lec.date_str ~= "" and lec.date_str or "—"
+        local text = string.format("%2d.  %-13s  %s", i, date_part, lec.name)
+        lec_lines[#lec_lines + 1] = { text = text, path = lec.path }
+    end
+
+    local title = course.name .. "  (" .. course.code .. ")"
+    local sections = {
+        { header = "LECTURES  (" .. #lectures .. ")", lines = lec_lines },
+    }
+
+    local footer = { "[n] new lecture", "[f] browse", "[q] close" }
+    local buf, _ = M.render_buffer(title, sections, footer)
+    local function km(k, fn) vim.keymap.set("n", k, fn, { buffer = buf, nowait = true }) end
+
+    km("f", function()
+        vim.api.nvim_buf_delete(buf, { force = true })
+        open_yazi(lecture_dir)
+    end)
+
+    km("n", function()
+        local date = os.date("%Y-%m-%d")
+        local template = UNI .. "/Templates/Lecture.md"
+        local target = lecture_dir .. "/" .. shorthand .. " " .. date .. ".md"
+        local tf = io.open(template, "r")
+        local content = tf and tf:read("*a")
+            or ("---\nclass: " .. shorthand .. "\ndate: " .. date .. "\n---\n\n# Lecture\n\n")
         if tf then tf:close() end
         local nf = io.open(target, "w")
         if nf then nf:write(content); nf:close() end
