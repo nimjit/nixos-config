@@ -28,6 +28,11 @@
   #
   # DO NOT add intel-media-driver to hardware.graphics.extraPackages without PRIME —
   # it was only needed for the PRIME offload path which we don't use.
+  #
+  # DO NOT set KWIN_DRM_DEVICES — pointing KWin directly at the Nvidia card via
+  # /dev/dri/by-path/pci-0000:01:00.0-card causes KWin to crash on session start
+  # and returns the user to the SDDM login screen (tested: gens 52, 63, 64, 65).
+  # KWin auto-detects the correct card without this variable.
 
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.nvidia.modesetting.enable = true;
@@ -37,10 +42,6 @@
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_535;
   hardware.graphics.enable = true;
   boot.kernelParams = [ "nvidia-drm.modeset=1" ];
-
-  # Force KWin to render on the Nvidia card via stable PCI path, bypassing
-  # the broken Intel→Nvidia PRIME copy path that caused 20Hz rendering lag.
-  environment.variables.KWIN_DRM_DEVICES = "/dev/dri/by-path/pci-0000:01:00.0-card";
 
   # Wait for Intel iGPU (card1) — NOT card2 (Nvidia). card1 appears fast;
   # card2 with modesetting is too slow and causes display-manager to hang on boot.
