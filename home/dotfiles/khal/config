@@ -17,7 +17,6 @@ firstweekday = 0
 
 [default]
 timedelta = 7d
-show_week_numbers = True
 
 [palette]
 # Ukiyo base16 palette — format: low_fg, low_bg, mono, high_fg, high_bg
