@@ -17,7 +17,7 @@ pcall(function()
                 enabled = true,
                 clear_in_insert_mode = true,
                 download_remote_images = false,
-                only_render_image_at_cursor = false,
+                only_render_image_at_cursor = true,
                 filetypes = { "markdown" },
             },
         },
@@ -559,7 +559,8 @@ show_page() {
   rm -f /tmp/nvim_pdfv*.png
   pdftoppm -r 150 -f "$PAGE" -l "$PAGE" -png "$PDF" /tmp/nvim_pdfv_p
   IMG=$(ls /tmp/nvim_pdfv_p*.png 2>/dev/null | head -1)
-  [ -n "$IMG" ] && kitten icat --clear "$IMG" || echo "(render failed)"
+  COLS=$(tput cols); ROWS=$(($(tput lines) - 2))
+  [ -n "$IMG" ] && kitten icat --clear --place "${COLS}x${ROWS}@0x0" "$IMG" || echo "(render failed)"
   printf "\n  Page %%d/%%s   [h/p] prev  [l/n] next  [:N] goto  [q] quit\n" "$PAGE" "$TOTAL"
 }
 
