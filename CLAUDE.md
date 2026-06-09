@@ -38,6 +38,14 @@ Tracks `nixpkgs` and `home-manager` on `release-26.05` (stable).
     └── ukiyo.nix          # color theme
 ```
 
+## HARD RESTRICTIONS — read before doing anything
+
+**`hosts/desktop/default.nix` is off-limits.** The user has explicitly disallowed edits to this file. Before suggesting any change to it — even a "safe" one — you must stop and tell the user:
+
+> "You have disallowed edits to `hosts/desktop/default.nix`. Do you want to grant permission for this specific change?"
+
+Do not edit the file, do not include it in a plan, do not suggest it as part of a larger task, until the user explicitly says yes for that specific change.
+
 ## Key facts
 
 - **Home Manager is integrated as a NixOS module** (not standalone). Rebuild with `sudo nixos-rebuild switch`.
