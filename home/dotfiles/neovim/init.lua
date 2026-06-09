@@ -33,6 +33,17 @@ local function set_md_highlights()
 end
 set_md_highlights()
 vim.api.nvim_create_autocmd("ColorScheme", { callback = set_md_highlights })
+-- Syntax autocmd fires AFTER markdown.vim's `hi def link` commands run —
+-- the only hook that guarantees our explicit colors win on every file open.
+vim.api.nvim_create_autocmd("Syntax", {
+    pattern = "markdown",
+    callback = set_md_highlights,
+})
+-- Hide *, **, [] markers in markdown (matches yazi/bat rendering)
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "markdown",
+    callback = function() vim.wo.conceallevel = 2 end,
+})
 
 -- image.nvim — inline image rendering via kitty graphics protocol
 -- Only active when running inside kitty; silently skipped otherwise.
@@ -584,25 +595,43 @@ PAGE=1
 TOTAL=$(pdfinfo "$PDF" 2>/dev/null | awk '/Pages:/ {print $2}')
 [ -z "$TOTAL" ] && TOTAL=999
 
+CACHE=$(mktemp -d /tmp/nvim_pdf_XXXXXX)
+trap 'kill "$BGPID" 2>/dev/null; rm -rf "$CACHE"' EXIT
+
+prerender() {
+    local p
+    for p in $(seq 1 "$TOTAL"); do
+        [ -f "$CACHE/$p.png" ] || pdftoppm -r 110 -f "$p" -l "$p" -singlefile -png "$PDF" "$CACHE/$p"
+    done
+}
+
+# Render page 1 now so display is immediate; background renders the rest
+pdftoppm -r 110 -f 1 -l 1 -singlefile -png "$PDF" "$CACHE/1"
+prerender &
+BGPID=$!
+
 show_page() {
-  clear
-  rm -f /tmp/nvim_pdfv*.png
-  pdftoppm -r 110 -f "$PAGE" -l "$PAGE" -png "$PDF" /tmp/nvim_pdfv_p
-  IMG=$(ls /tmp/nvim_pdfv_p*.png 2>/dev/null | head -1)
-  [ -n "$IMG" ] && kitten icat --clear "$IMG" || echo "(render failed)"
-  printf "\n  Page %%d/%%s   [h/p] prev  [l/n] next  [:N] goto  [q] quit\n" "$PAGE" "$TOTAL"
+    clear
+    local waited=0
+    while [ ! -f "$CACHE/$PAGE.png" ] && [ "$waited" -lt 20 ]; do
+        sleep 0.1; waited=$((waited+1))
+    done
+    [ -f "$CACHE/$PAGE.png" ] \
+        && kitten icat --clear "$CACHE/$PAGE.png" \
+        || echo "  (page $PAGE not yet rendered)"
+    printf "\n  Page %%d/%%s   [h/p] prev  [l/n] next  [:N] goto  [q] quit\n" "$PAGE" "$TOTAL"
 }
 
 show_page
 while IFS= read -rsn1 KEY; do
-  case "$KEY" in
-    n|l) [ "$PAGE" -lt "$TOTAL" ] && PAGE=$((PAGE+1)) && show_page ;;
-    p|h) [ "$PAGE" -gt 1 ] && PAGE=$((PAGE-1)) && show_page ;;
-    q)   clear; break ;;
-    :)   printf "  Goto page: "; read -r N
-         echo "$N" | grep -qE "^[0-9]+$" && [ "$N" -ge 1 ] && [ "$N" -le "$TOTAL" ] \
-           && PAGE=$N && show_page ;;
-  esac
+    case "$KEY" in
+        n|l) [ "$PAGE" -lt "$TOTAL" ] && PAGE=$((PAGE+1)) && show_page ;;
+        p|h) [ "$PAGE" -gt 1 ] && PAGE=$((PAGE-1)) && show_page ;;
+        q)   clear; break ;;
+        :)   printf "  Goto page: "; read -r N
+             echo "$N" | grep -qE "^[0-9]+$" && [ "$N" -ge 1 ] && [ "$N" -le "$TOTAL" ] \
+               && PAGE=$N && show_page ;;
+    esac
 done
 ]], vim.fn.shellescape(pdf_path))
 
