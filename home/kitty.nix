@@ -16,11 +16,19 @@
       # Required for messages() and music() to manage kitty tabs via 'kitty @'
       allow_remote_control = "yes";
       listen_on = "unix:/tmp/kitty-control";
+      # splits layout required for --location=vsplit to open panels side-by-side
+      enabled_layouts = "splits,stack";
     };
 
     keybindings = {
       "ctrl+shift+enter" = "new_window_with_cwd";
-      "ctrl+shift+t" = "new_tab_with_cwd";
+      "ctrl+shift+t"     = "new_tab_with_cwd";
+      # Window navigation — ctrl+hjkl is reserved for neovim split nav;
+      # ctrl+shift+hjkl navigates kitty panels (e.g. PDF/image preview splits)
+      "ctrl+shift+h" = "neighboring_window left";
+      "ctrl+shift+j" = "neighboring_window bottom";
+      "ctrl+shift+k" = "neighboring_window top";
+      "ctrl+shift+l" = "neighboring_window right";
     };
     extraConfig = ''
       foreground #ccc2b7

@@ -7,6 +7,24 @@ vim.api.nvim_set_hl(0, "netrwSymlink", { link = "Type", underline = true })
 vim.cmd("syntax on")
 vim.cmd("filetype plugin indent on")
 
+-- Markdown highlight overrides — applied after colorscheme so Stylix doesn't clobber them.
+-- Italic → red (#c72626, base08, same as h1)
+-- Bold   → gold (#e0ba86, base0D, same as h2)
+-- Links  → label red, URL gold
+local function set_md_highlights()
+    vim.api.nvim_set_hl(0, "@markup.italic",      { fg = "#c72626", italic = true })
+    vim.api.nvim_set_hl(0, "@markup.strong",      { fg = "#e0ba86", bold   = true })
+    vim.api.nvim_set_hl(0, "@markup.link.label",  { fg = "#c72626" })
+    vim.api.nvim_set_hl(0, "@markup.link.url",    { fg = "#e0ba86", underline = true })
+    -- legacy group names (neovim < 0.10 / older parsers)
+    vim.api.nvim_set_hl(0, "@text.emphasis",      { fg = "#c72626", italic = true })
+    vim.api.nvim_set_hl(0, "@text.strong",        { fg = "#e0ba86", bold   = true })
+    vim.api.nvim_set_hl(0, "@text.reference",     { fg = "#c72626" })
+    vim.api.nvim_set_hl(0, "@text.uri",           { fg = "#e0ba86", underline = true })
+end
+set_md_highlights()
+vim.api.nvim_create_autocmd("ColorScheme", { callback = set_md_highlights })
+
 -- image.nvim — inline image rendering via kitty graphics protocol
 -- Only active when running inside kitty; silently skipped otherwise.
 pcall(function()

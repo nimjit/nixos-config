@@ -639,6 +639,15 @@ function M.course_view(course)
     local shorthand = course.shorthand or course.name
     local lecture_dir = UNI .. "/Lecture"
 
+    local function class_matches(fm, fname)
+        local cls = fm.class or ""
+        return cls == shorthand
+            or cls == course.name
+            or cls == course.code
+            or (shorthand ~= "" and fname:lower():find(shorthand:lower(), 1, true) == 1)
+    end
+
+    -- Lectures
     local handle = io.popen('find ' .. vim.fn.shellescape(lecture_dir) ..
         ' -name "*.md" -type f 2>/dev/null')
     local lectures = {}
@@ -646,40 +655,59 @@ function M.course_view(course)
         for path in handle:lines() do
             local fm = parse_frontmatter(path)
             local fname = path:match("([^/]+)%.md$") or ""
-            local cls = fm.class or ""
-            local matches = cls == shorthand
-                or cls == course.name
-                or cls == course.code
-                or (shorthand ~= "" and fname:lower():find(shorthand:lower(), 1, true) == 1)
-            if matches then
+            if class_matches(fm, fname) then
                 local date_str = fm.date or fname:match("%d%d%d%d%-%d%d%-%d%d") or ""
                 local dt = parse_date(date_str)
                 lectures[#lectures + 1] = {
-                    name     = fm.title or fname,
-                    path     = path,
-                    date_str = date_str,
-                    dt       = dt,
+                    name = fm.title or fname, path = path, date_str = date_str, dt = dt,
                 }
             end
         end
         handle:close()
     end
-
     table.sort(lectures, function(a, b)
         local ta = a.dt and os.time({ year=a.dt.year, month=a.dt.month, day=a.dt.day, hour=12 }) or 0
         local tb = b.dt and os.time({ year=b.dt.year, month=b.dt.month, day=b.dt.day, hour=12 }) or 0
         return ta < tb
     end)
-
     local lec_lines = {}
     for i, lec in ipairs(lectures) do
         local date_part = lec.date_str ~= "" and lec.date_str or "—"
-        local text = string.format("%2d.  %-13s  %s", i, date_part, lec.name)
-        lec_lines[#lec_lines + 1] = { text = text, path = lec.path }
+        lec_lines[#lec_lines + 1] = { text = string.format("%2d.  %-13s  %s", i, date_part, lec.name), path = lec.path }
+    end
+
+    -- Assignments for this course (ungraded)
+    local all_assign = M.active_assignments(UNI .. "/Assignments")
+    local assign_lines = {}
+    for _, a in ipairs(all_assign) do
+        if class_matches({ class = a.class }, "") then
+            local when
+            if not a.diff then when = "?"
+            elseif a.diff == 0 then when = "TODAY"
+            elseif a.diff > 0 then when = "in " .. a.diff .. " days"
+            else when = math.abs(a.diff) .. "d ago" end
+            local text = string.format("%-35s  %-14s  %s  (%s)", a.name, a.atype, a.date_str, when)
+            assign_lines[#assign_lines + 1] = { text = text, path = a.path }
+        end
+    end
+
+    -- Summary file: UNI/Summary/<course.name> Summary.md
+    local summary_lines = {}
+    local summary_candidates = {
+        UNI .. "/Summary/" .. course.name .. " Summary.md",
+        UNI .. "/Summary/" .. shorthand .. " Summary.md",
+    }
+    for _, sp in ipairs(summary_candidates) do
+        if vim.fn.filereadable(sp) == 1 then
+            summary_lines[#summary_lines + 1] = { text = sp:match("([^/]+)%.md$") or sp, path = sp }
+            break
+        end
     end
 
     local title = course.name .. "  (" .. course.code .. ")"
     local sections = {
+        { header = "SUMMARY",                      lines = summary_lines },
+        { header = "ASSIGNMENTS",                  lines = assign_lines },
         { header = "LECTURES  (" .. #lectures .. ")", lines = lec_lines },
     }
 
