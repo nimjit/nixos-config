@@ -685,6 +685,7 @@ function M.course_view(course)
 
     local footer = { "[n] new lecture", "[f] browse", "[q] close" }
     local buf, _ = M.render_buffer(title, sections, footer)
+    vim.api.nvim_set_current_buf(buf)
     local function km(k, fn) vim.keymap.set("n", k, fn, { buffer = buf, nowait = true }) end
 
     km("f", function()
