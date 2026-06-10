@@ -107,7 +107,7 @@
             len=$(printf '%s' "$plain" | wc -m)
             pad=$(( (cols - len) / 2 ))
             (( pad < 0 )) && pad=0
-            printf '%*s%s\n' "$pad" '' "$text"
+            printf '%*s%s\n' "$pad" "" "$text"
           }
 
           local date_str weather quote today_ev tmrw_ev
