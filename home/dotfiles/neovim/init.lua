@@ -368,7 +368,7 @@ vim.keymap.set("n", "<leader>/", function()
         "  messages      WhatsApp (nchat)          ",
         "  music         Music player (rmpc)       ",
         "  cal           Calendar (khal)           ",
-        "  cap           Quick capture → uni note  ",
+        "  cap           Quick capture → daily note ",
     }
     local width = 48
     local height = #lines

@@ -147,14 +147,19 @@ Open design/migration work lives in `plans/`:
 
 | File | Topic |
 |------|-------|
-| `theme-workflow.md` | Ukiyo.nix palette update, khal look, zsh greeting |
-| `cli-migration.md` | CLI tool status + remaining rofi/nchat items |
-| `wikilinks.md` | `[[wikilink]]` jump, backlinks buffer, `[[` completion |
-| `template-system.md` | `:NewNote` command using existing vault Templates/ |
+| `theme-workflow.md` | Khal appearance polish (palette already applied) |
+| `cli-migration.md` | Remaining: rofi password picker, nchat keybindings |
 | `vault-search.md` | `<leader>s` fuzzy content search across vault |
 | `greeting-upgrade.md` | Live khal events + vault deadlines in zsh greeting |
-| `quick-capture.md` | `cap` shell function to append to daily note |
-| `notifications-bar.md` | Terminal status bar, nchat notifications, rofi launcher, keybinding reference |
+| `notifications-bar.md` | Rofi launcher; status bar deferred to Sway |
 | `window-manager.md` | KDE → Sway migration (not started) |
-| `emacs.md` | Emacs setup (not started) |
+| `emacs.md` | Emacs setup (in progress) |
 | `snowflakes.md` | Vault/uni/nixos graph visualisers |
+
+Finalized specs ready to implement live in `plans/done/`:
+
+| File | Topic |
+|------|-------|
+| `done/wikilinks.md` | `[[wikilink]]` jump, backlinks buffer, `[[` completion |
+| `done/template-system.md` | `:NewNote` command using existing vault Templates/ |
+| `done/quick-capture.md` | `cap` — implemented ✓ |
