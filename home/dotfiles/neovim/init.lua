@@ -319,12 +319,12 @@ vim.keymap.set("n", "<leader>f", function()
 end)
 
                    -- Hotkey reference
-vim.keymap.set("n", "<leader>?", function()
+vim.keymap.set("n", "<leader>/", function()
     local lines = {
         "  Key           Action                    ",
         " ─────────────────────────────────────── ",
         "  <Space> = leader key                    ",
-        "  <leader>?     This help popup           ",
+        "  <leader>/     This help popup           ",
         " ─────────────────────────────────────── ",
         "  Files & Navigation                      ",
         "  <leader>f     Yazi file picker          ",
@@ -345,27 +345,30 @@ vim.keymap.set("n", "<leader>?", function()
         "  <leader>gc    git commit                ",
         "  <leader>gu    git fetch + status        ",
         " ─────────────────────────────────────── ",
+        "  Media / External                        ",
+        "  <leader>z     Open PDF/image in panel   ",
+        "  <leader>m     Music player (rmpc)       ",
+        " ─────────────────────────────────────── ",
+        "  Typst                                   ",
+        "  <leader>tp    Render typst block inline ",
+        "  <leader>ta    Render all typst blocks   ",
+        " ─────────────────────────────────────── ",
         "  Windows                                 ",
         "  <C-h/j/k/l>   Navigate windows          ",
         "  <C-↑↓←→>      Resize windows            ",
         " ─────────────────────────────────────── ",
         "  q / <Esc>     Close this popup          ",
         " ─────────────────────────────────────── ",
-        "  Typst / PDF                              ",
-        "  <leader>tp    Render typst block inline ",
-        "  <leader>ta    Render all typst blocks   ",
-        "  <leader>z     Open PDF in zathura       ",
-        "  :LogWeight N  Log weight to vault       ",
-        " ─────────────────────────────────────── ",
         "  Workflows (shell aliases)               ",
-        "  uni-work      Uni dashboard + vault     ",
+        "  uni-work      Uni dashboard             ",
         "  uni-code      Current coding project    ",
         "  vault-work    Personal vault + Claude   ",
         "  nixos-work    NixOS config + Claude     ",
         "  today         Today's daily note        ",
         "  messages      WhatsApp (nchat)          ",
         "  music         Music player (rmpc)       ",
-        "  cal           Calendar (calcurse)       ",
+        "  cal           Calendar (khal)           ",
+        "  cap           Quick capture → uni note  ",
     }
     local width = 48
     local height = #lines

@@ -70,6 +70,7 @@
     # CLI tools
     nchat          # WhatsApp in terminal (desktop notifications, no browser tab)
     lastpass-cli   # lpass CLI — same vault as LastPass extension
+    libnotify      # provides notify-send; nchat auto-detects it for desktop notifications
 
     # Media
     spotify

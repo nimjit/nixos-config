@@ -71,6 +71,30 @@
           nchat
       }
 
+      # Append a quick thought to today's daily note without opening an editor.
+      # Default target: uni vault. Use `capu` for personal vault.
+      cap() {
+        local text="$*"
+        local date=$(date +%Y-%m-%d)
+        local daily=~/Documents/BACKUP/Uni/Obsidian/Uni/Dailies/$date.md
+        if [ ! -f "$daily" ]; then
+          printf -- "---\ndate: %s\n---\n\n## Inbox\n" "$date" > "$daily"
+        fi
+        printf -- "\n- %s" "$text" >> "$daily"
+        echo "→ $date (uni)"
+      }
+
+      capu() {
+        local text="$*"
+        local date=$(date +%Y-%m-%d)
+        local daily=~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies/$date.md
+        if [ ! -f "$daily" ]; then
+          printf -- "---\ndate: %s\n---\n\n## Inbox\n" "$date" > "$daily"
+        fi
+        printf -- "\n- %s" "$text" >> "$daily"
+        echo "→ $date (vault)"
+      }
+
       # rmpc in a dedicated kitty tab; auto-queues full library if idle.
       # Falls back to current terminal if kitty remote control unavailable.
       music() {
@@ -98,7 +122,7 @@
         echo "  today      →  Today's daily note"
         echo "  messages   →  WhatsApp (nchat)"
         echo "  music      →  Music player (rmpc)"
-        echo "  cal        →  Calendar (calcurse)"
+        echo "  cal        →  Calendar (khal)"
         echo ""
       fi
     '';

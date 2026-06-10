@@ -92,7 +92,7 @@ music          rmpc in a kitty tab (focuses existing tab if open)
 ## Neovim workflows
 
 ```
-<leader>?      keybinding help popup
+<leader>/      keybinding help popup
 <leader>f      yazi file picker (split)
 <leader>D      return to dashboard from any buffer
 <leader>z      open PDF or image in a kitty vsplit panel
