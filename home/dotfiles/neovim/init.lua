@@ -113,6 +113,13 @@ vim.api.nvim_create_autocmd("Syntax", {
     pattern = "markdown",
     callback = set_color_overrides,
 })
+-- Stylix appends `require('mini.base16').setup({...})` after this file,
+-- overwriting all our highlight groups. VimEnter fires after that block
+-- runs, giving us the final word on every startup.
+vim.api.nvim_create_autocmd("VimEnter", {
+    once = true,
+    callback = set_color_overrides,
+})
 
 -- image.nvim — inline image rendering via kitty graphics protocol
 -- Only active when running inside kitty; silently skipped otherwise.
