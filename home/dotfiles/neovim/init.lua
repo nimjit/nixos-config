@@ -7,42 +7,111 @@ vim.api.nvim_set_hl(0, "netrwSymlink", { link = "Type", underline = true })
 vim.cmd("syntax on")
 vim.cmd("filetype plugin indent on")
 
--- Markdown highlight overrides — applied after colorscheme so Stylix doesn't clobber them.
--- Italic → red (#c72626, base08, same as h1)
--- Bold   → gold (#e0ba86, base0D, same as h2)
--- Links  → label red, URL gold
-local function set_md_highlights()
-    -- vim built-in markdown syntax groups (no treesitter needed)
-    vim.api.nvim_set_hl(0, "markdownItalic",        { fg = "#c72626", italic = true })
-    vim.api.nvim_set_hl(0, "markdownBold",          { fg = "#e0ba86", bold   = true })
-    vim.api.nvim_set_hl(0, "markdownBoldItalic",    { fg = "#e0ba86", bold = true, italic = true })
-    vim.api.nvim_set_hl(0, "markdownLinkText",      { fg = "#e0ba86" })
-    vim.api.nvim_set_hl(0, "markdownUrl",           { fg = "#e0ba86", underline = true })
-    vim.api.nvim_set_hl(0, "markdownLink",          { fg = "#e0ba86" })
-    vim.api.nvim_set_hl(0, "markdownIdDeclaration", { fg = "#e0ba86" })
-    -- treesitter groups too, for if it ever gets added
-    vim.api.nvim_set_hl(0, "@markup.italic",        { fg = "#c72626", italic = true })
-    vim.api.nvim_set_hl(0, "@markup.strong",        { fg = "#e0ba86", bold   = true })
-    vim.api.nvim_set_hl(0, "@markup.link",          { fg = "#e0ba86" })
-    vim.api.nvim_set_hl(0, "@markup.link.label",    { fg = "#e0ba86" })
-    vim.api.nvim_set_hl(0, "@markup.link.url",      { fg = "#e0ba86", underline = true })
-    vim.api.nvim_set_hl(0, "@text.emphasis",        { fg = "#c72626", italic = true })
-    vim.api.nvim_set_hl(0, "@text.strong",          { fg = "#e0ba86", bold   = true })
-    vim.api.nvim_set_hl(0, "@text.reference",       { fg = "#e0ba86" })
-    vim.api.nvim_set_hl(0, "@text.uri",             { fg = "#e0ba86", underline = true })
+-- ── Colour overrides ─────────────────────────────────────────────────────────
+-- Applied after Stylix's base16 colorscheme. Philosophy: grey as the base,
+-- gold/orange for structure, soft warm-red for content. No green or cyan.
+--
+-- Palette (from Ukiyo.lua, consistent with the terminal / kitty theme):
+--   fg     #ccc2b7  main text — most identifiers live here
+--   dim    #868074  comments, delimiters, secondary
+--   gold   #e0ba86  types, headings, links   (base0D)
+--   orange #da9517  numbers, constants, operators, preprocessor
+--   kw     #ce631c  keywords / control flow  (bold orange-red)
+--   str    #da7b5f  strings, italic text     (soft warm red, replaces green)
+local function set_color_overrides()
+    local fg     = "#ccc2b7"
+    local dim    = "#868074"
+    local gold   = "#e0ba86"
+    local orange = "#da9517"
+    local kw     = "#ce631c"
+    local str    = "#da7b5f"
+
+    -- ── Traditional vim syntax groups ─────────────────────────────────────
+    vim.api.nvim_set_hl(0, "Comment",      { fg = dim,    italic = true })
+    vim.api.nvim_set_hl(0, "String",       { fg = str,    italic = true })
+    vim.api.nvim_set_hl(0, "Character",    { fg = str,    italic = true })
+    vim.api.nvim_set_hl(0, "Number",       { fg = orange })
+    vim.api.nvim_set_hl(0, "Float",        { fg = orange })
+    vim.api.nvim_set_hl(0, "Boolean",      { fg = orange, bold   = true })
+    vim.api.nvim_set_hl(0, "Constant",     { fg = orange })
+    vim.api.nvim_set_hl(0, "Identifier",   { fg = fg })
+    vim.api.nvim_set_hl(0, "Function",     { fg = fg,     italic = true })
+    vim.api.nvim_set_hl(0, "Statement",    { fg = kw,     bold   = true })
+    vim.api.nvim_set_hl(0, "Keyword",      { fg = kw,     bold   = true })
+    vim.api.nvim_set_hl(0, "Conditional",  { fg = kw,     bold   = true })
+    vim.api.nvim_set_hl(0, "Repeat",       { fg = kw,     bold   = true })
+    vim.api.nvim_set_hl(0, "Exception",    { fg = str })
+    vim.api.nvim_set_hl(0, "Operator",     { fg = fg })
+    vim.api.nvim_set_hl(0, "Delimiter",    { fg = dim })
+    vim.api.nvim_set_hl(0, "PreProc",      { fg = orange })
+    vim.api.nvim_set_hl(0, "Include",      { fg = orange })
+    vim.api.nvim_set_hl(0, "Define",       { fg = orange })
+    vim.api.nvim_set_hl(0, "Macro",        { fg = orange })
+    vim.api.nvim_set_hl(0, "Type",         { fg = gold })
+    vim.api.nvim_set_hl(0, "StorageClass", { fg = gold })
+    vim.api.nvim_set_hl(0, "Structure",    { fg = gold })
+    vim.api.nvim_set_hl(0, "Typedef",      { fg = gold })
+    vim.api.nvim_set_hl(0, "Special",      { fg = orange })   -- replaces cyan
+    vim.api.nvim_set_hl(0, "SpecialChar",  { fg = str })
+    vim.api.nvim_set_hl(0, "Tag",          { fg = gold })
+    vim.api.nvim_set_hl(0, "Underlined",   { fg = gold,   underline = true })
+    vim.api.nvim_set_hl(0, "htmlItalic",   { fg = str,    italic = true })
+    vim.api.nvim_set_hl(0, "htmlBold",     { fg = gold,   bold   = true })
+
+    -- ── Treesitter groups (future-proof; also used by neovim built-ins) ───
+    vim.api.nvim_set_hl(0, "@comment",                { fg = dim,    italic = true })
+    vim.api.nvim_set_hl(0, "@string",                 { fg = str,    italic = true })
+    vim.api.nvim_set_hl(0, "@string.escape",          { fg = str,    italic = true })
+    vim.api.nvim_set_hl(0, "@number",                 { fg = orange })
+    vim.api.nvim_set_hl(0, "@float",                  { fg = orange })
+    vim.api.nvim_set_hl(0, "@boolean",                { fg = orange, bold   = true })
+    vim.api.nvim_set_hl(0, "@constant",               { fg = orange })
+    vim.api.nvim_set_hl(0, "@constant.builtin",       { fg = orange, bold   = true })
+    vim.api.nvim_set_hl(0, "@variable",               { fg = fg })
+    vim.api.nvim_set_hl(0, "@variable.builtin",       { fg = fg,     bold = true })
+    vim.api.nvim_set_hl(0, "@function",               { fg = fg,     italic = true })
+    vim.api.nvim_set_hl(0, "@function.call",          { fg = fg,     italic = true })
+    vim.api.nvim_set_hl(0, "@function.builtin",       { fg = gold,   italic = true })
+    vim.api.nvim_set_hl(0, "@method",                 { fg = fg,     italic = true })
+    vim.api.nvim_set_hl(0, "@method.call",            { fg = fg,     italic = true })
+    vim.api.nvim_set_hl(0, "@keyword",                { fg = kw,     bold = true })
+    vim.api.nvim_set_hl(0, "@keyword.control",        { fg = kw,     bold = true })
+    vim.api.nvim_set_hl(0, "@keyword.import",         { fg = orange })
+    vim.api.nvim_set_hl(0, "@keyword.operator",       { fg = kw })
+    vim.api.nvim_set_hl(0, "@type",                   { fg = gold })
+    vim.api.nvim_set_hl(0, "@type.builtin",           { fg = gold })
+    vim.api.nvim_set_hl(0, "@operator",               { fg = fg })
+    vim.api.nvim_set_hl(0, "@punctuation.delimiter",  { fg = dim })
+    vim.api.nvim_set_hl(0, "@punctuation.bracket",    { fg = dim })
+    vim.api.nvim_set_hl(0, "@tag",                    { fg = gold })
+    vim.api.nvim_set_hl(0, "@attribute",              { fg = orange })
+
+    -- ── Markdown: vim-syntax groups, html chain, and treesitter ──────────
+    -- Italic → str (soft warm red)   Bold → gold   Links → gold underline
+    vim.api.nvim_set_hl(0, "markdownItalic",          { fg = str,  italic = true })
+    vim.api.nvim_set_hl(0, "markdownBold",            { fg = gold, bold   = true })
+    vim.api.nvim_set_hl(0, "markdownBoldItalic",      { fg = gold, bold = true, italic = true })
+    vim.api.nvim_set_hl(0, "markdownLinkText",        { fg = gold, underline = true })
+    vim.api.nvim_set_hl(0, "markdownUrl",             { fg = gold, underline = true })
+    vim.api.nvim_set_hl(0, "markdownLink",            { fg = gold })
+    vim.api.nvim_set_hl(0, "markdownIdDeclaration",   { fg = gold })
+    vim.api.nvim_set_hl(0, "@markup.italic",          { fg = str,  italic = true })
+    vim.api.nvim_set_hl(0, "@markup.strong",          { fg = gold, bold   = true })
+    vim.api.nvim_set_hl(0, "@markup.link",            { fg = gold })
+    vim.api.nvim_set_hl(0, "@markup.link.label",      { fg = gold })
+    vim.api.nvim_set_hl(0, "@markup.link.url",        { fg = gold, underline = true })
+    vim.api.nvim_set_hl(0, "@text.emphasis",          { fg = str,  italic = true })
+    vim.api.nvim_set_hl(0, "@text.strong",            { fg = gold, bold   = true })
+    vim.api.nvim_set_hl(0, "@text.reference",         { fg = gold })
+    vim.api.nvim_set_hl(0, "@text.uri",               { fg = gold, underline = true })
 end
-set_md_highlights()
-vim.api.nvim_create_autocmd("ColorScheme", { callback = set_md_highlights })
--- Syntax autocmd fires AFTER markdown.vim's `hi def link` commands run —
--- the only hook that guarantees our explicit colors win on every file open.
+set_color_overrides()
+vim.api.nvim_create_autocmd("ColorScheme", { callback = set_color_overrides })
+-- Syntax autocmd fires AFTER markdown.vim's `hi def link` commands — the
+-- only hook guaranteed to run after the syntax file sets its defaults.
 vim.api.nvim_create_autocmd("Syntax", {
     pattern = "markdown",
-    callback = set_md_highlights,
-})
--- Hide *, **, [] markers in markdown (matches yazi/bat rendering)
-vim.api.nvim_create_autocmd("FileType", {
-    pattern = "markdown",
-    callback = function() vim.wo.conceallevel = 2 end,
+    callback = set_color_overrides,
 })
 
 -- image.nvim — inline image rendering via kitty graphics protocol
@@ -144,7 +213,7 @@ vim.keymap.set('t','<C-l>', '<C-\\><C-n><C-w>l')
 
                    -- Netrw settings --
 -- Better symlinks
-vim.o.conceallevel = 2
+vim.o.conceallevel = 0
 vim.g.netrw_symlink_target = 0 -- This often helps hide the target path
 -- Hide dumb files
 vim.g.netrw_list_hide = [[\(^\|\s\s\)\zs\.\S\+,^NTUSER.*,^ntuser.*,.*\.ini$,anaconda*,OneDrive*,NetHood*,PrintHood*,Recent*,SendTo*,Templates*]]
@@ -572,14 +641,6 @@ vim.keymap.set("n", "<leader>ta", function()
     if count > 0 then vim.notify("Rendered " .. count .. " typst block(s)", vim.log.levels.INFO) end
 end)
 
--- Auto-render typst blocks on BufEnter for markdown files
-vim.api.nvim_create_autocmd("BufWritePost", {
-    pattern = "*.md",
-    callback = function()
-        local ok = pcall(require, "image")
-        if ok then vim.cmd("silent! normal \\<leader>ta") end
-    end,
-})
 
                    -- PDF / image viewer (<leader>z)
 -- Opens a kitty vsplit panel (real kitty window, not neovim terminal) so that
