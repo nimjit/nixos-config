@@ -55,7 +55,7 @@
     # ── Per-app overrides ─────────────────────────────────────────────────
     # Stylix themes most things automatically. Override specific apps here.
     # targets.firefox.enable = true;   # true by default
-    # targets.neovim.enable = true;    # true by default
+    targets.neovim.enable = false;     # hand-crafted Ukiyo.lua + init.lua overrides own the theme
     # targets.kitty.enable = true;     # true by default
     # targets.zathura.enable = true;   # true by default
   };

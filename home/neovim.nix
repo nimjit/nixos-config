@@ -6,8 +6,8 @@
     viAlias = true;
     vimAlias = true;
 
-    # Stylix injects the colourscheme automatically before this config loads.
-    # Do not set a colorscheme here; Stylix owns that.
+    # Stylix neovim target is disabled (stylix.targets.neovim.enable = false in stylix.nix)
+    # so mini.base16 no longer runs. The hand-crafted Ukiyo.lua is the sole colorscheme.
     initLua = builtins.readFile ./dotfiles/neovim/init.lua;
 
     plugins = with pkgs.vimPlugins; [
@@ -21,6 +21,9 @@
 
   # Lua modules available via require() in neovim
   xdg.configFile."nvim/lua/dashboard.lua".source = ./dotfiles/neovim/lua/dashboard.lua;
+
+  # Hand-crafted Ukiyo colorscheme — loaded by `colorscheme Ukiyo` in init.lua
+  xdg.configFile."nvim/colors/Ukiyo.lua".source = ./dotfiles/neovim/colors/Ukiyo.lua;
 
   # Stable Python path for g:python3_host_prog in init.vim
   home.sessionVariables = {
