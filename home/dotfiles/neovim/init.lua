@@ -328,7 +328,7 @@ vim.keymap.set("n", "<leader>/", function()
         " ─────────────────────────────────────── ",
         "  Files & Navigation                      ",
         "  <leader>f     Yazi file picker          ",
-        "  <leader>D     Back to dashboard         ",
+        "  <leader>d     Back to dashboard         ",
         " ─────────────────────────────────────── ",
         "  Python                                  ",
         "  <leader>r     Run file                  ",
@@ -469,7 +469,7 @@ vim.api.nvim_create_user_command("Dashboard", function()
     vim.api.nvim_set_current_buf(buf)
 end, {})
 
-vim.keymap.set("n", "<leader>D", "<cmd>Dashboard<CR>", { silent = true })
+vim.keymap.set("n", "<leader>d", "<cmd>Dashboard<CR>", { silent = true })
 
                    -- Daily note + weight
 local VAULT_DAILIES = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies"

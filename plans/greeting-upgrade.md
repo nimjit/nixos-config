@@ -5,6 +5,7 @@
 The zsh greeting (shown when a new terminal opens) should surface live data from
 the vault and calendar rather than a static text block: upcoming deadlines,
 today's events, and a countdown to the next exam/deadline.
+Potentially also with visual improvements like centered text, a small weather ascii text block, a nice daily quote.
 
 ---
 
@@ -20,6 +21,8 @@ but the terminal greeting itself is dumb.
 
 ```
   Wednesday 10 June 2026 · 14:32
+
+  🌤️  +16°C  |  Leiden          "The only way to do great work is to love what you do."
 
   Today          Algorithms lecture 10:45 · Study group 15:00
   Tomorrow       —
@@ -42,6 +45,8 @@ but the terminal greeting itself is dumb.
 | Tomorrow | khal | same with `tomorrow tomorrow` |
 | Deadlines | vault front-matter or khal tags | grep YAML `deadline:` fields, or a dedicated khal calendar |
 | Recent notes | vault | `ls -t <vault>/*.md \| head -5` stripped of path/extension |
+| Weather | wttr.in via curl | `curl -s --max-time 2 "wttr.in/Leiden?format=%c+%t"` → `🌤️  +16°C` |
+| Daily quote | fortune package | `fortune -s` (short quotes, nixpkgs `fortune` package) |
 
 ### Deadlines
 
@@ -52,7 +57,7 @@ Two approaches:
    `grep -rl "deadline:" <vault> | xargs grep "deadline:" | sort -t: -k3` gives
    sorted upcoming deadlines from note metadata.
 
-Option 2 is more Obsidian-native since the vault already uses YAML front-matter.
+Option 2 is more Obsidian-native since the vault already uses YAML front-matter, but requires more manual upkeep.
 
 ---
 
@@ -68,13 +73,38 @@ Key points:
 - Truncate long event titles at 40 characters
 - Use the existing Ukiyo palette colours via ANSI escapes (gold = `\e[33m`, dim = `\e[2m`)
 
----
+### Weather (cached 30 min)
 
-## Zsh greeting fix (minor, do first)
+```bash
+WTTR_CACHE=/tmp/wttr_leiden_cache
+if [ ! -f "$WTTR_CACHE" ] || find "$WTTR_CACHE" -mmin +30 -print -quit 2>/dev/null | grep -q .; then
+    curl -s --max-time 2 "wttr.in/Leiden?format=%c+%t" > "$WTTR_CACHE" 2>/dev/null \
+        || echo "  " > "$WTTR_CACHE"
+fi
+WEATHER=$(cat "$WTTR_CACHE")
+```
 
-The current greeting says `cal → Calendar (calcurse)`. khal replaced calcurse.
-Update to `cal → Calendar (khal)` in `home/zsh.nix`. This is a one-line fix that
-can be done independently of the full greeting upgrade.
+### Centering
+
+```bash
+center() {
+    local text="$1"
+    local pad=$(( (COLUMNS - ${#text}) / 2 ))
+    printf "%*s%s\n" "$pad" "" "$text"
+}
+```
+
+Use for the date/time line and the weather+quote line so the greeting is visually
+balanced regardless of terminal width.
+
+### Daily quote
+
+```bash
+QUOTE=$(fortune -s 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-80)
+```
+
+`fortune -s` returns a short (≤160 char) quote. The pipeline collapses newlines and
+trims to 80 chars so it fits alongside the weather on one line.
 
 ---
 
@@ -82,7 +112,8 @@ can be done independently of the full greeting upgrade.
 
 | File | Change |
 |------|--------|
-| `home/zsh.nix` | Replace static greeting with `greeting()` function; add khal commands to packages if missing |
+| `home/zsh.nix` | Replace static greeting with `greeting()` function |
+| `modules/common.nix` | Add `fortune` to packages |
 
 ---
 

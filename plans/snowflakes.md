@@ -79,7 +79,7 @@ now in `~/org/uni/`. **Needs**: updated script pointing to `~/org/uni/`.
 
 ---
 
-## The gap: ~/org/ has no snowflake
+## The gap: (if emacs becomes the editor of choice) ~/org/ has no snowflake
 
 After the Obsidian → org-roam conversion, the active vault is `~/org/`. The existing
 snowflake scripts show the archived Markdown vaults. There is no live visualization
@@ -248,6 +248,11 @@ colors per subject are more visually meaningful for physics/math heavy curricula
 **Automate on rebuild**: add a `home.activation` step in home-manager that regenerates
 the org snowflake whenever the home config is rebuilt. Not critical since manual
 regeneration via `SPC o V` is fast.
+
+**Make the html interactive**: add the ability to click a node and open a neovim instance there. This currently does not work.
+
+**Make html file scale aware**: the generated html looks different on different size windows.
+In general the spacing between the flakes should be larger, but this size difference should also reflect the window size.
 
 ---
 

@@ -38,8 +38,9 @@ Downside: less flexible than tmux, tied to kitty version.
 A full desktop widget bar. More powerful but heavier; better suited to the
 KDE → Sway migration (see `window-manager.md`). Worth deferring until Sway.
 
-**Recommendation:** Option A (tmux). Low weight, flexible, doesn't block Sway migration.
-Start with time + MPD; add other widgets incrementally.
+**Recommendation:** Deferred — implement as Waybar when Sway is set up (see
+`window-manager.md`). Setting up a status bar twice (once for KDE, once for Sway)
+is wasteful; Waybar is already planned and will handle this cleanly.
 
 ---
 
@@ -49,43 +50,46 @@ nchat currently runs silently. Fixes needed:
 
 ### Problem
 
-nchat must be running as a persistent background process to receive messages and
-fire notifications. Right now it only runs when the `messages` shell function is
-called.
+nchat fires no notifications because `notify-send` is not in PATH. nchat does
+**not** have a `--background` flag — it is always interactive.
 
-### Fix: systemd user service
+### Finding
 
-```nix
-# In home/default.nix or a new home/nchat.nix
-systemd.user.services.nchat = {
-  description = "nchat WhatsApp client (background)";
-  wantedBy = [ "default.target" ];
-  serviceConfig = {
-    ExecStart = "${pkgs.nchat}/bin/nchat --background";
-    Restart = "on-failure";
-  };
-};
+`~/.config/nchat/ui.conf` already has notifications fully configured:
+
+```
+desktop_notify_enabled=1
+desktop_notify_inactive=1
+desktop_notify_active_noncurrent=1
 ```
 
-Check whether nchat supports a `--background` / headless mode that fires
-`notify-send` on new messages. If not, an alternative is to poll the nchat log
-file for new message lines and call `notify-send` from a wrapper script.
+The nchat log confirms it tried to fire a notification but failed:
 
-### notify-send integration
-
-```bash
-# wrapper: watch nchat log and fire desktop notifications
-tail -F ~/.nchat/nchat.log | while read -r line; do
-    echo "$line" | grep -q "msg received" && \
-        notify-send "nchat" "$(echo "$line" | sed 's/.*from: //')"
-done
+```
+WARN | command 'notify-send' not found  (uimodel.cpp:3126)
 ```
 
-This requires knowing nchat's log format — check `~/.nchat/` after a session.
+### Fix
+
+Add `libnotify` to packages in `modules/common.nix`. That package provides
+`notify-send`. nchat auto-detects it at runtime — no config change needed.
+Notifications will fire whenever nchat is running (i.e. the `messages` kitty tab
+is open) and a new message arrives in a non-focused chat.
 
 ---
 
 ## 3. Rofi app launcher with fuzzy search
+
+**Why Rofi over KRunner?** Three reasons specific to this setup:
+1. **Custom modes** — the password picker (`cli-migration.md`) needs a scriptable
+   custom mode. KRunner has no equivalent API for this.
+2. **Portability** — Rofi config transfers unchanged to Sway. KRunner is
+   KDE-only and will not exist after the migration.
+3. **Already configured** — `home/rofi.nix` already declares drun/run/window modes.
+   KRunner would require starting from scratch on Sway.
+
+If neither scripting nor Sway migration were planned, KRunner would be fine — it
+is already there and zero effort. Given both are planned, Rofi is the right choice.
 
 A keyboard shortcut (`Super+Space`) opens a rofi window to launch apps or run
 shell commands. Already partially in scope from `cli-migration.md` (the password
@@ -131,8 +135,12 @@ sub-mappings. Implemented in pure Lua without a plugin:
 A markdown file listing all custom bindings. Open with `:e $VAULT/Meta/Keybindings.md`
 or a dedicated alias. Low-tech but always accurate if kept updated.
 
-**Recommendation:** extend the existing `<leader>?` popup (Option A) for neovim
-bindings; add a rofi mode for shell/system shortcuts (Option B extension).
+**Recommendation:** extend the existing `<leader>?` popup (Option A) and rename
+it to `<leader>/` (no shift required, same muscle-memory position on the keyboard).
+
+**Implementation:** in `home/dotfiles/neovim/init.lua`, find the line that binds
+`<leader>?` and change the lhs to `<leader>/`. Also update the keybind reference
+in `README.md` under "Neovim workflows".
 
 ---
 
@@ -140,19 +148,16 @@ bindings; add a rofi mode for shell/system shortcuts (Option B extension).
 
 | File | Change |
 |------|--------|
-| `home/default.nix` or new `home/nchat.nix` | systemd user service for nchat background |
-| `home/zsh.nix` | tmux session auto-start in `messages()` and `vault-work`/`uni-work` if using Option A |
-| `home/rofi.nix` | launcher mode, `Super+Space` shortcut declaration |
-| `home/dotfiles/neovim/init.lua` | Extend `<leader>?` to cover all custom bindings |
-| `modules/common.nix` | Add `tmux` to packages if using Option A |
+| `modules/common.nix` | Add `libnotify` to packages (fixes nchat notifications) |
+| `home/rofi.nix` | Launcher mode config; declare `Super+Space` shortcut |
+| `home/dotfiles/neovim/init.lua` | Rename `<leader>?` → `<leader>/`; extend binding list |
+| `README.md` | Update keybind reference: `<leader>?` → `<leader>/` |
 
 ---
 
 ## Notes
 
-- nchat's headless/notification mode: check `nchat --help` and GitHub issues —
-  this is the most uncertain part; may require a patch or wrapper
-- Waybar + eww are better deferred to the Sway migration (see `window-manager.md`)
-  so the bar config doesn't have to be written twice
-- `Super+Space` may conflict with KDE's default application launcher shortcut —
-  disable the KDE shortcut first in System Settings
+- nchat notifications are unblocked by adding `libnotify` — no other changes needed
+- Waybar is deferred to the Sway migration (see `window-manager.md`)
+- `Super+Space` may conflict with KDE's default application launcher shortcut (KRunner) —
+  disable the KDE shortcut first in System Settings → Shortcuts → KRunner
