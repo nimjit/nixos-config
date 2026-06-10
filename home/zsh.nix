@@ -95,57 +95,57 @@
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
         _greeting() {
-          local GOLD=$'\033[33m' DIM=$'\033[2m' RESET=$'\033[0m'
-          local cols=${COLUMNS:-80}
+          local GOLD DIM RESET cols
+          GOLD=$'\033[33m'
+          DIM=$'\033[2m'
+          RESET=$'\033[0m'
+          cols=$(tput cols 2>/dev/null || echo 80)
 
           _center() {
-            local text="$1" len pad
-            # strip ANSI codes to measure visible length
-            len=${#${text//$'\033['[0-9]*m/}}
+            local text="$1" plain len pad
+            plain=$(printf '%s' "$text" | sed 's/\x1B\[[0-9;]*m//g')
+            len=$(printf '%s' "$plain" | wc -m)
             pad=$(( (cols - len) / 2 ))
-            [[ $pad -lt 0 ]] && pad=0
-            printf "%*s%s\n" "$pad" "" "$text"
+            (( pad < 0 )) && pad=0
+            printf '%*s%s\n' "$pad" '' "$text"
           }
 
-          # Date
-          local date_str=$(date "+%A %-d %B %Y  ·  %H:%M")
+          local date_str weather quote today_ev tmrw_ev
+          date_str=$(date "+%A %-d %B %Y  ·  %H:%M")
 
-          # Weather (cached 30 min)
           local wttr=/tmp/wttr_leiden_cache
           if [[ ! -f $wttr ]] || [[ -n $(find "$wttr" -mmin +30 2>/dev/null) ]]; then
-            curl -s --max-time 2 "wttr.in/Leiden?format=%c+%t" >$wttr 2>/dev/null || printf "  " >$wttr
+            curl -s --max-time 2 "wttr.in/Leiden?format=%c+%t" >$wttr 2>/dev/null || printf '  ' >$wttr
           fi
-          local weather=$(<$wttr)
+          weather=$(<$wttr)
 
-          # Quote
-          local quote=$(fortune -s 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-55)
+          quote=$(fortune -s 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-55)
 
-          # khal events
-          local today_ev=$(khal list today today --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -3)
-          local tmrw_ev=$(khal list tomorrow tomorrow --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -2)
+          today_ev=$(khal list today today --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -3)
+          tmrw_ev=$(khal list tomorrow tomorrow --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -2)
 
           echo ""
-          _center "${GOLD}${date_str}${RESET}"
+          _center "$GOLD$date_str$RESET"
           echo ""
-          _center "${DIM}${weather}   ·   ${quote}${RESET}"
+          _center "$DIM$weather   ·   $quote$RESET"
           echo ""
 
           if [[ -n $today_ev ]]; then
-            printf "  ${GOLD}Today${RESET}\n"
-            while IFS= read -r line; do printf "    %s\n" "$line"; done <<< "$today_ev"
+            printf '  %sToday%s\n' "$GOLD" "$RESET"
+            while IFS= read -r line; do printf '    %s\n' "$line"; done <<< "$today_ev"
           else
-            printf "  ${DIM}Today     —${RESET}\n"
+            printf '  %sToday     —%s\n' "$DIM" "$RESET"
           fi
 
           if [[ -n $tmrw_ev ]]; then
-            printf "  ${GOLD}Tomorrow${RESET}\n"
-            while IFS= read -r line; do printf "    %s\n" "$line"; done <<< "$tmrw_ev"
+            printf '  %sTomorrow%s\n' "$GOLD" "$RESET"
+            while IFS= read -r line; do printf '    %s\n' "$line"; done <<< "$tmrw_ev"
           else
-            printf "  ${DIM}Tomorrow  —${RESET}\n"
+            printf '  %sTomorrow  —%s\n' "$DIM" "$RESET"
           fi
 
           echo ""
-          printf "  ${DIM}uni-work  vault-work  nixos-work  today  messages  music  cal${RESET}\n"
+          printf '  %suni-work  vault-work  nixos-work  today  messages  music  cal%s\n' "$DIM" "$RESET"
           echo ""
         }
         _greeting
