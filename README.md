@@ -1,228 +1,160 @@
 # nixos-config
 
-My NixOS system configuration. Manages all machines declaratively — packages,
-theming, dotfiles, and services — from a single repo.
+NixOS flake configuration for user `thijmen`. Manages packages, theming, dotfiles,
+and services declaratively across three machines.
 
 ---
 
 ## Machines
 
-| Hostname | Description |
-|---|---|
-| `nixos-desktop` | Main desktop |
-| `nixos-laptop` | Laptop |
-| `nixos-usb` | Portable USB install |
+| Hostname | Role | Notes |
+|----------|------|-------|
+| `nixos-desktop` | Main machine | Nvidia GTX 1060 + Intel iGPU; KDE Plasma 6 |
+| `nixos-laptop` | Laptop | — |
+| `nixos-usb` | Portable USB install | Carries a BACKUP data partition |
+
+**GPU note (desktop):** The Nvidia legacy_535 driver requires specific boot config.
+See comments in `hosts/desktop/default.nix` — do not change the DRI/KWIN settings
+without reading them. `hosts/desktop/default.nix` is off-limits without explicit
+permission (see `CLAUDE.md`).
 
 ---
 
-## First-Time Setup
+## Theme
 
-### Step 1 — Before anything: put your colour values in `themes/ukiyo.nix`
+**Stylix** manages theming system-wide from `themes/ukiyo.nix` (a base16 palette).
+Fonts, cursor, wallpaper, and per-app colours all derive from this single file.
 
-Open your current Obsidian theme CSS on your existing machine. Find the colour
-variables and map them to the base16 slots in `themes/ukiyo.nix`. The comments
-in that file explain what each slot is for.
+**Neovim is the exception.** Stylix's neovim target injects `mini.base16` which
+overrides everything, so neovim uses its own hand-crafted colorscheme instead:
+- `home/dotfiles/neovim/colors/Ukiyo.lua` — the actual colorscheme
+- `set_color_overrides()` in `init.lua` — markdown + syntax tweaks on top
+- A `VimEnter` autocmd re-applies overrides after Stylix's mini.base16 runs
 
-Also add a wallpaper image to `themes/wallpapers/` and update the path in
-`modules/stylix.nix`.
-
-### Step 2 — Download the NixOS ISO and write it to USB
-
-On your Ubuntu system (or any Linux machine):
-
-```bash
-# Download the minimal ISO
-wget https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso
-
-# Find your USB device name (look for your USB size)
-lsblk
-
-# Write the ISO (replace sdX with your actual device, e.g. sdb — NOT sdb1)
-sudo dd if=latest-nixos-minimal-x86_64-linux.iso of=/dev/sdX bs=4M status=progress
-sync
-```
-
-### Step 3 — Set up this repo on GitHub
-
-On your Ubuntu system, before booting NixOS:
-
-```bash
-# Install git if not present
-sudo apt install git
-
-# Clone this repo or create a new one
-git clone https://github.com/YOURUSERNAME/nixos-config
-# or: initialise from scratch and push
-
-# Edit flake.nix and home/default.nix: replace "yourname" with your username
-# Edit home/default.nix: set your git name and email
-# Edit themes/ukiyo.nix: fill in your colours
-# Add your userChrome.css content to home/dotfiles/userChrome.css
-# Add your existing init.vim content to home/dotfiles/neovim/init.vim
-
-git add .
-git commit -m "initial config"
-git push
-```
-
-### Step 4 — Partition and install (desktop or laptop)
-
-Boot from the NixOS USB. You will land in a shell as root.
-
-**Connect to internet first:**
-```bash
-# For ethernet: should work automatically
-# For WiFi:
-iwctl
-  device list
-  station wlan0 scan
-  station wlan0 get-networks
-  station wlan0 connect "YourNetworkName"
-  exit
-```
-
-**Partition the disk (UEFI, replaces entire disk):**
-```bash
-# Find your disk
-lsblk
-# It will be something like nvme0n1 or sda
-
-# Partition (replace nvme0n1 with your disk)
-parted /dev/nvme0n1 -- mklabel gpt
-parted /dev/nvme0n1 -- mkpart ESP fat32 1MiB 512MiB
-parted /dev/nvme0n1 -- mkpart primary ext4 512MiB 100%
-parted /dev/nvme0n1 -- set 1 esp on
-
-# Format
-mkfs.fat -F 32 /dev/nvme0n1p1
-mkfs.ext4 -L nixos /dev/nvme0n1p2
-
-# Mount
-mount /dev/nvme0n1p2 /mnt
-mkdir -p /mnt/boot
-mount /dev/nvme0n1p1 /mnt/boot
-```
-
-**Generate hardware config:**
-```bash
-nixos-generate-config --root /mnt
-```
-
-Copy the generated hardware-configuration.nix to a USB stick or note the
-UUIDs, then update `hosts/desktop/hardware-configuration.nix` (or laptop)
-in this repo with those values. Push the update from another machine, or
-edit in-place on the mounted NixOS drive.
-
-**Install from this repo:**
-```bash
-# Install git in the live environment
-nix-env -iA nixos.git
-
-# Clone your config
-git clone https://github.com/YOURUSERNAME/nixos-config /mnt/etc/nixos
-
-# Replace the placeholder hardware-configuration.nix with the generated one
-cp /mnt/etc/nixos/generated-hardware.nix /mnt/etc/nixos/hosts/desktop/hardware-configuration.nix
-
-# Install (replace "desktop" with your hostname target)
-nixos-install --flake /mnt/etc/nixos#desktop
-
-# Set root password when prompted
-# Reboot
-reboot
-```
-
-### Step 5 — After first boot
-
-```bash
-# Change your user password (initial is "changeme")
-passwd
-
-# Authenticate Tailscale
-sudo tailscale up
-
-# Clone the config to /etc/nixos for the auto-update service
-sudo git clone https://github.com/YOURUSERNAME/nixos-config /etc/nixos
-
-# Verify the system is healthy
-systemctl --failed
-journalctl -u nixos-health
-```
-
-### Step 6 — Set up Syncthing
-
-1. Open a browser and go to `http://localhost:8384`
-2. Note your device ID (Actions → Show ID)
-3. Add it to `modules/syncthing.nix` under `devices`
-4. Do the same on each other device
-5. Set the `devices` list in the `BACKUP` folder entry
-6. Commit and push; rebuild: `rebuild`
+To switch the system theme: change `base16Scheme` in `modules/stylix.nix` and
+rebuild. The neovim colorscheme is independent and must be updated separately.
 
 ---
 
-## USB Install (Portable)
+## Key applications
 
-### Partition the USB differently (3 partitions)
-
-```bash
-# The USB needs: EFI + root + BACKUP data partition
-parted /dev/sdX -- mklabel gpt
-parted /dev/sdX -- mkpart ESP fat32 1MiB 512MiB
-parted /dev/sdX -- mkpart primary ext4 512MiB 44GiB   # ~40GB for NixOS
-parted /dev/sdX -- mkpart primary ext4 44GiB 100%     # remaining for BACKUP
-parted /dev/sdX -- set 1 esp on
-
-mkfs.fat -F 32 /dev/sdX1
-mkfs.ext4 -L nixos /dev/sdX2
-mkfs.ext4 -L BACKUP /dev/sdX3
-
-mount /dev/sdX2 /mnt
-mkdir -p /mnt/boot
-mount /dev/sdX1 /mnt/boot
-```
-
-Then install with `--flake .#usb` instead of `#desktop`.
-
-The BACKUP partition is mounted automatically at `/home/yourname/BACKUP` by
-`hosts/usb/default.nix` via the `BACKUP` label.
+| App | Purpose | Config |
+|-----|---------|--------|
+| kitty | Terminal | `home/kitty.nix` |
+| neovim | Editor + dashboard | `home/neovim.nix`, `home/dotfiles/neovim/` |
+| zsh + starship | Shell | `home/zsh.nix` |
+| yazi | File manager | `home/yazi.nix` |
+| firefox + tridactyl | Browser | `home/firefox.nix` |
+| zathura | PDF viewer | Stylix-themed |
+| rmpc + MPD | Music | `home/mpd.nix`, `modules/common.nix` |
+| khal + vdirsyncer | Calendar (12 Google calendars) | `home/dotfiles/khal/` |
+| nchat | WhatsApp terminal client | `modules/common.nix` |
+| lastpass-cli | Password manager CLI | `modules/common.nix` |
+| syncthing | File sync | `modules/syncthing.nix` |
+| tailscale | VPN | `modules/tailscale.nix` |
 
 ---
 
-## Daily Workflow
+## Local services
+
+| Port | Service | Notes |
+|------|---------|-------|
+| `8080` | New tab page | Served by a systemd user service (`python3 -m http.server`); source at `~/.config/newtab/index.html`; Firefox "New Tab Override" extension points here |
+| `8384` | Syncthing web UI | Add device IDs here when pairing new machines |
+
+---
+
+## Shell aliases and workflows
+
+```
+rebuild        nh os switch /etc/nixos -H desktop
+update         git pull + rebuild
+gc             delete generations older than 30 days
+gens           list all generations
+
+nixos          yazi /etc/nixos
+backup         yazi ~/Documents/BACKUP
+vault          yazi ~/...Obsidian/Renaissance_Vault_Structure/
+uni            yazi ~/...Uni/Obsidian/Uni
+cal            vdirsyncer sync && ikhal
+today          nvim -c DailyNote
+
+uni-work       neovim → uni dashboard
+uni-code       neovim → current coding project (g:uni_code_path)
+vault-work     neovim → personal vault dashboard + Claude split
+nixos-work     neovim → /etc/nixos + Claude split + terminal
+messages       nchat in a kitty tab (focuses existing tab if open)
+music          rmpc in a kitty tab (focuses existing tab if open)
+```
+
+---
+
+## Neovim workflows
+
+```
+<leader>?      keybinding help popup
+<leader>f      yazi file picker (split)
+<leader>D      return to dashboard from any buffer
+<leader>z      open PDF or image in a kitty vsplit panel
+<leader>m      rmpc music player in a vsplit
+<leader>tp     compile + render typst/math block under cursor
+<leader>ta     render all typst blocks in buffer
+<leader>r      run Python file
+<leader>c      run cell (# %% marker)
+<C-h/j/k/l>    navigate neovim splits
+<C-↑↓←→>       resize neovim splits
+<C-S-h/j/k/l>  navigate kitty panels (e.g. PDF preview)
+```
+
+**Vaults:**
+- Personal: `~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/`
+- Uni: `~/Documents/BACKUP/Uni/Obsidian/Uni/`
+
+---
+
+## Maintenance
 
 ```bash
-# Apply config changes
+# Apply changes
 rebuild
 
-# Pull from GitHub and rebuild
-update
+# Update all flake inputs (do monthly)
+cd /etc/nixos && nix flake update && rebuild
 
-# Check system health
-journalctl -u nixos-health
+# Clean old generations
+gc
 
 # Roll back last change
 sudo nixos-rebuild switch --rollback
 
-# Update all flake inputs (monthly)
-cd /etc/nixos && sudo nix flake update && rebuild
-
-# Clean old generations
-gc
+# Check what's failing
+systemctl --failed
+journalctl -u <service> -n 50
 ```
 
----
+**Syncthing** — add a new device at `http://localhost:8384`, then declare it in
+`modules/syncthing.nix` and rebuild.
 
-## Adding a New Package
-
-1. Find it at https://search.nixos.org/packages
-2. Add to `environment.systemPackages` in `modules/common.nix`
-3. `git commit -m "add package" && git push`
-4. `rebuild`
+**vdirsyncer** — `~/.config/vdirsyncer/config` is NOT in git (contains OAuth tokens).
+Replicate manually on new machines. Run `vdirsyncer discover` after adding a new
+Google calendar.
 
 ---
 
-## Switching Themes
+## Plans
 
-1. Add a new palette file to `themes/` (copy `ukiyo.nix` as a template)
-2. Change `base16Scheme` in `modules/stylix.nix` to point at the new file
-3. `rebuild` — the entire system recolours itself
+Open design/migration work lives in `plans/`:
+
+| File | Topic |
+|------|-------|
+| `theme-workflow.md` | Ukiyo.nix palette update, khal look, zsh greeting |
+| `cli-migration.md` | CLI tool status + remaining rofi/nchat items |
+| `wikilinks.md` | `[[wikilink]]` jump, backlinks buffer, `[[` completion |
+| `template-system.md` | `:NewNote` command using existing vault Templates/ |
+| `vault-search.md` | `<leader>s` fuzzy content search across vault |
+| `greeting-upgrade.md` | Live khal events + vault deadlines in zsh greeting |
+| `quick-capture.md` | `cap` shell function to append to daily note |
+| `notifications-bar.md` | Terminal status bar, nchat notifications, rofi launcher, keybinding reference |
+| `window-manager.md` | KDE → Sway migration (not started) |
+| `emacs.md` | Emacs setup (not started) |
+| `snowflakes.md` | Vault/uni/nixos graph visualisers |
