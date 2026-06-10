@@ -94,24 +94,61 @@
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
-        echo ""
-        echo " Go to:"
-        echo "  nixos   → /etc/nixos"
-        echo "  backup  → ~/Documents/BACKUP"
-        echo "  vault   → Renaissance vault"
-        echo "  uni     → Uni vault"
-        echo "  books   → ~/Documents/BACKUP/Books"
-        echo ""
-        echo "  Workflows:"
-        echo "  uni-work   →  Uni dashboard"
-        echo "  uni-code   →  Current coding project"
-        echo "  vault-work →  Personal vault + Claude"
-        echo "  nixos-work →  NixOS config + Claude"
-        echo "  today      →  Today's daily note"
-        echo "  messages   →  WhatsApp (nchat)"
-        echo "  music      →  Music player (rmpc)"
-        echo "  cal        →  Calendar (khal)"
-        echo ""
+        _greeting() {
+          local GOLD=$'\033[33m' DIM=$'\033[2m' RESET=$'\033[0m'
+          local cols=${COLUMNS:-80}
+
+          _center() {
+            local text="$1" len pad
+            # strip ANSI codes to measure visible length
+            len=${#${text//$'\033['[0-9]*m/}}
+            pad=$(( (cols - len) / 2 ))
+            [[ $pad -lt 0 ]] && pad=0
+            printf "%*s%s\n" "$pad" "" "$text"
+          }
+
+          # Date
+          local date_str=$(date "+%A %-d %B %Y  ·  %H:%M")
+
+          # Weather (cached 30 min)
+          local wttr=/tmp/wttr_leiden_cache
+          if [[ ! -f $wttr ]] || [[ -n $(find "$wttr" -mmin +30 2>/dev/null) ]]; then
+            curl -s --max-time 2 "wttr.in/Leiden?format=%c+%t" >$wttr 2>/dev/null || printf "  " >$wttr
+          fi
+          local weather=$(<$wttr)
+
+          # Quote
+          local quote=$(fortune -s 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-55)
+
+          # khal events
+          local today_ev=$(khal list today today --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -3)
+          local tmrw_ev=$(khal list tomorrow tomorrow --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -2)
+
+          echo ""
+          _center "${GOLD}${date_str}${RESET}"
+          echo ""
+          _center "${DIM}${weather}   ·   ${quote}${RESET}"
+          echo ""
+
+          if [[ -n $today_ev ]]; then
+            printf "  ${GOLD}Today${RESET}\n"
+            while IFS= read -r line; do printf "    %s\n" "$line"; done <<< "$today_ev"
+          else
+            printf "  ${DIM}Today     —${RESET}\n"
+          fi
+
+          if [[ -n $tmrw_ev ]]; then
+            printf "  ${GOLD}Tomorrow${RESET}\n"
+            while IFS= read -r line; do printf "    %s\n" "$line"; done <<< "$tmrw_ev"
+          else
+            printf "  ${DIM}Tomorrow  —${RESET}\n"
+          fi
+
+          echo ""
+          printf "  ${DIM}uni-work  vault-work  nixos-work  today  messages  music  cal${RESET}\n"
+          echo ""
+        }
+        _greeting
       fi
     '';
     dotDir = "${config.xdg.configHome}/zsh";

@@ -722,9 +722,9 @@ function M.course_view(course)
     end)
 
     km("n", function()
-        local date = os.date("%Y-%m-%d")
+        local date_str = os.date("%Y-%m-%d")
         local template = UNI .. "/Templates/Lecture.md"
-        local target = lecture_dir .. "/" .. shorthand .. " " .. date .. ".md"
+        local target = lecture_dir .. "/" .. shorthand .. " " .. date_str .. ".md"
         local tf = io.open(template, "r")
         local content = tf and tf:read("*a")
             or ("---\nclass: " .. shorthand .. "\ndate: " .. date .. "\n---\n\n# Lecture\n\n")
@@ -736,6 +736,61 @@ function M.course_view(course)
     end)
 
     return buf
+end
+
+-- ── Vault search ─────────────────────────────────────────────────────────────
+
+function M.vault_search(query)
+    if not query then
+        vim.ui.input({ prompt = "Search vault: " }, function(q)
+            if q and q ~= "" then M.vault_search(q) end
+        end)
+        return
+    end
+
+    local buf_path = vim.fn.expand("%:p")
+    local vault = buf_path:find(UNI, 1, true) and UNI or VAULT
+
+    local cmd = string.format(
+        "grep -rn --include='*.md'"
+        .. " --exclude-dir=Attachments --exclude-dir=Templates --exclude-dir=.obsidian"
+        .. " -i %s %s 2>/dev/null",
+        vim.fn.shellescape(query),
+        vim.fn.shellescape(vault)
+    )
+    local raw = vim.fn.systemlist(cmd)
+
+    local entries = {}
+    for _, line in ipairs(raw) do
+        local file, lnum, text = line:match("^(.-):(%d+):(.*)")
+        if file then
+            local short = file:gsub(vim.pesc(vault) .. "/", "")
+            local snippet = text:match("^%s*(.-)%s*$"):sub(1, 55)
+            entries[#entries + 1] = {
+                display = string.format("  %-42s %s", short .. ":" .. lnum, snippet),
+                path    = file,
+                lnum    = tonumber(lnum),
+            }
+        end
+    end
+
+    local result_lines = {}
+    for _, e in ipairs(entries) do
+        result_lines[#result_lines + 1] = {
+            text = e.display,
+            callback = function()
+                vim.cmd("edit +" .. e.lnum .. " " .. vim.fn.fnameescape(e.path))
+            end,
+        }
+    end
+
+    local n = #entries
+    local sections = {
+        { header = n .. (n == 1 and " result" or " results"), lines = result_lines },
+    }
+    local title = 'SEARCH  "' .. query .. '"'
+    local buf = M.render_buffer(title, sections, { "[<CR>] open at line", "[q] close" })
+    vim.api.nvim_set_current_buf(buf)
 end
 
 return M
