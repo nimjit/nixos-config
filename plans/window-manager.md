@@ -1,5 +1,65 @@
 # Window Manager Switch Plan
 
+## Current KDE settings (reference for migration)
+
+Captured from live config files. Use this when writing the sway config.
+
+### Virtual desktops
+4 desktops in a single row:
+| # | Name | Tiling layout (main monitor) |
+|---|------|------------------------------|
+| 1 | Uni | 50 / 50 |
+| 2 | General | single (full width) |
+| 3 | Extra | 50 / 50 |
+| 4 | Nix-OS configuration | 50 / 50 |
+
+Padding: 15px on all desktops. There is also a 25/50/25 pattern applied on some
+workspace/monitor combos (possibly from an older config).
+
+### Keyboard shortcuts (non-obvious / custom)
+Standard media keys and volume keys are all default — already covered in the
+sway plan. The custom / remapped ones:
+
+| Shortcut | Action | Notes for sway |
+|----------|--------|----------------|
+| `Meta+H/J/K/L` | Switch to desktop 1/2/3/4 | ✓ already in sway plan |
+| `Alt+H/J/K/L` | Focus window left/down/up/right | Add to sway keybindings |
+| `Meta+Return` | Launch kitty | ✓ already in sway plan |
+| `Alt+Space` | Rofi | Keep as-is |
+| `Meta+L` | **Both** lock screen AND switch to desktop 4 | Conflict to resolve — pick one key for lock in sway |
+| `Meta+D` | Show/peek at desktop | No direct sway equivalent; `Super+D` could minimize all |
+| `Meta+W` | Overview (all windows) | Could bind to `rofi -show window` in sway |
+| `Meta+G` | Grid view | No equivalent in sway |
+| `Meta+Tab` / `Alt+Tab` | Walk through windows | Sway has no built-in switcher; use `rofi -show window` |
+| `Meta+\`` | Same-app window cycling | No direct equivalent in sway |
+| `Meta+Shift+Left/Right` | Move window to previous/next monitor | Add to sway plan |
+| `Meta+1–9` | Activate taskbar pinned app | No equivalent; replace with workspace binds |
+| `Meta+PgUp/PgDown` | Maximise / minimise window | Add to sway plan |
+| `Meta+V` | Show clipboard at cursor | Add `cliphist` + rofi clipboard picker in sway |
+| `Meta+Ctrl+X` | Clipboard action popup | Drop or replace with cliphist |
+| `Print` | Screenshot full screen | ✓ already in sway plan |
+
+### Display / input
+- **Xwayland scale**: 1.2 — set `output * scale 1.2` in sway config
+- **Keyboard repeat delay**: 200 ms — ✓ already in sway plan
+- **Keyboard repeat rate**: 60/s — sway plan currently has 40, update to 60
+- **Focus**: `DelayFocusInterval=0` (instant) — set `focus_follows_mouse yes` in sway if desired
+
+### Night colour
+- Enabled, 5000 K (slightly warm). Use `gammastep` or `wlsunset` in sway startup.
+- No location-based scheduling — just a fixed 5000 K colour temperature.
+
+### Screen lock / idle
+- **Auto-lock**: 30 minutes idle (no auto-suspend on AC)
+- **Lock on resume from sleep**: off
+- Sway plan currently has 4 min dim + 8 min lock — update swayidle to `timeout 1800 'swaylock'`
+
+### Panel / tray (for Waybar reference)
+System tray contains: device notifier, clipboard, notifications, volume, keyboard
+indicator, network, battery indicator. All covered by Waybar's `tray` module.
+
+---
+
 ## Answered questions
 
 - **WM choice**: Sway — no animations/transparency wanted, stability preferred.

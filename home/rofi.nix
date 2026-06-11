@@ -1,9 +1,9 @@
-{ pkgs, ... }: {
+{ pkgs, lib, ... }: {
 
   programs.rofi = {
     enable  = true;
     package = pkgs.rofi-wayland;   # rofi is X11; rofi-wayland is the actual Wayland build
-    theme   = ./dotfiles/rofi/ukiyo.rasi;
+    theme   = lib.mkForce ./dotfiles/rofi/ukiyo.rasi;
 
     extraConfig = {
       # combi merges drun + power-menu into one list — type "kit" for kitty, "shut" for shutdown
