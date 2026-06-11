@@ -473,6 +473,58 @@ end, {})
 vim.keymap.set("n", "<leader>d", "<cmd>Dashboard<CR>", { silent = true })
 vim.keymap.set("n", "<leader>s", function() dash.vault_search(nil) end, { silent = true })
 
+                   -- Wikilink navigation
+-- gf on [[Note Name]] (including spaces) opens the note anywhere in vault or uni.
+-- Strips |alias and #heading suffixes. Falls back to native gf if not on a link.
+local WL_VAULT = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure"
+local WL_UNI   = "/home/thijmen/Documents/BACKUP/Uni/Obsidian/Uni"
+
+local function wikilink_under_cursor()
+    local line = vim.api.nvim_get_current_line()
+    local col  = vim.api.nvim_win_get_cursor(0)[2] + 1
+    for s, name, e in line:gmatch("()%[%[(.-)%]%]()") do
+        if col >= s and col < e then return name end
+    end
+end
+
+local function resolve_wikilink(raw)
+    local name = raw:gsub("|.*$", ""):gsub("#.*$", ""):match("^%s*(.-)%s*$")
+    if name == "" then return nil end
+    for _, root in ipairs({ WL_VAULT, WL_UNI }) do
+        local hits = vim.fn.systemlist(
+            "find " .. vim.fn.shellescape(root)
+            .. " -not -path '*/Attachments/*'"
+            .. " -not -path '*/.obsidian/*'"
+            .. " -not -path '*/Templates/*'"
+            .. " -iname " .. vim.fn.shellescape(name .. ".md")
+            .. " 2>/dev/null"
+        )
+        if hits and #hits > 0 then return hits[1] end
+    end
+end
+
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "markdown",
+    callback = function()
+        vim.keymap.set("n", "gf", function()
+            local target = wikilink_under_cursor()
+            if not target then vim.cmd("normal! gf"); return end
+            local path = resolve_wikilink(target)
+            if path then
+                vim.cmd("edit " .. vim.fn.fnameescape(path))
+            else
+                local clean = target:gsub("|.*$", ""):gsub("#.*$", ""):match("^%s*(.-)%s*$")
+                if vim.fn.confirm("Create '" .. clean .. ".md'?", "&Yes\n&No", 2) == 1 then
+                    local newpath = vim.fn.expand("%:p:h") .. "/" .. clean .. ".md"
+                    local f = io.open(newpath, "w")
+                    if f then f:write("# " .. clean .. "\n\n"); f:close() end
+                    vim.cmd("edit " .. vim.fn.fnameescape(newpath))
+                end
+            end
+        end, { buffer = true, silent = true })
+    end,
+})
+
                    -- Daily note + weight
 local VAULT_DAILIES = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies"
 
