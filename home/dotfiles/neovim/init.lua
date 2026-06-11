@@ -488,19 +488,21 @@ local function wikilink_under_cursor()
 end
 
 local function resolve_wikilink(raw)
-    local name = raw:gsub("|.*$", ""):gsub("#.*$", ""):match("^%s*(.-)%s*$")
+    local name = raw:gsub("|.*$", ""):gsub("#.*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
     if name == "" then return nil end
-    local stem = name:gsub("%.md$", ""):match("([^/]+)$")  -- strip folder prefix and .md
+    local stem = name:gsub("%.md$", ""):match("([^/]+)$")
+    if not stem or stem == "" then return nil end
     for _, root in ipairs({ WL_VAULT, WL_UNI }) do
-        local hits = vim.fn.systemlist(
-            "find " .. vim.fn.shellescape(root)
-            .. " -not -path '*/Attachments/*'"
-            .. " -not -path '*/.obsidian/*'"
-            .. " -not -path '*/Templates/*'"
-            .. " -iname " .. vim.fn.shellescape(stem .. ".md")
-            .. " 2>/dev/null"
-        )
-        if hits and #hits > 0 then return hits[1] end
+        local hits = vim.fn.globpath(root, "**/" .. stem .. ".md", false, true)
+        if hits and #hits > 0 then
+            for _, h in ipairs(hits) do
+                if not h:find("/Attachments/", 1, true)
+                   and not h:find("/.obsidian/", 1, true)
+                   and not h:find("/Templates/", 1, true) then
+                    return h
+                end
+            end
+        end
     end
 end
 
