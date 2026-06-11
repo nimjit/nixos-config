@@ -4,8 +4,9 @@ let
   wallpaper = "${../themes/wallpapers/Pieter_Bruegel-Childrens_Games.jpg}";
 in {
   wayland.windowManager.sway = {
-    enable  = true;
+    enable      = true;
     systemd.enable = true;
+    checkConfig = false;  # Nix build sandbox has no DRM/GPU access; skip the validator
 
     # Nvidia + Wayland env vars scoped to the sway session only — not inherited by KDE.
     extraSessionCommands = ''
