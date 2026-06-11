@@ -53,6 +53,13 @@
   services.displayManager.sddm.enable = true;  # login screen
   services.desktopManager.plasma6.enable = true;
 
+  # ── Sway (parallel session — KDE is unchanged) ────────────────────────────
+  programs.sway = {
+    enable = true;
+    wrapperFeatures.gtk = true;  # fixes GTK file dialogs and theming
+  };
+  programs.xwayland.enable = true;
+
     # ── Remove KDE Apps ─────────────────────────────────────────────────────
   environment.plasma6.excludePackages = with pkgs.kdePackages; [
     elisa        # music player

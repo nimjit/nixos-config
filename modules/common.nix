@@ -78,6 +78,17 @@
     mpc            # CLI control for MPD (mpc toggle, mpc next, etc.)
     rmpc           # TUI music client with album art via kitty graphics protocol
 
+    # Wayland / sway tools
+    grim                  # Wayland screenshot
+    slurp                 # region selector for grim
+    wl-clipboard          # wl-copy / wl-paste
+    wlsunset              # time-based night colour
+    brightnessctl         # brightness keys
+    playerctl             # media keys
+    networkmanagerapplet  # nm-applet tray icon
+    polkit_gnome          # GUI privilege dialogs
+    xdg-desktop-portal-wlr # screen sharing from Firefox / Wayland apps
+
     # Theming tools
     nwg-look      # GTK theme tweaker
 

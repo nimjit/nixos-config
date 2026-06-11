@@ -2,7 +2,7 @@
 
   programs.rofi = {
     enable  = true;
-    package = pkgs.rofi-wayland;   # rofi is X11; rofi-wayland is the actual Wayland build
+    package = pkgs.rofi;            # rofi-wayland was unified into rofi in nixpkgs 26.05
     theme   = lib.mkForce ./dotfiles/rofi/ukiyo.rasi;
 
     extraConfig = {
