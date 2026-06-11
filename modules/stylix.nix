@@ -58,5 +58,6 @@
     # targets.neovim — no option exists in this Stylix version; disabled via VimEnter autocmd in init.lua
     # targets.kitty.enable = true;     # true by default
     # targets.zathura.enable = true;   # true by default
+    targets.rofi.enable = false;       # custom Ukiyo theme in home/dotfiles/rofi/ukiyo.rasi
   };
 }
