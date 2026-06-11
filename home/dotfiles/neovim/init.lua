@@ -490,7 +490,7 @@ end
 local function resolve_wikilink(raw)
     local name = raw:gsub("|.*$", ""):gsub("#.*$", ""):match("^%s*(.-)%s*$")
     if name == "" then return nil end
-    local stem = name:gsub("%.md$", "")  -- strip .md if the link already includes it
+    local stem = name:gsub("%.md$", ""):match("([^/]+)$")  -- strip folder prefix and .md
     for _, root in ipairs({ WL_VAULT, WL_UNI }) do
         local hits = vim.fn.systemlist(
             "find " .. vim.fn.shellescape(root)
