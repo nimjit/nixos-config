@@ -6,22 +6,18 @@
     theme   = ./dotfiles/rofi/ukiyo.rasi;
 
     extraConfig = {
-      modi               = "drun,run,window,power-menu:rofi-power-menu";
-      show-icons         = true;
+      # combi merges drun + power-menu into one list — type "kit" for kitty, "shut" for shutdown
+      modi              = "combi,window";
+      combi-modi        = "drun,power-menu:rofi-power-menu";
+      show-icons        = true;
       drun-display-format = "{name}";
-      display-drun       = "  Apps";
-      display-run        = "  Run";
-      display-window     = "  Windows";
-      display-power-menu = "  Power";
-      kb-primary-paste   = "Control+V,Shift+Insert";
+      kb-primary-paste  = "Control+V,Shift+Insert";
       kb-secondary-paste = "Control+v,Insert";
     };
   };
 
-  # rofi-power-menu: adds shutdown/reboot/suspend/lock as a rofi mode
   home.packages = [ pkgs.rofi-power-menu ];
 
-  # Keybinds — set in KDE: System Settings → Shortcuts → Custom Shortcuts
-  #   Alt+Space        → rofi -show drun        (app launcher)
-  #   Alt+Shift+Space  → rofi -show power-menu  (shutdown / reboot / …)
+  # KDE keybind: System Settings → Shortcuts → Custom Shortcuts
+  #   Alt+Space  →  rofi -show combi
 }
