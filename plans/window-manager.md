@@ -328,6 +328,63 @@ in {
 
 ---
 
+## Waybar design philosophy
+
+The reference is the KDE panel visible in the screenshot: a small dark floating block
+centered at the top of the screen, not extending to the edges. It shows workspace
+numbers as distinct blocks and a clock. Nothing else. The user's words: *"I don't need
+much here, but I like seeing the time and the desktops — the tops just kind of looks
+neat. I prefer blocks over just the numbers."*
+
+Rules for the Waybar:
+- **Compact and centered**, not full-width — use `margin-left`/`margin-right` to shrink
+  it. At 4K (3840px) with scale 1.2 (= 3200 logical px), `margin = 1400` each side
+  gives ~400px wide. Adjust by feel.
+- **Named workspace blocks** (Uni / General / Extra / NixOS), always visible via
+  `persistent-workspaces`, gold highlight for the active one (Ukiyo `#e0ba86`).
+- **Clock centered** — time + date, no tooltip.
+- **Tray right** — system tray icons cover network, volume, etc. without cluttering
+  the bar with text readouts.
+- **No busy info** — no CPU %, no memory %, no network SSID. Those are noise.
+- **Ukiyo palette hardcoded in CSS** (not relying on Stylix auto-theme for this):
+  bg `#372d29`, border `#504431`, inactive workspace `#413632`/`#868074`,
+  active workspace `#504431`/`#e0ba86`.
+- **No rounding on the bar itself** would match the sway square-corners philosophy,
+  but a subtle `border-radius: 6px` on the bar window looks clean at 4K — keep if
+  it looks good, remove if it feels out of place.
+
+---
+
+## Current testing state (as of 2026-06-12)
+
+Sway has been implemented and built successfully as a parallel KDE session.
+Testing was done **nested inside KDE** (run `sway` from kitty → opens as a KDE window).
+
+**What was confirmed working:**
+- Build succeeds (after: `checkConfig = false`, `mako settings.*` rename,
+  removing `fonts.size` conflict with Stylix)
+- `sway` launches nested without crashing
+- `--unsupported-gpu` baked into `extraOptions` — no flag needed at runtime
+- Waybar appears at the top with named workspace blocks and clock
+- Ukiyo CSS applied (dark bar, gold active workspace)
+
+**What could NOT be tested nested (KDE intercepts Meta globally):**
+- All `Meta+*` keybindings (workspace switching, kitty launch, window focus)
+- `Alt+Space` rofi (also bound in KDE)
+- Screenshot (`Print` → KDE sends to Spectacle, not grim)
+- swaylock, wlsunset, nm-applet, polkit behaviour
+
+**Visual issues noted, not yet resolved:**
+- Bar width on 4K: 4K margin fix (`1400` each side) pending rebuild+verify
+- Workspace block colors and persistence: configured but not visually confirmed
+  in a real sway session (nested shows partial Waybar rendering)
+
+**Next step:** rebuild current config, then test as a real SDDM session.
+At SDDM login screen, select "sway" — all keybindings, tools, and visuals can be
+verified properly. If anything breaks: log out → select KDE → back to safety.
+
+---
+
 ## Phase 3 — Waybar
 
 ### `home/waybar.nix` — new file
