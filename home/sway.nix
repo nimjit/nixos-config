@@ -18,7 +18,6 @@ in {
     config = {
       modifier = mod;
       terminal = "kitty";
-      fonts    = { names = [ "JetBrainsMono Nerd Font Mono" ]; size = 0.0; };
 
       gaps   = { inner = 6; outer = 4; smartGaps = true; };
       window = { border = 2; titlebar = false; };
