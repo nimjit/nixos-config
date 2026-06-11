@@ -7,6 +7,7 @@ in {
     enable      = true;
     systemd.enable = true;
     checkConfig = false;  # Nix build sandbox has no DRM/GPU access; skip the validator
+    extraOptions = [ "--unsupported-gpu" ];
 
     # Nvidia + Wayland env vars scoped to the sway session only — not inherited by KDE.
     extraSessionCommands = ''
