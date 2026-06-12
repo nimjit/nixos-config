@@ -77,9 +77,15 @@
       cap() {
         local text="$*"
         local date=$(date +%Y-%m-%d)
-        local daily=~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies/$date.md
+        local vault=~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure
+        local daily="$vault/Dailies/$date.md"
+        local template="$vault/Templates/Daily Note.md"
         if [ ! -f "$daily" ]; then
-          printf -- "---\ndate: %s\n---\n\n## Inbox\n" "$date" > "$daily"
+          if [ -f "$template" ]; then
+            sed "s/{{date}}/$date/g" "$template" > "$daily"
+          else
+            printf -- "# %s\n\n## Schedule\n\n## ToDo\n\n## Inbox\n" "$date" > "$daily"
+          fi
         fi
         printf -- "\n- %s" "$text" >> "$daily"
         echo "→ $date"
@@ -89,6 +95,53 @@
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
+
+        _deadlines() {
+          local uni_dir="$HOME/Documents/BACKUP/Uni/Obsidian/Uni"
+          local today_ts=$(date +%s)
+          local results=()
+          local dt ev_ts diff title class completed_val grade_val
+
+          # Exams / deadlines
+          for f in "$uni_dir/Deadines"/*.md; do
+            [[ -f "$f" ]] || continue
+            completed_val=$(grep "^completed:" "$f" | head -1 | sed 's/^completed:[[:space:]]*//' | tr -d '"')
+            [[ -z "$completed_val" || "''${completed_val:l}" == "false" ]] || continue
+            dt=$(grep "^date:" "$f" | head -1 | awk '{print $2}')
+            [[ -z "$dt" ]] && continue
+            [[ "$dt" =~ ^[0-9]{2}-[0-9]{2}-[0-9]{4}$ ]] && dt="''${dt:6:4}-''${dt:3:2}-''${dt:0:2}"
+            ev_ts=$(date -d "$dt" +%s 2>/dev/null) || continue
+            diff=$(( (ev_ts - today_ts) / 86400 ))
+            [[ $diff -lt 0 || $diff -gt 21 ]] && continue
+            class=$(grep "^class:" "$f" | head -1 | sed 's/^class:[[:space:]]*//')
+            title=$(grep "^title:" "$f" | head -1 | sed 's/^title:[[:space:]]*//')
+            results+=("$diff|$dt|$class|$title")
+          done
+
+          # Assignments
+          for f in "$uni_dir/Assignments"/*.md; do
+            [[ -f "$f" ]] || continue
+            grade_val=$(grep "^grade:" "$f" | head -1 | sed 's/^grade:[[:space:]]*//')
+            [[ -n "$grade_val" ]] && continue
+            dt=$(grep "^deadline:" "$f" | head -1 | awk '{print $2}')
+            [[ -z "$dt" ]] && continue
+            [[ "$dt" =~ ^[0-9]{2}-[0-9]{2}-[0-9]{4}$ ]] && dt="''${dt:6:4}-''${dt:3:2}-''${dt:0:2}"
+            ev_ts=$(date -d "$dt" +%s 2>/dev/null) || continue
+            diff=$(( (ev_ts - today_ts) / 86400 ))
+            [[ $diff -lt 0 || $diff -gt 21 ]] && continue
+            class=$(grep "^class:" "$f" | head -1 | sed 's/^class:[[:space:]]*//')
+            title=$(grep "^type:" "$f" | head -1 | sed 's/^type:[[:space:]]*//')
+            results+=("$diff|$dt|$class|$title")
+          done
+
+          (( ''${#results[@]} > 0 )) || return
+          printf '%s\n' "''${results[@]}" | sort -t'|' -k1 -n | while IFS='|' read -r diff dt cls ttl; do
+            [[ -n "$dt" ]] || continue
+            mon=$(date -d "$dt" "+%-d %b" 2>/dev/null || echo "$dt")
+            printf "in %2dd  (%s)  %s%s\n" "$diff" "$mon" "''${cls:+$cls — }" "$ttl"
+          done
+        }
+
         _greeting() {
           local GOLD DIM RESET cols
           GOLD=$'\033[33m'
@@ -106,7 +159,7 @@
           }
 
           local date_str weather quote today_ev tmrw_ev
-          date_str=$(date "+%A %-d %B %Y  ·  %H:%M")
+          date_str=$(date "+%A %-d %B %Y")
 
           local wttr=/tmp/wttr_leiden_cache
           if [[ ! -f $wttr ]] || [[ -n $(find "$wttr" -mmin +30 2>/dev/null) ]]; then
@@ -116,8 +169,8 @@
 
           quote=$(fortune -s 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-55)
 
-          today_ev=$(khal list today today --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -3)
-          tmrw_ev=$(khal list tomorrow tomorrow --format "{start-time} {title}" 2>/dev/null | grep -v '^$' | head -2)
+          today_ev=$(khal list today today --format "{start-time} {title}" 2>/dev/null | grep -v '^$')
+          tmrw_ev=$(khal list tomorrow tomorrow --format "{start-time} {title}" 2>/dev/null | grep -v '^$')
 
           echo ""
           _center "$GOLD$date_str$RESET"
@@ -131,16 +184,89 @@
           else
             printf '  %sToday     —%s\n' "$DIM" "$RESET"
           fi
-
+          echo ""
           if [[ -n $tmrw_ev ]]; then
             printf '  %sTomorrow%s\n' "$GOLD" "$RESET"
             while IFS= read -r line; do printf '    %s\n' "$line"; done <<< "$tmrw_ev"
           else
             printf '  %sTomorrow  —%s\n' "$DIM" "$RESET"
           fi
+          echo ""
+
+          local daily="$HOME/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies/$(date +%Y-%m-%d).md"
+
+          # Collect timed events from khal + ## Schedule in daily note: "HH:MM|Title"
+          typeset -a all_events=()
+          while IFS= read -r line; do
+            [[ "$line" =~ ^[0-9]{2}:[0-9]{2} ]] || continue
+            all_events+=("''${line:0:5}|''${line:6}")
+          done < <(khal list today today --format "{start-time} {title}" 2>/dev/null)
+          if [[ -f "$daily" ]]; then
+            local in_sched=0
+            while IFS= read -r line; do
+              [[ "$line" == "## Schedule" ]] && { in_sched=1; continue; }
+              [[ "$line" =~ ^## ]] && (( in_sched )) && { in_sched=0; continue; }
+              (( in_sched )) && [[ "$line" =~ ^[0-9]{2}:[0-9]{2} ]] && all_events+=("''${line:0:5}|''${line:6}")
+            done < "$daily"
+          fi
+          # Sort by time
+          typeset -a sorted_events=()
+          while IFS= read -r line; do sorted_events+=("$line"); done < <(printf '%s\n' "''${all_events[@]}" | sort)
+          all_events=("''${sorted_events[@]}")
+
+          # Build left column (timetable 09–22)
+          typeset -a left_col=()
+          left_col+=("        │ Schedule")
+          local hh
+          for hour in {9..22}; do
+            hh=$(printf "%02d" $hour)
+            typeset -a hour_evs=()
+            for ev in "''${all_events[@]}"; do
+              [[ "''${ev%%|*}" == "$hh:"* ]] && hour_evs+=("''${ev#*|}")
+            done
+            if (( ''${#hour_evs[@]} == 0 )); then
+              left_col+=("  $hh:00 │")
+            else
+              left_col+=("  $hh:00 │ ''${hour_evs[1]:0:34}")
+              for (( j=2; j<=''${#hour_evs[@]}; j++ )); do
+                left_col+=("        │ ''${hour_evs[$j]:0:34}")
+              done
+            fi
+          done
+
+          # Build right column
+          typeset -a right_col=()
+          right_col+=("Dailies")
+          right_col+=("  □ Brush teeth")
+          right_col+=("  □ Eat vegetables")
+          right_col+=("  □ Put on deodorant")
+          right_col+=("  □ Write in journal")
+          right_col+=("")
+          right_col+=("Deadlines")
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && right_col+=("  $line")
+          done < <(_deadlines)
+          # ToDo from ## ToDo section in daily note
+          if [[ -f "$daily" ]]; then
+            local in_todo=0 found_any=0
+            while IFS= read -r line; do
+              [[ "$line" == "## ToDo" ]] && { in_todo=1; continue; }
+              [[ "$line" =~ ^## ]] && (( in_todo )) && break
+              if (( in_todo )) && [[ "$line" =~ ^[[:space:]]*-[[:space:]] ]]; then
+                (( found_any == 0 )) && { right_col+=(""); right_col+=("ToDo"); found_any=1; }
+                right_col+=("  · ''${line#*- }")
+              fi
+            done < "$daily"
+          fi
+
+          # Render side by side
+          local n_max=$(( ''${#left_col[@]} > ''${#right_col[@]} ? ''${#left_col[@]} : ''${#right_col[@]} ))
+          for (( i=1; i<=n_max; i++ )); do
+            printf "  %-44s  │  %s\n" "''${left_col[$i]:-}" "''${right_col[$i]:-}"
+          done
 
           echo ""
-          printf '  %suni-work  vault-work  nixos-work  today  messages  music  cal%s\n' "$DIM" "$RESET"
+          printf '  %stoday  vault-work  uni-work  messages  music  cal%s\n' "$DIM" "$RESET"
           echo ""
         }
         _greeting

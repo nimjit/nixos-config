@@ -58,8 +58,16 @@ Do not edit the file, do not include it in a plan, do not suggest it as part of 
 ## Workflow
 
 1. Edit `.nix` files here
-2. `nh os switch /etc/nixos -H desktop` (or use the `rebuild` alias)
-3. `git add`, `git commit`, `git push`
+2. Commit the changes: `git add`, `git commit` with a descriptive message
+3. Rebuild: `sudo nixos-rebuild switch --flake /etc/nixos#desktop` (or use the `rebuild` alias)
+4. After a successful rebuild, append a row to `generations.md`:
+   `| <gen> | <date> <time> | <short-hash> | <what this generation adds> |`
+   Get the current gen number from `ls /nix/var/nix/profiles/system` (it's a symlink like `system-98-link`).
+5. `git push`
+
+**Keep commits and rebuilds aligned where possible** — ideally one commit per rebuild so `generations.md` stays readable. If you do multiple commits before rebuilding, that's fine; just use the most recent commit hash in the log row.
+
+**Before each rebuild, leave a one-line comment** in the relevant `.nix` file (or the commit message) saying what this generation adds. This helps if the user wants to rebuild manually and know what they're applying.
 
 ## Open Issues / TODO
 

@@ -548,11 +548,17 @@ vim.api.nvim_create_user_command("DailyNote", function()
     local date = os.date("%Y-%m-%d")
     local path = VAULT_DAILIES .. "/" .. date .. ".md"
     if vim.fn.filereadable(path) == 0 then
-        local f = io.open(path, "w")
-        if f then
-            -- No weight section here — log weight with :LogWeight or [w] in vault dashboard
-            f:write("# " .. date .. "\n\n## Today\n\n## Italian\n\n## Notes\n")
-            f:close()
+        local template = WL_VAULT .. "/Templates/Daily Note.md"
+        if vim.fn.filereadable(template) == 1 then
+            local lines = vim.fn.readfile(template)
+            for i, line in ipairs(lines) do lines[i] = line:gsub("{{date}}", date) end
+            vim.fn.writefile(lines, path)
+        else
+            local f = io.open(path, "w")
+            if f then
+                f:write("# " .. date .. "\n\n## Schedule\n\n## ToDo\n\n## Inbox\n\n## Italian\n\n## Notes\n")
+                f:close()
+            end
         end
     end
     vim.cmd("edit " .. vim.fn.fnameescape(path))
