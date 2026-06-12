@@ -349,6 +349,7 @@ vim.keymap.set("n", "<leader>/", function()
         "  Media / External                        ",
         "  <leader>z     Open PDF/image in panel   ",
         "  <leader>m     Music player (rmpc)       ",
+        "  Super+P        LastPass picker (rofi)   ",
         " ─────────────────────────────────────── ",
         "  Typst                                   ",
         "  <leader>tp    Render typst block inline ",

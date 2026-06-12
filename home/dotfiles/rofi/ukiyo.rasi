@@ -71,7 +71,7 @@ element {
 
 element-icon {
     background-color: transparent;
-    size:             20px;
+    size:             28px;
 }
 
 element-text {

@@ -64,11 +64,13 @@
       vault-work() { nvim -c WorkflowVault; }
       nixos-work() { nvim -c WorkflowNixos; }
 
-      # nchat in a dedicated kitty tab; falls back to current terminal if kitty remote control unavailable
+      # nchat runs in a persistent dtach session (managed by systemd).
+      # Closing the kitty tab detaches it; messages() re-attaches.
       messages() {
-        kitty @ focus-tab --match title:nchat 2>/dev/null || \
-          kitty @ launch --type=tab --tab-title nchat nchat 2>/dev/null || \
-          nchat
+        local _attach='dtach -a /tmp/nchat-dtach 2>/dev/null || dtach -n /tmp/nchat-dtach nchat'
+        kitty @ focus-tab --match title:messages 2>/dev/null || \
+          kitty @ launch --type=tab --tab-title messages sh -c "$_attach" 2>/dev/null || \
+          sh -c "$_attach"
       }
 
       # Append a quick thought to today's personal vault daily note without opening an editor.

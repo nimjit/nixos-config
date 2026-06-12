@@ -65,6 +65,35 @@
     };
   };
 
+ # ── lpass-rofi password picker ────────────────────────────────────────────
+  home.file.".local/bin/lpass-rofi" = {
+    source     = ./dotfiles/lpass-rofi.sh;
+    executable = true;
+  };
+
+  # ── rmpc keybindings ─────────────────────────────────────────────────────
+  home.file.".config/rmpc/config.ron".source = ./dotfiles/rmpc/config.ron;
+
+  # ── Snowflake regeneration ────────────────────────────────────────────────
+  # Runs the three snowflake Python scripts 2 min after login to keep HTML fresh.
+  systemd.user.services.snowflake-regen = {
+    Unit.Description = "Regenerate snowflake HTML visualizations";
+    Service = {
+      Type      = "oneshot";
+      ExecStart = pkgs.writeShellScript "snowflake-regen" ''
+        python3 /etc/nixos/nixos_snowflake.py
+        python3 /home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/vault_snowflake.py
+        python3 /home/thijmen/Documents/BACKUP/Uni/Obsidian/uni_snowflake.py
+      '';
+    };
+  };
+
+  systemd.user.timers.snowflake-regen = {
+    Unit.Description  = "Regenerate snowflakes 2 min after login";
+    Timer.OnStartupSec = "2min";
+    Install.WantedBy  = [ "timers.target" ];
+  };
+
  # ── Warnings? ─────────────────────────────────────────────────────────────
   programs.neovim.withRuby = false;
   programs.neovim.withPython3 = false;

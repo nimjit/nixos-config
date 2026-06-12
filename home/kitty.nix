@@ -29,6 +29,9 @@
       "ctrl+shift+j" = "neighboring_window bottom";
       "ctrl+shift+k" = "neighboring_window top";
       "ctrl+shift+l" = "neighboring_window right";
+      # Disable kitty's default linear window cycling (use hjkl directional nav instead)
+      "ctrl+shift+]" = "no_op";
+      "ctrl+shift+[" = "no_op";
     };
     extraConfig = ''
       foreground #ccc2b7
