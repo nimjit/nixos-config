@@ -738,4 +738,56 @@ function M.course_view(course)
     return buf
 end
 
+-- ── Vault search ─────────────────────────────────────────────────────────────
+
+function M.vault_search(query)
+    if not query then
+        vim.ui.input({ prompt = "Search vault: " }, function(q)
+            if q and q ~= "" then M.vault_search(q) end
+        end)
+        return
+    end
+
+    local buf_path = vim.fn.expand("%:p")
+    local vault = buf_path:find(UNI, 1, true) and UNI or VAULT
+
+    local cmd = string.format(
+        "grep -rn --include='*.md'"
+        .. " --exclude-dir=Attachments --exclude-dir=Templates --exclude-dir=.obsidian"
+        .. " -i %s %s 2>/dev/null",
+        vim.fn.shellescape(query),
+        vim.fn.shellescape(vault)
+    )
+    local raw = vim.fn.systemlist(cmd)
+
+    local entries = {}
+    for _, line in ipairs(raw) do
+        local file, lnum, text = line:match("^(.-):(%d+):(.*)")
+        if file then
+            local short = file:gsub(vim.pesc(vault) .. "/", "")
+            local snippet = text:match("^%s*(.-)%s*$"):sub(1, 55)
+            entries[#entries + 1] = {
+                display = string.format("  %-42s %s", short .. ":" .. lnum, snippet),
+                path    = file,
+                lnum    = tonumber(lnum),
+            }
+        end
+    end
+
+    local result_lines = {}
+    for _, e in ipairs(entries) do
+        result_lines[#result_lines + 1] = {
+            text = e.display,
+            callback = function()
+                vim.cmd("edit +" .. e.lnum .. " " .. vim.fn.fnameescape(e.path))
+            end,
+        }
+    end
+
+    local sections = {
+        { header = "RESULTS FOR: " .. query, lines = result_lines },
+    }
+    M.render_buffer("SEARCH", sections, { "[q] close" })
+end
+
 return M
