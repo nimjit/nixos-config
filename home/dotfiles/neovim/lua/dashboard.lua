@@ -535,7 +535,7 @@ function M.open_vault()
     end)
 
     km("g", function()
-        vim.fn.system("xdg-open " .. vim.fn.shellescape(vault_snowflake) .. " &")
+        vim.fn.system("firefox --new-tab " .. vim.fn.shellescape(vault_snowflake) .. " &")
     end)
 
     km("d", function()
@@ -610,7 +610,7 @@ function M.open_uni()
     end)
 
     km("g", function()
-        vim.fn.system("xdg-open " .. vim.fn.shellescape(uni_snowflake) .. " &")
+        vim.fn.system("firefox --new-tab " .. vim.fn.shellescape(uni_snowflake) .. " &")
     end)
 
     km("n", function()
