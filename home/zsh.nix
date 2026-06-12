@@ -85,12 +85,10 @@
         echo "→ $date"
       }
 
-      # rmpc in a persistent dtach session; auto-queues library if MPD is idle.
       music() {
-        mpc playlist | grep -q . || (mpc add / && mpc shuffle && mpc play)
         kitty @ focus-tab --match title:music 2>/dev/null || \
-          kitty @ launch --type=tab --tab-title music dtach -A /tmp/rmpc-dtach rmpc 2>/dev/null || \
-          dtach -A /tmp/rmpc-dtach rmpc
+          kitty @ launch --type=tab --tab-title music rmpc 2>/dev/null || \
+          rmpc
       }
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal

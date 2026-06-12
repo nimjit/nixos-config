@@ -1,4 +1,4 @@
-{ ... }: {
+{ config, ... }: {
 
   programs.kitty = {
     enable = true;
@@ -18,6 +18,8 @@
       listen_on = "unix:/tmp/kitty-control";
       # splits layout required for --location=vsplit to open panels side-by-side
       enabled_layouts = "splits,stack";
+      # Open messages tab (nchat) in background + home tab on startup
+      startup_session = "${config.xdg.configHome}/kitty/startup.session";
     };
 
     keybindings = {

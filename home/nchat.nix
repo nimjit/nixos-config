@@ -2,9 +2,8 @@
   xdg.configFile."nchat/ui.conf".source    = ./dotfiles/nchat/ui.conf;
   xdg.configFile."nchat/color.conf".source = ./dotfiles/nchat/color.conf;
   xdg.configFile."nchat/key.conf".source   = ./dotfiles/nchat/key.conf;
+  xdg.configFile."kitty/startup.session".source = ./dotfiles/kitty/startup.session;
 
-  # Keeps nchat alive in a dtach session so notifications fire even when
-  # the kitty tab is closed. messages() attaches; closing the tab detaches.
   systemd.user.services.nchat = {
     Unit = {
       Description = "nchat WhatsApp background session";
@@ -14,8 +13,13 @@
     Service = {
       Type            = "oneshot";
       RemainAfterExit = true;
-      ExecStart = "${pkgs.dtach}/bin/dtach -n /tmp/nchat-dtach ${pkgs.nchat}/bin/nchat";
-      ExecStop  = pkgs.writeShellScript "stop-nchat" ''
+      ExecStart = let
+        start = pkgs.writeShellScript "start-nchat" ''
+          stty cols 220 rows 50
+          exec ${pkgs.nchat}/bin/nchat
+        '';
+      in "${pkgs.dtach}/bin/dtach -n /tmp/nchat-dtach ${start}";
+      ExecStop = pkgs.writeShellScript "stop-nchat" ''
         pkill -f "dtach.*nchat-dtach" 2>/dev/null || true
       '';
     };

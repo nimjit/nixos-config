@@ -1,6 +1,3 @@
-new_tab messages
-launch dtach -A /tmp/nchat-dtach nchat
-
 new_tab home
 launch zsh
 focus
