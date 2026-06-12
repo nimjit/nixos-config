@@ -85,11 +85,7 @@
         echo "→ $date"
       }
 
-      music() {
-        kitty @ focus-tab --match title:music 2>/dev/null || \
-          kitty @ launch --type=tab --tab-title music rmpc 2>/dev/null || \
-          rmpc
-      }
+      music() { rmpc; }
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then

@@ -15,6 +15,7 @@
       RemainAfterExit = true;
       ExecStart = let
         start = pkgs.writeShellScript "start-nchat" ''
+          export TERM=xterm-256color
           stty cols 220 rows 50
           exec ${pkgs.nchat}/bin/nchat
         '';

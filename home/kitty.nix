@@ -20,6 +20,10 @@
       enabled_layouts = "splits,stack";
       # Open messages tab (nchat) in background + home tab on startup
       startup_session = "${config.xdg.configHome}/kitty/startup.session";
+      # Minimal cursor trail: single cell, fast fade, triggers on ≥2 cell moves
+      cursor_trail = 1;
+      cursor_trail_decay = "0.1 0.2";
+      cursor_trail_start_threshold = 9;
     };
 
     keybindings = {
