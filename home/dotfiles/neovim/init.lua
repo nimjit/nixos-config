@@ -207,12 +207,19 @@ vim.keymap.set('n', '<C-Up>',    function() smart_resize(false, 1) end)
 vim.keymap.set('n', '<C-Down>',  function() smart_resize(false, -1) end)
 vim.keymap.set('n', '<C-Left>',  function() smart_resize(true, -1) end)
 vim.keymap.set('n', '<C-Right>', function() smart_resize(true, 1) end)
--- Window hopping
-vim.keymap.set('n','<C-h>', '<C-w>h')
-vim.keymap.set('n','<C-j>', '<C-w>j')
-vim.keymap.set('n','<C-k>', '<C-w>k')
-vim.keymap.set('n','<C-l>', '<C-w>l')
--- Same binds from terminal mode (<C-\><C-n> exits terminal mode first)
+-- Window hopping: try neovim split first; if at edge, fall through to kitty neighbor
+local function smart_nav(nvim_dir, kitty_dir)
+    local before = vim.fn.winnr()
+    vim.cmd('wincmd ' .. nvim_dir)
+    if vim.fn.winnr() == before then
+        vim.fn.system('kitty @ focus-window --match neighbor:' .. kitty_dir .. ' 2>/dev/null')
+    end
+end
+vim.keymap.set('n', '<C-h>', function() smart_nav('h', 'left')   end, { silent = true })
+vim.keymap.set('n', '<C-j>', function() smart_nav('j', 'bottom') end, { silent = true })
+vim.keymap.set('n', '<C-k>', function() smart_nav('k', 'top')    end, { silent = true })
+vim.keymap.set('n', '<C-l>', function() smart_nav('l', 'right')  end, { silent = true })
+-- Same from terminal mode (<C-\><C-n> exits terminal mode first)
 vim.keymap.set('t','<C-h>', '<C-\\><C-n><C-w>h')
 vim.keymap.set('t','<C-j>', '<C-\\><C-n><C-w>j')
 vim.keymap.set('t','<C-k>', '<C-\\><C-n><C-w>k')

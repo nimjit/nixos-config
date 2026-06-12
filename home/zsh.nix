@@ -64,13 +64,13 @@
       vault-work() { nvim -c WorkflowVault; }
       nixos-work() { nvim -c WorkflowNixos; }
 
-      # nchat runs in a persistent dtach session (managed by systemd).
-      # Closing the kitty tab detaches it; messages() re-attaches.
+      # nchat and rmpc run in persistent dtach sessions.
+      # dtach -A: attach if session exists, create+attach if not.
+      # Closing the kitty tab detaches; calling again re-attaches.
       messages() {
-        local _attach='dtach -a /tmp/nchat-dtach 2>/dev/null || dtach -n /tmp/nchat-dtach nchat'
         kitty @ focus-tab --match title:messages 2>/dev/null || \
-          kitty @ launch --type=tab --tab-title messages sh -c "$_attach" 2>/dev/null || \
-          sh -c "$_attach"
+          kitty @ launch --type=tab --tab-title messages dtach -A /tmp/nchat-dtach nchat 2>/dev/null || \
+          dtach -A /tmp/nchat-dtach nchat
       }
 
       # Append a quick thought to today's personal vault daily note without opening an editor.
@@ -85,13 +85,12 @@
         echo "→ $date"
       }
 
-      # rmpc in a dedicated kitty tab; auto-queues full library if idle.
-      # Falls back to current terminal if kitty remote control unavailable.
+      # rmpc in a persistent dtach session; auto-queues library if MPD is idle.
       music() {
         mpc playlist | grep -q . || (mpc add / && mpc shuffle && mpc play)
         kitty @ focus-tab --match title:music 2>/dev/null || \
-          kitty @ launch --type=tab --tab-title music rmpc 2>/dev/null || \
-          rmpc
+          kitty @ launch --type=tab --tab-title music dtach -A /tmp/rmpc-dtach rmpc 2>/dev/null || \
+          dtach -A /tmp/rmpc-dtach rmpc
       }
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
