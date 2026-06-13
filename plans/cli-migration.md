@@ -17,6 +17,10 @@ Replacing persistent browser tabs with focused terminal tools.
 
 ## Remaining open items
 
+### Some quick notes on kitty splits
+Currently yazi and claude open in neovim splits, when kitty splits are set up such that they can use the same ctrl+hjkl movement, these should probably be kitty terminals instead. Just because I don't want to be in normal mode for those terminals and I always want interactability with them.
+The same goes for the normal zsh terminal. Using kitty terminals instead of neovim terminals would probably be preferable for anything that need not be neovim, though there may be exeptions to this, this should be discussed.
+
 ### Rofi password picker (lastpass-cli)
 
 A rofi script for system-wide password copy via keyboard shortcut. Not yet written.
