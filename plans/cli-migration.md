@@ -21,7 +21,7 @@ Replacing persistent browser tabs with focused terminal tools.
 Currently yazi and claude open in neovim splits, when kitty splits are set up such that they can use the same ctrl+hjkl movement, these should probably be kitty terminals instead. Just because I don't want to be in normal mode for those terminals and I always want interactability with them.
 The same goes for the normal zsh terminal. Using kitty terminals instead of neovim terminals would probably be preferable for anything that need not be neovim, though there may be exeptions to this, this should be discussed.
 
-### Rofi password picker (lastpass-cli)
+### Rofi password picker (lastpass-cli) - done
 
 A rofi script for system-wide password copy via keyboard shortcut. Not yet written.
 
@@ -35,7 +35,7 @@ lpass show --clip "$name" && notify-send "LastPass" "Copied: $name" --expire-tim
 
 Add keyboard shortcut in KDE or Sway (`Super+P`). Depends on `wl-clipboard`.
 
-### vdirsyncer: architecture notes
+### vdirsyncer: architecture notes - done
 
 Google's CalDAV discovery only returns owned calendars. Shared calendars need
 explicit pairs with hardcoded CalDAV URLs.
@@ -52,6 +52,9 @@ Bolk: Algemeen, TU Delft timetable (reader access); one unknown shared calendar.
 nchat ships with arrow-key defaults. Remap to vim keys in `~/.config/nchat/ui.conf`:
 `ctrl+h/l` to move between panes, `j/k` to scroll, `i` for compose, `Escape` for
 normal mode, `:q` to quit.
+
+Would need to be done using zsh vim mode, would want to know all the reporcusions before doing this.
+
 
 ---
 
@@ -276,3 +279,219 @@ display: $⟨φ|hat(H)|ψ⟩ = ℏω(n + 1/2)$
 - `setlocal conceallevel=2` and `concealcursor=nc` for markdown buffers
   (hides conceal except on the cursor line in normal/insert mode)
 - No new packages or plugins
+
+---
+
+## ZSH improvements
+
+Tools already in `common.nix` that need wiring, plus small aliases and function fixes.
+
+### zoxide — initialize in zsh (installed, not hooked)
+
+`zoxide` is in packages but has no init hook in `initContent` — the `z` command does
+nothing right now. Add alongside the direnv line:
+
+```nix
+eval "$(zoxide init zsh)"
+```
+
+`z foo` jumps to the most-visited directory matching "foo". `zi foo` opens an fzf-style
+picker if fzf is installed.
+
+**Recommended: alias `cd` to `z`**, not `ls`. Zoxide is a drop-in for `cd` — full paths
+pass through unchanged, partial names jump to the best frecency match. Aliasing `cd` to
+`z` is the standard way to adopt it without learning a new verb. `ls` stays as `ls` (or
+aliased to `eza`). Two approaches:
+
+```nix
+# Option A: simple alias
+cd = "z";
+
+# Option B: use --cmd cd in the init hook (also renames zi → cdi)
+# Replace: eval "$(zoxide init zsh)"
+# With:    eval "$(zoxide init zsh --cmd cd)"
+```
+
+Option B is cleaner because it also renames `zi` to `cdi` for interactive mode.
+
+### eza — alias ls (installed, ignored)
+
+`eza` is in packages; current `ls` aliases still call plain `ls`. Minimal swap:
+
+```nix
+ls  = "eza";
+ll  = "eza -la --git";
+la  = "eza -a";
+lt  = "eza -T";        # tree view; replaces the need for a separate tree package
+```
+
+`--git` adds a git-status column next to each file in `ll`. `lt` gives a tree layout.
+
+### bat — syntax-highlighted viewer (installed, unused)
+
+`bat` is in packages. Options from most to least impactful:
+
+1. **Man pages** — `MANPAGER = "sh -c 'col -bx | bat -l man -p'"` in `sessionVariables`.
+   Colored, searchable man pages automatically. Most universally useful.
+2. **Cat replacement** — `cat = "bat -p"`. The `-p` flag (plain) drops line numbers and
+   the filename header, making it behave like `cat` but with syntax highlighting.
+   Without `-p`, bat adds decorations and paging — useful for reading, less for piping.
+3. **Default pager** — `PAGER = "bat"`. Makes all pager output (git log, man, help)
+   use bat. More intrusive — test before committing to it. `BAT_PAGER = "less -RF"` can
+   soften this by keeping bat's highlight but less's familiar scroll behaviour.
+4. **Git diffs** — requires `delta` (separate package, not installed). Not needed now;
+   note for later if terminal git diffs become part of the workflow.
+
+Theming: bat follows its own themes (`bat --list-themes`). `BAT_THEME` env var sets a
+default. Stylix does not theme bat automatically.
+
+### nix-status — hash-based rebuild check (replaces time-based version)
+
+Time comparison has a known false-positive: if you rebuild then commit, the commit
+timestamp is newer than the generation and the function incorrectly reports changes
+need building.
+
+Fix: save the current git hash whenever `rebuild` runs, and also auto-append a row to
+`generations.md`. Convert the `rebuild` alias to a shell function:
+
+```bash
+rebuild() {
+  nh os switch /etc/nixos -H desktop || return 1
+
+  # Record hash for nix-status
+  git -C /etc/nixos rev-parse HEAD > ~/.config/nixos-last-build-hash
+
+  # Append row to generations.md
+  local gen=$(nixos-rebuild list-generations 2>/dev/null | awk '/True/{print $1}')
+  local dt=$(date "+%Y-%m-%d  %H:%M")
+  local hash=$(git -C /etc/nixos rev-parse --short HEAD 2>/dev/null)
+  local prev=$(tail -1 /etc/nixos/generations.md | awk -F'|' '{print $4}' | tr -d ' ')
+  local desc
+  if [[ "$hash" == "$prev" ]]; then
+    desc="(same commit, re-run)"
+  else
+    desc=$(git -C /etc/nixos log -1 --format="%s" 2>/dev/null)
+  fi
+  printf "| %3d | %s | %-7s | %s |\n" "$gen" "$dt" "$hash" "$desc" \
+    >> /etc/nixos/generations.md
+}
+```
+
+Description is pulled from the last git commit subject line automatically. If the commit
+hash matches the previous generations.md row it writes "(same commit, re-run)" instead —
+matching the existing manual convention.
+
+Then `nix-status` compares hashes instead of timestamps:
+
+```bash
+nix-status() {
+  local last=$(cat ~/.config/nixos-last-build-hash 2>/dev/null)
+  local head=$(git -C /etc/nixos rev-parse HEAD 2>/dev/null)
+  local dirty=$(git -C /etc/nixos status --short -- '*.nix' 'flake.*')
+
+  [[ -n "$dirty" ]] && printf "Uncommitted changes:\n%s\n\n" "$dirty"
+
+  if [[ -z "$last" ]]; then
+    echo "No build record found. Run rebuild once to start tracking."
+  elif [[ "$last" == "$head" ]]; then
+    echo "Up to date (last build = HEAD)."
+  else
+    local log=$(git -C /etc/nixos log --oneline "$last..$head" \
+      -- home/ modules/ hosts/ flake.nix flake.lock 2>/dev/null)
+    if [[ -n "$log" ]]; then
+      printf "Committed but not built:\n%s\n" "$log"
+    else
+      echo "Up to date (no .nix changes since last build)."
+    fi
+  fi
+}
+```
+
+First run after adding this will find no hash file — rebuild once to initialize it.
+
+### Aliases worth adding
+
+```nix
+ssh  = "kitten ssh";    # from kitty plan; copies zsh config to remote sessions
+cat  = "bat -p";        # bat in plain mode; syntax highlighting, behaves like cat
+py   = "python3";       # quick Python runs
+ipy  = "ipython";       # interactive Python (ipython is installed)
+```
+
+### History: deduplicate all, not just consecutive
+
+`ignoreDups = true` only removes back-to-back duplicates. If you run `rebuild`, then
+something else, then `rebuild` again, both entries stay. Adding:
+
+```nix
+history.ignoreAllDups = true;
+```
+
+keeps only the most recent occurrence of any repeated command.
+
+---
+
+## Wikipedia — wiki-tui
+
+Wikipedia is underrated as a reference for factual and conceptual lookups. 90% of
+physics/maths questions have a Wikipedia article that is faster and more reliable than
+a Google search. The goal is to make it easy enough to actually use instead of opening
+a browser.
+
+### Package
+
+`wiki-tui` is in nixpkgs at 0.9.2. Add to `modules/common.nix`:
+
+```nix
+pkgs.wiki-tui
+```
+
+### What it looks like
+
+Two-pane TUI: left is the article's table of contents (navigable), right is the article
+text with styled headers and highlighted links. Press Enter on a link to follow it to
+another article, `b` to go back. Vim keys throughout (`j/k` scroll, `gg`/`G`, `/` to
+search within the article). Launch directly on an article:
+
+```bash
+wiki-tui "Schrödinger equation"
+```
+
+### Fuzzy finding
+
+Passing a term that isn't an exact article title triggers Wikipedia's search API and
+shows a ranked list of matching articles to pick from. So `wiki-tui "wave function"`
+finds the right article even with capitalisation differences, and ambiguous terms like
+`operator` show a picker. The word under cursor always works as input — worst case you
+get a search results screen.
+
+### Neovim binding — `K` in markdown
+
+Vim's `K` already means "look up the word under the cursor" (default: `man`; in code
+files: LSP hover). In markdown buffers it does nothing useful. A filetype-specific
+remap is the most idiomatic fit:
+
+```lua
+-- inside FileType markdown autocmd in init.lua
+vim.keymap.set('n', 'K', function()
+  local word = vim.fn.expand('<cWORD>')
+  vim.fn.system('kitty @ launch --type=window --location=vsplit -- wiki-tui '
+    .. vim.fn.shellescape(word))
+end, { buffer = true, desc = "Wikipedia lookup" })
+```
+
+`<cWORD>` (capital W) grabs the full whitespace-delimited token, which handles
+hyphenated terms like `spin-orbit` better than `<cword>`.
+
+Result: cursor on any term in a physics note → `K` → article opens in a kitty vsplit.
+In code files `K` stays as LSP hover. No new leader chord to remember.
+
+**Alternative keybindings** if `K` feels wrong or you want it outside markdown:
+
+| Key | Notes |
+|-----|-------|
+| `K` (markdown filetype only) | Most idiomatic — existing vim semantic |
+| `<leader>W` | Keeps `<leader>w` free; uppercase W = Wikipedia |
+| `<leader>fw` | Fits a "find X" pattern if used elsewhere |
+
+Add whichever is chosen to the `<leader>/` help popup so it stays visible.
