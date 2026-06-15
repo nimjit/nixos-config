@@ -112,3 +112,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 103 | 2026-06-15  00:00 | e16cdd3 | revert workflow terminals fully to pre-session state |
 | 104 | 2026-06-15  00:00 | eb713b6 | fix yt-feed channel ID parsing; add duration cache + L filter |
 | 105 | 2026-06-15  00:00 | 44b8066 | yt-feed: 16:9 thumbs, enter-to-play, left margin, long default |
+| 106 | 2026-06-16  00:12 | b5f68a2 | yt-feed: fix getch() ESC drain, RSS cache, mpv log, open-in-browser |
