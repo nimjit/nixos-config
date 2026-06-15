@@ -224,17 +224,11 @@ vim.keymap.set('n', '<C-S-h>', function() vim.fn.system('kitty @ focus-window --
 vim.keymap.set('n', '<C-S-j>', function() vim.fn.system('kitty @ focus-window --match neighbor:bottom 2>/dev/null') end, { silent = true })
 vim.keymap.set('n', '<C-S-k>', function() vim.fn.system('kitty @ focus-window --match neighbor:top    2>/dev/null') end, { silent = true })
 vim.keymap.set('n', '<C-S-l>', function() vim.fn.system('kitty @ focus-window --match neighbor:right  2>/dev/null') end, { silent = true })
--- Same from terminal mode: exit terminal mode, then use smart_nav
--- (smart_nav tries neovim split first; falls back to kitty neighbor at edge)
-local function term_nav(nvim_dir, kitty_dir)
-    vim.api.nvim_feedkeys(
-        vim.api.nvim_replace_termcodes('<C-\\><C-n>', true, false, true), 'n', false)
-    vim.schedule(function() smart_nav(nvim_dir, kitty_dir) end)
-end
-vim.keymap.set('t', '<C-h>', function() term_nav('h', 'left')   end, { silent = true })
-vim.keymap.set('t', '<C-j>', function() term_nav('j', 'bottom') end, { silent = true })
-vim.keymap.set('t', '<C-k>', function() term_nav('k', 'top')    end, { silent = true })
-vim.keymap.set('t', '<C-l>', function() term_nav('l', 'right')  end, { silent = true })
+-- Same from terminal mode (<C-\><C-n> exits terminal mode first)
+vim.keymap.set('t','<C-h>', '<C-\\><C-n><C-w>h')
+vim.keymap.set('t','<C-j>', '<C-\\><C-n><C-w>j')
+vim.keymap.set('t','<C-k>', '<C-\\><C-n><C-w>k')
+vim.keymap.set('t','<C-l>', '<C-\\><C-n><C-w>l')
 
                    -- Netrw settings --
 -- Better symlinks
@@ -303,10 +297,8 @@ vim.keymap.set("n", "<leader>c", function()
     vim.cmd(start .. "," .. stop .. "w !" .. py)
 end)
 
-                   -- Quick terminal (kitty split; ctrl+h navigates back)
-vim.keymap.set("n", "<leader>t", function()
-    vim.fn.system("kitty @ launch --type=window --location=vsplit -- zsh")
-end)
+                   -- Quick terminal
+vim.keymap.set("n", "<leader>t", ":split | terminal<CR>")
 
                    -- Yazi file picker
 -- Opens yazi in a split; selecting a file (q to confirm) opens it in neovim.
@@ -466,15 +458,15 @@ end, {})
 
 vim.api.nvim_create_user_command("WorkflowCode", function()
     workflow_open(vim.g.uni_code_path, function()
-        vim.fn.system("kitty @ launch --type=window --location=vsplit -- claude --continue")
+        vim.cmd("vsplit | terminal claude --continue")
+        vim.cmd("1wincmd w")
     end)
 end, {})
 
 vim.api.nvim_create_user_command("WorkflowNixos", function()
     workflow_open("/etc/nixos", function()
-        -- jobstart is async so it never blocks neovim if kitty @ can't connect
-        vim.fn.jobstart("kitty @ launch --type=window --location=vsplit -- claude --continue")
-        vim.cmd("vsplit | terminal")   -- neovim terminal: starts empty, no greeting
+        vim.cmd("vsplit | terminal claude --continue")
+        vim.cmd("vsplit | terminal")
         vim.cmd("1wincmd w")
     end)
 end, {})
