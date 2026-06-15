@@ -106,3 +106,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 |  97 | 2026-06-12  19:07 | 5cdc0a1 | deadline fixes: Assignments dir, completed field, right-column border   |
 |  98 | 2026-06-12  19:20 | e45cb13 | daily note template in vault; generation log; CLAUDE.md workflow update |
 |  99 | 2026-06-15  00:00 | 64147c3 | CLI batch: zoxide, eza, bat, rebuild(), nix status, wiki-tui K, math conceal, vim-kitty-navigator, yt-feed TUI |
+| 100 | 2026-06-15  00:00 | 63be6d4 | fix ctrl+hjkl (CSI u in pass_keys.py), WorkflowNixos terminal, math conceal multi-match |
