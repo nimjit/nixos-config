@@ -104,4 +104,5 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 |  95 | 2026-06-12  18:43 | 5cdc0a1 | greeting redesign: timetable layout, deadlines, dailies                 |
 |  96 | 2026-06-12  18:54 | 5cdc0a1 | greeting fixes: hh= debug output, deadlines DD-MM-YYYY parsing          |
 |  97 | 2026-06-12  19:07 | 5cdc0a1 | deadline fixes: Assignments dir, completed field, right-column border   |
-|  98 | 2026-06-12  19:20 |         | daily note template in vault; generation log; CLAUDE.md workflow update |
+|  98 | 2026-06-12  19:20 | e45cb13 | daily note template in vault; generation log; CLAUDE.md workflow update |
+|  99 | 2026-06-15  00:00 | 64147c3 | CLI batch: zoxide, eza, bat, rebuild(), nix status, wiki-tui K, math conceal, vim-kitty-navigator, yt-feed TUI |
