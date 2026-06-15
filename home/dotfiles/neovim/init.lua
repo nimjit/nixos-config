@@ -297,8 +297,10 @@ vim.keymap.set("n", "<leader>c", function()
     vim.cmd(start .. "," .. stop .. "w !" .. py)
 end)
 
-                   -- Quick terminal
-vim.keymap.set("n", "<leader>t", ":split | terminal<CR>")
+                   -- Quick terminal (kitty split; ctrl+h navigates back)
+vim.keymap.set("n", "<leader>t", function()
+    vim.fn.system("kitty @ launch --type=window --location=vsplit -- zsh")
+end)
 
                    -- Yazi file picker
 -- Opens yazi in a split; selecting a file (q to confirm) opens it in neovim.
@@ -458,16 +460,14 @@ end, {})
 
 vim.api.nvim_create_user_command("WorkflowCode", function()
     workflow_open(vim.g.uni_code_path, function()
-        vim.cmd("vsplit | terminal claude --continue")
-        vim.cmd("1wincmd w")
+        vim.fn.system("kitty @ launch --type=window --location=vsplit -- claude --continue")
     end)
 end, {})
 
 vim.api.nvim_create_user_command("WorkflowNixos", function()
     workflow_open("/etc/nixos", function()
-        vim.cmd("vsplit | terminal claude --continue")
-        vim.cmd("vsplit | terminal")
-        vim.cmd("1wincmd w")
+        vim.fn.system("kitty @ launch --type=window --location=vsplit -- claude --continue")
+        vim.fn.system("kitty @ launch --type=window --location=vsplit -- zsh")
     end)
 end, {})
 
@@ -538,6 +538,90 @@ vim.api.nvim_create_autocmd("FileType", {
                 end
             end
         end, { buffer = true, silent = true })
+
+        -- K: look up word under cursor in Wikipedia (vim's built-in semantic for "look up")
+        vim.keymap.set("n", "K", function()
+            local word = vim.fn.expand("<cWORD>")
+            vim.fn.system("kitty @ launch --type=window --location=vsplit -- wiki-tui "
+                .. vim.fn.shellescape(word))
+        end, { buffer = true, desc = "Wikipedia lookup" })
+
+        -- Math conceal: typst symbols inside $...$ render as unicode in-place.
+        -- conceallevel=0 is set globally (for netrw); override per markdown buffer only.
+        -- concealcursor="" (default) means cursor line reveals source text.
+        vim.opt_local.conceallevel = 2
+
+        vim.cmd([[
+            " MathSym rules defined first with contained+containedin so they
+            " apply only inside MathInline regardless of definition order.
+            " Dot-notation variants listed before their prefixes (longer match wins).
+            syntax match MathSym "phi\.alt"          contained containedin=MathInline conceal cchar=ϕ
+            syntax match MathSym "theta\.alt"        contained containedin=MathInline conceal cchar=ϑ
+            syntax match MathSym "angle\.l"          contained containedin=MathInline conceal cchar=⟨
+            syntax match MathSym "angle\.r"          contained containedin=MathInline conceal cchar=⟩
+            syntax match MathSym "times\.circle"     contained containedin=MathInline conceal cchar=⊗
+            syntax match MathSym "plus\.circle"      contained containedin=MathInline conceal cchar=⊕
+            syntax match MathSym "arrow\.r\.double"  contained containedin=MathInline conceal cchar=⇒
+            syntax match MathSym "arrow\.lr\.double" contained containedin=MathInline conceal cchar=⟺
+            syntax match MathSym "arrow\.r"          contained containedin=MathInline conceal cchar=→
+            syntax match MathSym "arrow\.l"          contained containedin=MathInline conceal cchar=←
+            syntax match MathSym "arrow\.t"          contained containedin=MathInline conceal cchar=↑
+            syntax match MathSym "arrow\.b"          contained containedin=MathInline conceal cchar=↓
+            syntax match MathSym "planck\.reduce"    contained containedin=MathInline conceal cchar=ℏ
+            " Greek lowercase
+            syntax match MathSym "alpha"    contained containedin=MathInline conceal cchar=α
+            syntax match MathSym "beta"     contained containedin=MathInline conceal cchar=β
+            syntax match MathSym "gamma"    contained containedin=MathInline conceal cchar=γ
+            syntax match MathSym "delta"    contained containedin=MathInline conceal cchar=δ
+            syntax match MathSym "epsilon"  contained containedin=MathInline conceal cchar=ε
+            syntax match MathSym "zeta"     contained containedin=MathInline conceal cchar=ζ
+            syntax match MathSym "theta"    contained containedin=MathInline conceal cchar=θ
+            syntax match MathSym "kappa"    contained containedin=MathInline conceal cchar=κ
+            syntax match MathSym "lambda"   contained containedin=MathInline conceal cchar=λ
+            syntax match MathSym "sigma"    contained containedin=MathInline conceal cchar=σ
+            syntax match MathSym "omega"    contained containedin=MathInline conceal cchar=ω
+            syntax match MathSym "eta"      contained containedin=MathInline conceal cchar=η
+            syntax match MathSym "mu"       contained containedin=MathInline conceal cchar=μ
+            syntax match MathSym "nu"       contained containedin=MathInline conceal cchar=ν
+            syntax match MathSym "xi"       contained containedin=MathInline conceal cchar=ξ
+            syntax match MathSym "pi"       contained containedin=MathInline conceal cchar=π
+            syntax match MathSym "rho"      contained containedin=MathInline conceal cchar=ρ
+            syntax match MathSym "tau"      contained containedin=MathInline conceal cchar=τ
+            syntax match MathSym "phi"      contained containedin=MathInline conceal cchar=φ
+            syntax match MathSym "chi"      contained containedin=MathInline conceal cchar=χ
+            syntax match MathSym "psi"      contained containedin=MathInline conceal cchar=ψ
+            " Greek uppercase
+            syntax match MathSym "Gamma"   contained containedin=MathInline conceal cchar=Γ
+            syntax match MathSym "Delta"   contained containedin=MathInline conceal cchar=Δ
+            syntax match MathSym "Theta"   contained containedin=MathInline conceal cchar=Θ
+            syntax match MathSym "Lambda"  contained containedin=MathInline conceal cchar=Λ
+            syntax match MathSym "Xi"      contained containedin=MathInline conceal cchar=Ξ
+            syntax match MathSym "Pi"      contained containedin=MathInline conceal cchar=Π
+            syntax match MathSym "Sigma"   contained containedin=MathInline conceal cchar=Σ
+            syntax match MathSym "Phi"     contained containedin=MathInline conceal cchar=Φ
+            syntax match MathSym "Psi"     contained containedin=MathInline conceal cchar=Ψ
+            syntax match MathSym "Omega"   contained containedin=MathInline conceal cchar=Ω
+            " Physics / quantum
+            syntax match MathSym "dagger"   contained containedin=MathInline conceal cchar=†
+            syntax match MathSym "nabla"    contained containedin=MathInline conceal cchar=∇
+            syntax match MathSym "partial"  contained containedin=MathInline conceal cchar=∂
+            syntax match MathSym "ell"      contained containedin=MathInline conceal cchar=ℓ
+            syntax match MathSym "subset"   contained containedin=MathInline conceal cchar=⊂
+            syntax match MathSym "supset"   contained containedin=MathInline conceal cchar=⊃
+            syntax match MathSym "\bin\b"   contained containedin=MathInline conceal cchar=∈
+            " Operators (longer names before shorter prefixes)
+            syntax match MathSym "integral" contained containedin=MathInline conceal cchar=∫
+            syntax match MathSym "approx"   contained containedin=MathInline conceal cchar=≈
+            syntax match MathSym "infty"    contained containedin=MathInline conceal cchar=∞
+            syntax match MathSym "times"    contained containedin=MathInline conceal cchar=×
+            syntax match MathSym "sqrt"     contained containedin=MathInline conceal cchar=√
+            syntax match MathSym "sum"      contained containedin=MathInline conceal cchar=∑
+            syntax match MathSym "neq"      contained containedin=MathInline conceal cchar=≠
+            syntax match MathSym "dot"      contained containedin=MathInline conceal cchar=·
+            syntax match MathSym "pm"       contained containedin=MathInline conceal cchar=±
+            " Region: defined after MathSym so containedin= is already registered
+            syntax region MathInline matchgroup=MathDelim start='\$' end='\$' keepend oneline
+        ]])
     end,
 })
 

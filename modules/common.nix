@@ -67,6 +67,10 @@
     # AI
     claude-code
 
+    # Terminal tools
+    wiki-tui   # Wikipedia TUI; K in neovim markdown opens vsplit
+    yt-dlp     # YouTube downloader; used by mpv and the yt-feed TUI
+
     # CLI tools
     nchat          # WhatsApp in terminal (desktop notifications, no browser tab)
     lastpass-cli   # lpass CLI — same vault as LastPass extension

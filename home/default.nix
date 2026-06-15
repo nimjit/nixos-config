@@ -71,6 +71,15 @@
     executable = true;
   };
 
+  # ── YouTube TUI ───────────────────────────────────────────────────────────
+  home.file.".local/bin/yt-feed" = {
+    source     = ./dotfiles/yt-feed.py;
+    executable = true;
+  };
+
+  # ── vim-kitty-navigator kitten ────────────────────────────────────────────
+  home.file.".config/kitty/pass_keys.py".source = ./dotfiles/kitty/pass_keys.py;
+
   # ── rmpc keybindings ─────────────────────────────────────────────────────
   home.file.".config/rmpc/config.ron".source = ./dotfiles/rmpc/config.ron;
 

@@ -10,21 +10,34 @@
       size = 10000;
       save = 10000;
       ignoreDups = true;
+      ignoreAllDups = true;
       share = true;
     };
 
     shellAliases = {
       # NixOS shortcuts
-      rebuild  = "nh os switch /etc/nixos -H desktop";
       update   = "cd /etc/nixos && git pull && nh os switch /etc/nixos -H desktop";
       gc       = "sudo nix-collect-garbage --delete-older-than 30d";
       gens     = "sudo nixos-rebuild list-generations";
 
-      # Common
-      ll  = "ls -lah";
-      la  = "ls -A";
+      # Common — eza replaces ls; bat replaces cat
+      ls  = "eza";
+      ll  = "eza -la --git";
+      la  = "eza -a";
+      lt  = "eza -T";
+      cat = "bat -p";
       ".." = "cd ..";
       "..." = "cd ../..";
+
+      # Python shortcuts
+      py  = "python3";
+      ipy = "ipython";
+
+      # Kitten shortcuts
+      ssh = "kitten ssh";
+
+      # YouTube TUI
+      yt  = "~/.local/bin/yt-feed";
 
       # Navigation
       nixos   = "yazi /etc/nixos";
@@ -52,11 +65,61 @@
     sessionVariables = {
       # lpass --clip uses wl-copy on Wayland
       LPASS_CLIPBOARD_COMMAND = "wl-copy";
+      # bat as man pager — colored, searchable man pages
+      MANPAGER = "sh -c 'col -bx | bat -l man -p'";
+      # matplotlib renders plots inline in the terminal (no Qt window; use plt.savefig() to save)
+      MPLBACKEND = "kitty";
     };
 
     initContent = ''
       # direnv hook (activates .envrc in project folders)
       eval "$(direnv hook zsh)"
+
+      # zoxide — smarter cd; --cmd cd replaces cd directly, no new verb to learn
+      eval "$(zoxide init zsh --cmd cd)"
+
+      # rebuild: switch + save git hash for nix status + append to generations.md
+      rebuild() {
+        nh os switch /etc/nixos -H desktop || return 1
+        git -C /etc/nixos rev-parse HEAD > ~/.config/nixos-last-build-hash
+        local gen=$(nixos-rebuild list-generations 2>/dev/null | awk '/True/{print $1}')
+        local dt=$(date "+%Y-%m-%d  %H:%M")
+        local hash=$(git -C /etc/nixos rev-parse --short HEAD 2>/dev/null)
+        local prev=$(tail -1 /etc/nixos/generations.md | awk -F'|' '{print $4}' | tr -d ' ')
+        local desc
+        if [[ "$hash" == "$prev" ]]; then
+          desc="(same commit, re-run)"
+        else
+          desc=$(git -C /etc/nixos log -1 --format="%s" 2>/dev/null)
+        fi
+        printf "| %3d | %s | %-7s | %s |\n" "$gen" "$dt" "$hash" "$desc" \
+          >> /etc/nixos/generations.md
+      }
+
+      # nix status: hash-based rebuild check; all other nix subcommands pass through
+      nix() {
+        if [[ "$1" == "status" ]]; then
+          local last=$(cat ~/.config/nixos-last-build-hash 2>/dev/null)
+          local head=$(git -C /etc/nixos rev-parse HEAD 2>/dev/null)
+          local dirty=$(git -C /etc/nixos status --short -- '*.nix' 'flake.*')
+          [[ -n "$dirty" ]] && printf "Uncommitted changes:\n%s\n\n" "$dirty"
+          if [[ -z "$last" ]]; then
+            echo "No build record. Run rebuild once to start tracking."
+          elif [[ "$last" == "$head" ]]; then
+            echo "Up to date (last build = HEAD)."
+          else
+            local log=$(git -C /etc/nixos log --oneline "$last..$head" \
+              -- home/ modules/ hosts/ flake.nix flake.lock 2>/dev/null)
+            if [[ -n "$log" ]]; then
+              printf "Committed but not built:\n%s\n" "$log"
+            else
+              echo "Up to date (no .nix changes since last build)."
+            fi
+          fi
+        else
+          command nix "$@"
+        fi
+      }
 
       # Workflow launchers
       uni-work()   { nvim -c WorkflowUni; }
