@@ -110,3 +110,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 101 | 2026-06-15  00:00 | 3c6fdd3 | revert kitty ctrl+hjkl kitten; smart_nav in neovim is the nav layer |
 | 102 | 2026-06-15  00:00 | 156ae03 | fix WorkflowNixos crash: jobstart instead of blocking system() for kitty @ |
 | 103 | 2026-06-15  00:00 | e16cdd3 | revert workflow terminals fully to pre-session state |
+| 104 | 2026-06-15  00:00 | eb713b6 | fix yt-feed channel ID parsing; add duration cache + L filter |
