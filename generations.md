@@ -111,3 +111,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 102 | 2026-06-15  00:00 | 156ae03 | fix WorkflowNixos crash: jobstart instead of blocking system() for kitty @ |
 | 103 | 2026-06-15  00:00 | e16cdd3 | revert workflow terminals fully to pre-session state |
 | 104 | 2026-06-15  00:00 | eb713b6 | fix yt-feed channel ID parsing; add duration cache + L filter |
+| 105 | 2026-06-15  00:00 | 44b8066 | yt-feed: 16:9 thumbs, enter-to-play, left margin, long default |
