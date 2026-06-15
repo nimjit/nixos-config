@@ -11,6 +11,7 @@ import sys
 import json
 import signal
 import shutil
+import threading
 import subprocess
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -22,10 +23,16 @@ CHANNELS_FILE  = os.path.expanduser("~/.config/yt-feed/channels.txt")
 CACHE_DIR      = os.path.expanduser("~/.cache/yt-feed")
 DUR_CACHE_FILE = os.path.join(CACHE_DIR, "durations.json")
 RSS_BASE       = "https://www.youtube.com/feeds/videos.xml?channel_id="
-MAX_VIDEOS     = 6     # per channel
-LONG_MIN_SECS  = 5*60  # "long" = at least 5 minutes
-THUMB_W        = 38    # terminal cols for thumbnail
-THUMB_H        = 11    # terminal rows for thumbnail
+MAX_VIDEOS     = 50
+LONG_MIN_SECS  = 5 * 60   # ≥ 5 min = "long"
+
+# Layout
+LEFT_MARGIN = 20   # columns from left edge before thumbnail starts
+THUMB_W     = 38   # thumbnail width in terminal columns
+# THUMB_H: mqdefault.jpg is 320×180 (16:9). Typical kitty cell ≈ 10×20 px.
+# height_px = THUMB_W * 10 * (9/16) ≈ 213 px → 213/20 ≈ 10.7 rows → 11
+THUMB_H     = 11
+TEXT_COL    = LEFT_MARGIN + THUMB_W + 3   # text starts after thumbnail + gap
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -70,7 +77,6 @@ def save_dur_cache(cache):
         pass
 
 def fetch_duration(vid_id):
-    """Return duration in seconds via yt-dlp, or None on failure."""
     try:
         r = subprocess.run(
             ["yt-dlp", "--no-playlist", "--print", "duration",
@@ -88,6 +94,20 @@ def fmt_duration(secs):
     m, s = divmod(r, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
+def enrich_durations(videos, cache):
+    """Background thread: fetch durations for uncached videos, save cache."""
+    missing = [v["id"] for v in videos if v["id"] not in cache]
+    if not missing:
+        return
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futures = {ex.submit(fetch_duration, vid_id): vid_id for vid_id in missing}
+        for fut in as_completed(futures):
+            vid_id = futures[fut]
+            result = fut.result()
+            if result is not None:
+                cache[vid_id] = result
+    save_dur_cache(cache)
+
 # ── Channel loading ────────────────────────────────────────────────────────────
 
 def load_channels():
@@ -99,10 +119,8 @@ def load_channels():
     with open(CHANNELS_FILE) as f:
         for line in f:
             line = line.strip()
-            # skip blank lines (used for grouping) and comment-only lines
             if not line or line.startswith("#"):
                 continue
-            # first whitespace-delimited token is the channel ID; rest is comment
             channels.append(line.split()[0])
     return channels
 
@@ -130,16 +148,13 @@ def parse_feed(xml_bytes):
         vid_id    = entry.findtext("yt:videoId", default="", namespaces=NS)
         title     = entry.findtext("atom:title", default="(no title)", namespaces=NS)
         published = entry.findtext("atom:published", default="", namespaces=NS)
-        thumb = ""
-        m = entry.find("media:group/media:thumbnail", NS)
-        if m is not None:
-            thumb = m.get("url", "")
         entries.append({
             "id":      vid_id,
             "title":   title,
             "channel": channel_name,
             "url":     f"https://www.youtube.com/watch?v={vid_id}",
-            "thumb":   thumb,
+            # mqdefault = 320×180, guaranteed 16:9 (hqdefault from RSS is 4:3)
+            "thumb":   f"https://i.ytimg.com/vi/{vid_id}/mqdefault.jpg",
             "date":    published[:10] if published else "",
         })
     return entries
@@ -155,28 +170,12 @@ def fetch_all(channel_ids):
     videos.sort(key=lambda v: v["date"], reverse=True)
     return videos
 
-# ── Duration fetching (background, updates cache) ──────────────────────────────
-
-def enrich_durations(videos, cache):
-    """Fetch durations for any video not already cached. Updates cache in place."""
-    missing = [v["id"] for v in videos if v["id"] not in cache]
-    if not missing:
-        return
-    with ThreadPoolExecutor(max_workers=6) as ex:
-        futures = {ex.submit(fetch_duration, vid_id): vid_id for vid_id in missing}
-        for fut in as_completed(futures):
-            vid_id = futures[fut]
-            result = fut.result()
-            if result is not None:
-                cache[vid_id] = result
-    save_dur_cache(cache)
-
-# ── Thumbnail ──────────────────────────────────────────────────────────────────
+# ── Thumbnails ─────────────────────────────────────────────────────────────────
 
 def thumb_path(vid_id):
     return os.path.join(CACHE_DIR, f"{vid_id}.jpg")
 
-def download_thumb(url, vid_id):
+def download_thumb(vid_id, url):
     path = thumb_path(vid_id)
     if os.path.exists(path):
         return path
@@ -186,30 +185,37 @@ def download_thumb(url, vid_id):
     except Exception:
         return None
 
-def show_thumb(path, row, col, w=THUMB_W, h=THUMB_H):
+def preload_thumb(video):
+    """Fire-and-forget background thumbnail download."""
+    threading.Thread(
+        target=download_thumb,
+        args=(video["id"], video["thumb"]),
+        daemon=True
+    ).start()
+
+def show_thumb(path, row):
     if path and os.path.exists(path):
         subprocess.run(
             ["kitty", "+kitten", "icat", "--silent",
-             "--place", f"{w}x{h}@{col}x{row}",
+             "--place", f"{THUMB_W}x{THUMB_H}@{LEFT_MARGIN}x{row}",
              "--transfer-mode=stream", path],
             stdout=sys.stdout
         )
 
 # ── List view ──────────────────────────────────────────────────────────────────
 
-ENTRY_H  = THUMB_H + 1
-TEXT_COL = THUMB_W + 3
+ENTRY_H = THUMB_H + 1
 
 def render_entry(video, row, selected, cols, dur_cache):
-    show_thumb(download_thumb(video["thumb"], video["id"]), row, 0)
+    show_thumb(download_thumb(video["id"], video["thumb"]), row)
 
     bar = REV if selected else ""
     rst = RESET
     dur = fmt_duration(dur_cache.get(video["id"]))
 
     move(row + 1, TEXT_COL)
-    title = video["title"]
-    max_t = cols - TEXT_COL - 1
+    title   = video["title"]
+    max_t   = cols - TEXT_COL - 1
     if len(title) > max_t:
         title = title[:max_t - 1] + "…"
     print(f"{bar}{BOLD}{HILIGHT}{title}{rst}", end="", flush=True)
@@ -229,11 +235,14 @@ def render_list(videos, cursor, offset, rows, cols, dur_cache, long_only):
         if idx >= len(videos):
             break
         render_entry(videos[idx], i * ENTRY_H + 1, idx == cursor, cols, dur_cache)
+        # preload the thumbnail one ahead
+        if idx + 1 < len(videos):
+            preload_thumb(videos[idx + 1])
 
     move(rows, 1)
-    long_flag = f"  {ACCENT}[long only]{RESET}" if long_only else ""
-    status = f" {cursor+1}/{len(videos)}  j/k: nav  Enter: play  d: detail  L: long only  /: filter  q: quit"
-    print(f"{DIM}{status[:cols-1]}{RESET}{long_flag}", end="", flush=True)
+    flag = f"  {ACCENT}[long only]{RESET}" if long_only else ""
+    bar  = f" {cursor+1}/{len(videos)}  j/k: nav  Enter: play  d: detail  L: long  /: filter  r: refresh  q: quit"
+    print(f"{DIM}{bar[:cols-1]}{RESET}{flag}", end="", flush=True)
 
 # ── Detail view ────────────────────────────────────────────────────────────────
 
@@ -251,14 +260,14 @@ def fetch_detail(url):
 
 def render_detail(video, rows, cols, dur_cache):
     clear()
-    show_thumb(download_thumb(video["thumb"], video["id"]), 1, 0)
+    show_thumb(download_thumb(video["id"], video["thumb"]), 1)
 
     dur = fmt_duration(dur_cache.get(video["id"]))
     move(1, TEXT_COL)
     title = video["title"]
     max_t = cols - TEXT_COL - 1
     if len(title) > max_t:
-        title = title[:max_t-1] + "…"
+        title = title[:max_t - 1] + "…"
     print(f"{BOLD}{HILIGHT}{title}{RESET}", end="", flush=True)
 
     move(2, TEXT_COL)
@@ -272,12 +281,12 @@ def render_detail(video, rows, cols, dur_cache):
     sys.stdout.flush()
 
     data = fetch_detail(video["url"])
+
     move(5, TEXT_COL)
     print(" " * (cols - TEXT_COL), end="", flush=True)
 
     row = 5
     if data:
-        # update duration cache from yt-dlp detail fetch
         if data.get("duration") and video["id"] not in dur_cache:
             dur_cache[video["id"]] = data["duration"]
             save_dur_cache(dur_cache)
@@ -288,28 +297,22 @@ def render_detail(video, rows, cols, dur_cache):
             print(f"{MUTED}{line[:cols - TEXT_COL - 1]}{RESET}", end="", flush=True)
         row += 8
 
-        chapters = data.get("chapters") or []
-        if chapters:
+        for ch in (data.get("chapters") or [])[:8]:
+            t  = int(ch.get("start_time", 0))
+            ts = f"{t//60}:{t%60:02d}"
             move(row, TEXT_COL)
-            print(f"{HILIGHT}Chapters:{RESET}", end="", flush=True)
+            print(f"{DIM}{ts}  {MUTED}{ch['title'][:cols-TEXT_COL-8]}{RESET}", end="", flush=True)
             row += 1
-            for ch in chapters[:8]:
-                t  = int(ch.get("start_time", 0))
-                ts = f"{t//60}:{t%60:02d}"
-                move(row, TEXT_COL)
-                print(f"{DIM}{ts}  {MUTED}{ch['title'][:cols-TEXT_COL-8]}{RESET}", end="", flush=True)
-                row += 1
 
     move(rows, 1)
     print(f"{DIM} Enter: play  b: back  q: quit{RESET}", end="", flush=True)
 
 # ── Input ──────────────────────────────────────────────────────────────────────
 
-import tty
-import termios
+import tty, termios
 
 def getch():
-    fd = sys.stdin.fileno()
+    fd  = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
@@ -331,7 +334,7 @@ def prompt_filter(rows, cols):
     print(f"{ACCENT}/ {RESET}", end="", flush=True)
     show_cursor()
     query = ""
-    fd = sys.stdin.fileno()
+    fd  = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
@@ -356,10 +359,26 @@ def prompt_filter(rows, cols):
 # ── Playback ───────────────────────────────────────────────────────────────────
 
 def play(url):
-    subprocess.Popen(["mpv", f"ytdl://{url}"],
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # stdin=DEVNULL prevents mpv from stealing our terminal's stdin
+    subprocess.Popen(
+        ["mpv", url],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 # ── Main loop ──────────────────────────────────────────────────────────────────
+
+def apply_filters(source, search_str, long_only, dur_cache):
+    out = source
+    if search_str:
+        out = [v for v in out
+               if search_str in v["title"].lower() or search_str in v["channel"].lower()]
+    if long_only:
+        # uncached videos pass through (duration unknown); press r after bg fetch
+        out = [v for v in out
+               if dur_cache.get(v["id"], LONG_MIN_SECS) >= LONG_MIN_SECS]
+    return out
 
 def run():
     signal.signal(signal.SIGINT, lambda *_: (show_cursor(), sys.exit(0)))
@@ -385,32 +404,21 @@ def run():
         print("No videos found. Check channel IDs in channels.txt.")
         return
 
-    # Background duration fetch (non-blocking for first render; updates asynchronously)
-    import threading
     threading.Thread(target=enrich_durations, args=(all_videos, dur_cache), daemon=True).start()
 
     search_str = ""
-    long_only  = False
+    long_only  = True   # default: show long-form videos only
 
-    def apply_filters(source):
-        out = source
-        if search_str:
-            out = [v for v in out if search_str in v["title"].lower()
-                   or search_str in v["channel"].lower()]
-        if long_only:
-            out = [v for v in out if dur_cache.get(v["id"], 0) >= LONG_MIN_SECS]
-        return out
-
-    filtered = apply_filters(all_videos)
+    filtered       = apply_filters(all_videos, search_str, long_only, dur_cache)
     cursor, offset = 0, 0
-    mode = "list"
+    mode           = "list"
 
     render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
 
     while True:
         rows, cols = term_size()
-        visible = max(1, (rows - 2) // ENTRY_H)
-        key = getch()
+        visible    = max(1, (rows - 2) // ENTRY_H)
+        key        = getch()
 
         if mode == "list":
             if key in ("j", "\x1b[B"):
@@ -437,24 +445,23 @@ def run():
                     render_detail(filtered[cursor], rows, cols, dur_cache)
 
             elif key == "L":
-                long_only = not long_only
-                filtered  = apply_filters(all_videos)
+                long_only      = not long_only
+                filtered       = apply_filters(all_videos, search_str, long_only, dur_cache)
                 cursor, offset = 0, 0
                 render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
 
             elif key == "/":
-                q = prompt_filter(rows, cols)
-                search_str = q
-                filtered   = apply_filters(all_videos)
+                search_str     = prompt_filter(rows, cols)
+                filtered       = apply_filters(all_videos, search_str, long_only, dur_cache)
                 cursor, offset = 0, 0
+                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+
+            elif key == "r":
+                filtered = apply_filters(all_videos, search_str, long_only, dur_cache)
                 render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
 
             elif key in ("q", "\x03"):
                 break
-
-            elif key == "r":
-                # re-render (useful after background durations come in)
-                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
 
         elif mode == "detail":
             if key in ("\r", "\n"):
