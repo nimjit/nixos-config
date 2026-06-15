@@ -9,10 +9,14 @@ Fetches RSS, renders with kitty icat thumbnails, j/k nav, Enter → mpv
 import os
 import sys
 import json
+import time
+import select
 import signal
 import shutil
 import threading
 import subprocess
+import tty
+import termios
 import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -22,7 +26,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 CHANNELS_FILE  = os.path.expanduser("~/.config/yt-feed/channels.txt")
 CACHE_DIR      = os.path.expanduser("~/.cache/yt-feed")
 DUR_CACHE_FILE = os.path.join(CACHE_DIR, "durations.json")
+RSS_CACHE_FILE = os.path.join(CACHE_DIR, "rss_cache.json")
+MPV_LOG        = os.path.join(CACHE_DIR, "mpv-last.log")
 RSS_BASE       = "https://www.youtube.com/feeds/videos.xml?channel_id="
+RSS_TTL        = 2 * 3600   # seconds before re-fetching a channel's feed
 MAX_VIDEOS     = 50
 LONG_MIN_SECS  = 5 * 60   # ≥ 5 min = "long"
 
@@ -72,6 +79,22 @@ def load_dur_cache():
 def save_dur_cache(cache):
     try:
         with open(DUR_CACHE_FILE, "w") as f:
+            json.dump(cache, f)
+    except Exception:
+        pass
+
+# ── RSS cache ──────────────────────────────────────────────────────────────────
+
+def load_rss_cache():
+    try:
+        with open(RSS_CACHE_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def save_rss_cache(cache):
+    try:
+        with open(RSS_CACHE_FILE, "w") as f:
             json.dump(cache, f)
     except Exception:
         pass
@@ -160,13 +183,29 @@ def parse_feed(xml_bytes):
     return entries
 
 def fetch_all(channel_ids):
-    videos = []
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futures = {ex.submit(fetch_rss, cid): cid for cid in channel_ids}
-        for fut in as_completed(futures):
-            data = fut.result()
-            if data:
-                videos.extend(parse_feed(data))
+    rss_cache = load_rss_cache()
+    now       = time.time()
+    videos    = []
+    stale     = []
+
+    for cid in channel_ids:
+        entry = rss_cache.get(cid)
+        if entry and now - entry["ts"] < RSS_TTL:
+            videos.extend(parse_feed(entry["xml"].encode()))
+        else:
+            stale.append(cid)
+
+    if stale:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            futures = {ex.submit(fetch_rss, cid): cid for cid in stale}
+            for fut in as_completed(futures):
+                cid  = futures[fut]
+                data = fut.result()
+                if data:
+                    rss_cache[cid] = {"ts": now, "xml": data.decode("utf-8", errors="replace")}
+                    videos.extend(parse_feed(data))
+        save_rss_cache(rss_cache)
+
     videos.sort(key=lambda v: v["date"], reverse=True)
     return videos
 
@@ -225,7 +264,7 @@ def render_entry(video, row, selected, cols, dur_cache):
 
     if selected:
         move(row + 3, TEXT_COL)
-        print(f"{ACCENT}► Enter: play  d: detail  q: quit{rst}", end="", flush=True)
+        print(f"{ACCENT}► Enter: play  o: browser  d: detail  q: quit{rst}", end="", flush=True)
 
 def render_list(videos, cursor, offset, rows, cols, dur_cache, long_only):
     clear()
@@ -241,7 +280,7 @@ def render_list(videos, cursor, offset, rows, cols, dur_cache, long_only):
 
     move(rows, 1)
     flag = f"  {ACCENT}[long only]{RESET}" if long_only else ""
-    bar  = f" {cursor+1}/{len(videos)}  j/k: nav  Enter: play  d: detail  L: long  /: filter  r: refresh  q: quit"
+    bar  = f" {cursor+1}/{len(videos)}  j/k: nav  Enter: play  o: browser  d: detail  L: long  /: filter  r: refresh  q: quit"
     print(f"{DIM}{bar[:cols-1]}{RESET}{flag}", end="", flush=True)
 
 # ── Detail view ────────────────────────────────────────────────────────────────
@@ -309,8 +348,6 @@ def render_detail(video, rows, cols, dur_cache):
 
 # ── Input ──────────────────────────────────────────────────────────────────────
 
-import tty, termios
-
 def getch():
     fd  = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -318,9 +355,10 @@ def getch():
         tty.setraw(fd)
         ch = sys.stdin.read(1)
         if ch == "\x1b":
-            ch2 = sys.stdin.read(1)
-            ch3 = sys.stdin.read(1)
-            return ch + ch2 + ch3
+            result = ch
+            while select.select([sys.stdin], [], [], 0.05)[0]:
+                result += sys.stdin.read(1)
+            return result
         return ch
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
@@ -359,13 +397,13 @@ def prompt_filter(rows, cols):
 # ── Playback ───────────────────────────────────────────────────────────────────
 
 def play(url):
-    # stdin=DEVNULL prevents mpv from stealing our terminal's stdin
-    subprocess.Popen(
-        ["mpv", url],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    with open(MPV_LOG, "w") as log:
+        subprocess.Popen(
+            ["mpv", "--no-terminal", url],
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=log,
+        )
 
 # ── Main loop ──────────────────────────────────────────────────────────────────
 
@@ -455,6 +493,15 @@ def run():
                 filtered       = apply_filters(all_videos, search_str, long_only, dur_cache)
                 cursor, offset = 0, 0
                 render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+
+            elif key == "o":
+                if filtered:
+                    subprocess.Popen(
+                        ["xdg-open", filtered[cursor]["url"]],
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
 
             elif key == "r":
                 filtered = apply_filters(all_videos, search_str, long_only, dur_cache)
