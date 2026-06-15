@@ -472,7 +472,8 @@ end, {})
 
 vim.api.nvim_create_user_command("WorkflowNixos", function()
     workflow_open("/etc/nixos", function()
-        vim.fn.system("kitty @ launch --type=window --location=vsplit -- claude --continue")
+        -- jobstart is async so it never blocks neovim if kitty @ can't connect
+        vim.fn.jobstart("kitty @ launch --type=window --location=vsplit -- claude --continue")
         vim.cmd("vsplit | terminal")   -- neovim terminal: starts empty, no greeting
         vim.cmd("1wincmd w")
     end)
