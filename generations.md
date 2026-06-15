@@ -109,3 +109,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 100 | 2026-06-15  00:00 | 63be6d4 | fix ctrl+hjkl (CSI u in pass_keys.py), WorkflowNixos terminal, math conceal multi-match |
 | 101 | 2026-06-15  00:00 | 3c6fdd3 | revert kitty ctrl+hjkl kitten; smart_nav in neovim is the nav layer |
 | 102 | 2026-06-15  00:00 | 156ae03 | fix WorkflowNixos crash: jobstart instead of blocking system() for kitty @ |
+| 103 | 2026-06-15  00:00 | e16cdd3 | revert workflow terminals fully to pre-session state |
