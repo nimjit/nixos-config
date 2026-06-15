@@ -30,11 +30,13 @@ def handle_result(args, answer, target_window_id, boss):
         except Exception:
             return False
 
+    # Neovim inside kitty uses the kitty keyboard protocol (CSI u sequences),
+    # not legacy control bytes. Raw \x08 is <BS>, not <C-h>.
     KEY_BYTES = {
-        'ctrl+h': b'\x08',
-        'ctrl+j': b'\n',
-        'ctrl+k': b'\x0b',
-        'ctrl+l': b'\x0c',
+        'ctrl+h': b'\x1b[104;5u',
+        'ctrl+j': b'\x1b[106;5u',
+        'ctrl+k': b'\x1b[107;5u',
+        'ctrl+l': b'\x1b[108;5u',
     }
 
     if is_nvim(window):

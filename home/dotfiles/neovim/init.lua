@@ -224,11 +224,17 @@ vim.keymap.set('n', '<C-S-h>', function() vim.fn.system('kitty @ focus-window --
 vim.keymap.set('n', '<C-S-j>', function() vim.fn.system('kitty @ focus-window --match neighbor:bottom 2>/dev/null') end, { silent = true })
 vim.keymap.set('n', '<C-S-k>', function() vim.fn.system('kitty @ focus-window --match neighbor:top    2>/dev/null') end, { silent = true })
 vim.keymap.set('n', '<C-S-l>', function() vim.fn.system('kitty @ focus-window --match neighbor:right  2>/dev/null') end, { silent = true })
--- Same from terminal mode (<C-\><C-n> exits terminal mode first)
-vim.keymap.set('t','<C-h>', '<C-\\><C-n><C-w>h')
-vim.keymap.set('t','<C-j>', '<C-\\><C-n><C-w>j')
-vim.keymap.set('t','<C-k>', '<C-\\><C-n><C-w>k')
-vim.keymap.set('t','<C-l>', '<C-\\><C-n><C-w>l')
+-- Same from terminal mode: exit terminal mode, then use smart_nav
+-- (smart_nav tries neovim split first; falls back to kitty neighbor at edge)
+local function term_nav(nvim_dir, kitty_dir)
+    vim.api.nvim_feedkeys(
+        vim.api.nvim_replace_termcodes('<C-\\><C-n>', true, false, true), 'n', false)
+    vim.schedule(function() smart_nav(nvim_dir, kitty_dir) end)
+end
+vim.keymap.set('t', '<C-h>', function() term_nav('h', 'left')   end, { silent = true })
+vim.keymap.set('t', '<C-j>', function() term_nav('j', 'bottom') end, { silent = true })
+vim.keymap.set('t', '<C-k>', function() term_nav('k', 'top')    end, { silent = true })
+vim.keymap.set('t', '<C-l>', function() term_nav('l', 'right')  end, { silent = true })
 
                    -- Netrw settings --
 -- Better symlinks
@@ -467,7 +473,8 @@ end, {})
 vim.api.nvim_create_user_command("WorkflowNixos", function()
     workflow_open("/etc/nixos", function()
         vim.fn.system("kitty @ launch --type=window --location=vsplit -- claude --continue")
-        vim.fn.system("kitty @ launch --type=window --location=vsplit -- zsh")
+        vim.cmd("vsplit | terminal")   -- neovim terminal: starts empty, no greeting
+        vim.cmd("1wincmd w")
     end)
 end, {})
 
@@ -552,9 +559,10 @@ vim.api.nvim_create_autocmd("FileType", {
         vim.opt_local.conceallevel = 2
 
         vim.cmd([[
-            " MathSym rules defined first with contained+containedin so they
-            " apply only inside MathInline regardless of definition order.
-            " Dot-notation variants listed before their prefixes (longer match wins).
+            " Clear previous definitions (autocmd fires again on every buffer open).
+            silent! syntax clear MathSym MathInline MathDelim
+            " MathSym rules defined with contained+containedin so they
+            " only apply inside MathInline. Dot-notation variants before their prefixes.
             syntax match MathSym "phi\.alt"          contained containedin=MathInline conceal cchar=ϕ
             syntax match MathSym "theta\.alt"        contained containedin=MathInline conceal cchar=ϑ
             syntax match MathSym "angle\.l"          contained containedin=MathInline conceal cchar=⟨
@@ -619,8 +627,10 @@ vim.api.nvim_create_autocmd("FileType", {
             syntax match MathSym "neq"      contained containedin=MathInline conceal cchar=≠
             syntax match MathSym "dot"      contained containedin=MathInline conceal cchar=·
             syntax match MathSym "pm"       contained containedin=MathInline conceal cchar=±
-            " Region: defined after MathSym so containedin= is already registered
-            syntax region MathInline matchgroup=MathDelim start='\$' end='\$' keepend oneline
+            " Region: defined after MathSym so containedin= is already registered.
+            " [$] matches a literal $ (in a char class, $ is not a metacharacter).
+            " contains=MathSym is explicit insurance alongside containedin= on each rule.
+            syntax region MathInline matchgroup=MathDelim start='[$]' end='[$]' keepend oneline contains=MathSym
         ]])
     end,
 })
