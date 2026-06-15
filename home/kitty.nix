@@ -30,14 +30,7 @@
     keybindings = {
       "ctrl+shift+enter" = "new_window_with_cwd";
       "ctrl+shift+t"     = "new_tab_with_cwd";
-      # vim-kitty-navigator: checks if focused window is neovim
-      # → if yes: passes keypress through to neovim's smart_nav
-      # → if no:  navigates the kitty split directly
-      "ctrl+h" = "kitten pass_keys.py left   ctrl+h";
-      "ctrl+j" = "kitten pass_keys.py bottom ctrl+j";
-      "ctrl+k" = "kitten pass_keys.py top    ctrl+k";
-      "ctrl+l" = "kitten pass_keys.py right  ctrl+l";
-      # Disable kitty's default linear window cycling (use hjkl directional nav instead)
+      # Disable kitty's default linear window cycling
       "ctrl+shift+]" = "no_op";
       "ctrl+shift+[" = "no_op";
     };
