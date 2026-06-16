@@ -105,20 +105,31 @@ end, { desc = "Export to ereader" })
 
 ---
 
+## Device info
+
+**Current device**: Kobo Aura H2O (girlfriend's), connected via USB.
+Mounts as `/run/media/thijmen/KOBOeReader/` on Linux. Reads PDF natively.
+Transfer: `cp file.pdf /run/media/thijmen/KOBOeReader/`
+
+**Future device**: if purchasing own Kobo, install KOReader on it.
+KOReader runs on all Kobo models and has a built-in Syncthing client —
+this would make the USB step unnecessary entirely. Syncthing is already
+configured on this system, so it would just work once the folder is shared.
+
+Page size: Kobo H2O screen is 1080×1440 px (6.8"). A5 (148×210 mm) fits well.
+Add to typst source: `#set page(paper: "a5")` or pass `--pdf-engine-opt` to pandoc.
+
 ## Open questions
 
-- What ereader model / OS? (Kindle, Kobo, PocketBook, KOReader?)
-- Does it read PDF natively? (All of the above do)
-- Preferred transfer method: USB, Syncthing, KOReader HTTP, or Calibre wireless?
-- Should the PDF stay next to the source file, or go to a dedicated `~/Documents/ereader/` folder?
-- Page size: A5 is common for ereaders — add `-V papersize:a5` or typst equivalent?
+- Should the PDF land next to the source file, or in a `~/Documents/ereader/` staging folder?
+- Handle the case where the Kobo is not mounted (show an error rather than silently failing)?
+- A5 page size: set it in the typst source file, or override at export time?
 
 ---
 
 ## Status
 
-- [ ] Confirm ereader model and transfer method
-- [ ] Decide on page size (A4 vs A5)
+- [ ] Decide on page size (A4 vs A5 — A5 recommended for Kobo H2O)
 - [ ] Add typst and pandoc to packages if not already present
 - [ ] Write the neovim `<leader>E` binding
 - [ ] Test end-to-end with a typst physics file
