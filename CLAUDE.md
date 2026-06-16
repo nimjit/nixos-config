@@ -74,8 +74,9 @@ Do not edit the file, do not include it in a plan, do not suggest it as part of 
 - `rebuild` alias hardcodes `-H desktop` — `$(hostname)` expansion fails in zsh alias context. Should be made hostname-aware once the root cause is understood.
 - Netrw sidebar workflow being migrated to yazi-based workflow. Netrw config is retained in `init.lua` for Windows compatibility but is no longer the primary navigation method on Linux.
 - Obsidian vault has a redundant double-folder: `Obsidian/Rennaissance_Vault_Structure/` — consider flattening.
-- Obsidian and Emacs run slow on larger window sizes. This should be fixed, in the mean time, the user is relying on neovim mostly.
+- Emacs runs slow at full window size; works fine at 100% display scaling. After exam, plan to investigate further — see `plans/emacs.md`.
 - Python path in nvim (`vim.g.python_path`) is hardcoded to `/run/current-system/sw/bin/python3`. Should eventually be generalised (e.g. respect virtual envs or `NVIM_PYTHON` env var that is already set).
+- `yt-feed` mpv playback fails with "importing the supplied dmabufs failed" on NVIDIA — `--hwdec=no` was added but videos still do not play. Root cause unknown; needs further investigation.
 
 ### Larger projects
 
@@ -85,6 +86,8 @@ Do not edit the file, do not include it in a plan, do not suggest it as part of 
   Key open item: test Nvidia legacy_535 + Wayland (`WLR_RENDERER=vulkan`).
   Strategy: keep KDE, add sway as parallel SDDM session, test before removing KDE.
 - **Emacs setup**: full step plan in `plans/emacs.md`.
+- **Ereader export**: automate typst/markdown → PDF → ereader transfer. Plan in `plans/ereader-export.md`.
+- **Dashboard graphs**: render weight log and other vault data as inline graphs in the neovim dashboard. Plan in `plans/dashboard-graphs.md`.
 
 ### CLI migration
 
