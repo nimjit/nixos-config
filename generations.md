@@ -114,3 +114,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 105 | 2026-06-15  00:00 | 44b8066 | yt-feed: 16:9 thumbs, enter-to-play, left margin, long default |
 | 106 | 2026-06-16  00:12 | b5f68a2 | yt-feed: fix getch() ESC drain, RSS cache, mpv log, open-in-browser |
 | 107 | 2026-06-16  00:19 | 2290096 | yt-feed: fix mpv playback on NVIDIA — add --hwdec=no |
+| 108 | 2026-06-17  14:50 | 4e6723a | messages(): kitten @, exact title match, pgrep-aware 3-stage logic |
