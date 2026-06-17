@@ -131,9 +131,21 @@
       # dtach -A: attach if session exists, create+attach if not.
       # Closing the kitty tab detaches; calling again re-attaches.
       messages() {
-        # Focus existing messages tab if already open
-        kitten @ focus-tab --match "title:^messages$" 2>/dev/null && return
-        # Attach to the service's dtach session in a new tab (-a: attach only, never create)
+        # Only focus an existing messages tab if it is in the current kitty OS window.
+        # focus-tab alone returns 0 even for background windows (Wayland can't raise those).
+        if kitten @ ls 2>/dev/null | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for w in d:
+    if w.get('is_focused'):
+        if any(t.get('title') == 'messages' for t in w.get('tabs', [])):
+            sys.exit(0)
+sys.exit(1)
+" 2>/dev/null; then
+          kitten @ focus-tab --match "title:^messages$" 2>/dev/null
+          return
+        fi
+        # No messages tab in current window: attach to the service's dtach session
         kitten @ launch --type=tab --tab-title messages -- dtach -a /tmp/nchat-dtach 2>/dev/null || \
           dtach -a /tmp/nchat-dtach
       }

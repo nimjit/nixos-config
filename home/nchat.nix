@@ -11,10 +11,9 @@
       PartOf      = [ "graphical-session.target" ];
     };
     Service = {
-      Type            = "oneshot";
-      RemainAfterExit = true;
-      Restart         = "on-failure";
-      RestartSec      = "5";
+      Type       = "forking";
+      Restart    = "always";
+      RestartSec = "3";
       ExecStart = let
         start = pkgs.writeShellScript "start-nchat" ''
           export TERM=xterm-256color
