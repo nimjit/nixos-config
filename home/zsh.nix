@@ -131,18 +131,11 @@
       # dtach -A: attach if session exists, create+attach if not.
       # Closing the kitty tab detaches; calling again re-attaches.
       messages() {
-        # Exact regex match — focus existing tab if open
-        if kitten @ focus-tab --match "title:^messages$" 2>/dev/null; then
-          return 0
-        fi
-        # nchat running but tab gone — attach to existing dtach session in new tab
-        if pgrep -x nchat >/dev/null; then
-          kitten @ launch --type=tab --tab-title messages dtach -A /tmp/nchat-dtach nchat 2>/dev/null
-          return 0
-        fi
-        # nchat not running — start fresh; fall back to current terminal if outside kitty
-        kitten @ launch --type=tab --tab-title messages dtach -A /tmp/nchat-dtach nchat 2>/dev/null || \
-          dtach -A /tmp/nchat-dtach nchat
+        # Focus existing messages tab if already open
+        kitten @ focus-tab --match "title:^messages$" 2>/dev/null && return
+        # Attach to the service's dtach session in a new tab (-a: attach only, never create)
+        kitten @ launch --type=tab --tab-title messages -- dtach -a /tmp/nchat-dtach 2>/dev/null || \
+          dtach -a /tmp/nchat-dtach
       }
 
       # Append a quick thought to today's personal vault daily note without opening an editor.
