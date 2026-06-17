@@ -399,7 +399,7 @@ def prompt_filter(rows, cols):
 def play(url):
     with open(MPV_LOG, "w") as log:
         subprocess.Popen(
-            ["mpv", "--no-terminal", "--hwdec=no", url],
+            ["mpv", "--no-terminal", "--hwdec=no", "--gpu-api=opengl", url],
             stdin=subprocess.DEVNULL,
             stdout=log,
             stderr=log,
