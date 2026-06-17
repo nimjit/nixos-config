@@ -300,6 +300,38 @@ end)
                    -- Quick terminal
 vim.keymap.set("n", "<leader>t", ":split | terminal<CR>")
 
+                   -- Ereader export (<leader>E)
+-- Compiles current typst/markdown file to PDF (A5) and copies to Kobo if mounted.
+do
+  local KOBO = "/run/media/thijmen/KOBOeReader"
+  vim.keymap.set("n", "<leader>E", function()
+    local src = vim.fn.expand("%:p")
+    local ft  = vim.bo.filetype
+    if ft ~= "typst" and ft ~= "markdown" then
+      vim.notify("Not a typst or markdown file", vim.log.levels.WARN); return
+    end
+    local pdf = src:gsub("%.[^.]+$", ".pdf")
+    local cmd = ft == "typst"
+      and {"typst", "compile", src, pdf}
+      or  {"pandoc", src, "-o", pdf, "--pdf-engine=typst", "-V", "papersize:a5"}
+    vim.notify("Compiling…")
+    vim.fn.jobstart(cmd, { on_exit = function(_, code)
+      if code ~= 0 then
+        vim.notify("Compile failed", vim.log.levels.ERROR); return
+      end
+      if vim.fn.isdirectory(KOBO) == 1 then
+        vim.fn.jobstart({"cp", pdf, KOBO .. "/"}, { on_exit = function(_, c)
+          vim.notify(c == 0 and "Exported to Kobo"
+            or "Compiled OK — Kobo copy failed",
+            c == 0 and vim.log.levels.INFO or vim.log.levels.WARN)
+        end })
+      else
+        vim.notify("Compiled → " .. vim.fn.fnamemodify(pdf, ":t") .. "  (Kobo not mounted)")
+      end
+    end })
+  end, { desc = "Export current file to ereader" })
+end
+
                    -- Yazi file picker
 -- Opens yazi in a split; selecting a file (q to confirm) opens it in neovim.
 -- Uses --chooser-file so no plugin is needed.

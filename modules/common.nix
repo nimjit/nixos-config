@@ -109,11 +109,14 @@
       matplotlib
       tqdm
       ipython
+      nbformat      # read/write Jupyter notebook files
+      nbconvert     # ipynb → markdown/HTML conversion
     ]))
       # Rust
     rustup        # installs cargo, rustc, rust-analyzer
       # Typst
     typst
+    pandoc          # document converter; used by ereader export and courseware pipeline
 
     # Tools
     direnv        # per-project environments
