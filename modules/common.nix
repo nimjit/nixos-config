@@ -118,6 +118,9 @@
     typst
     pandoc          # document converter; used by ereader export and courseware pipeline
 
+    # KDE tiling
+    pkgs.kdePackages.krohnkite   # DWM-style dynamic tiling for KWin 6 (anametologin fork)
+
     # Tools
     direnv        # per-project environments
     wmctrl
