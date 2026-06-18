@@ -1,0 +1,197 @@
+:root {
+    --ukiyo-bg: #372d29;
+    --ukiyo-bg-light: #413632;
+    --ukiyo-bg-alt: #2b2723;
+    --ukiyo-bg-button-hover: #4e4340;
+    --ukiyo-text: #ccc2b7;
+    --ukiyo-text-muted: #b2a699;
+    --ukiyo-text-faint: #868074;
+    --ukiyo-accent: #ba945f;
+    --ukiyo-accent-hover: #e0ba86;
+    --ukiyo-selection: #6154508f;
+    --ukiyo-font: "CMU Typewriter Text";
+  }
+
+  html, body {
+    background-color: var(--ukiyo-bg) !important;
+    color: var(--ukiyo-text) !important;
+    font-family: var(--ukiyo-font) !important;
+  }
+
+  /* Links */
+  a, a:visited {
+    color: var(--ukiyo-accent) !important;
+    text-decoration: underline !important;
+  }
+
+  a:hover {
+    color: var(--ukiyo-accent-hover) !important;
+    text-decoration: underline !important;
+  }
+
+  /* Text selections */
+  ::selection {
+    background-color: var(--ukiyo-selection) !important;
+    color: var(--ukiyo-text) !important;
+  }
+
+  /* Inputs, textareas, buttons */
+  input, textarea, select, button {
+    background-color: var(--ukiyo-bg-light) !important;
+    color: var(--ukiyo-text) !important;
+    border: none !important;
+    border-bottom: 0.1px solid var(--ukiyo-accent) !important;
+    font-family: var(--ukiyo-font) !important;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--ukiyo-text-faint) !important;
+  }
+
+  button:hover {
+    background-color: var(--ukiyo-bg-button-hover) !important;
+    color: var(--ukiyo-bg-alt) !important;
+  }
+    
+  /* Apply Ukiyo colors to typical left columns / sidebars / headers / popups / bottom bars */
+  .page-layout__header, /*obsidian
+  /**/
+  .BlobViewHeader-module__Box--pvsIA, /*Github*/
+  .HeaderMenu-dropdown,
+  /**/
+  .d2l-widget.d2l-tile, /*Brightspace*/
+  .d2l-labs-navigation,
+  .d2l-navigation-s.d2l-branding-navigation-dark-foreground-color.d2l-navigation-s-linkarea-no-color,
+  .d2l-branding-navigation-background-color.d2l-visible-on-ancestor-target,
+  .d2l-dropdown-content-container,
+  .d2l-dropdown-content-top,
+  .d2l-dropdown-content-bottom,
+  .d2l-courseselector-wrapper,
+  /**/
+  .Xx7Mif.E5eFb, /*google.com*/
+  .aajZCb,
+  .xrOgrb,
+  /**/
+  .content-fade, /*chatgpt*/
+  /**/
+  .left,
+  .left-column,
+  .left-col,
+  .sidebar,
+  .sidebar-left,
+  .nav,
+  .navbar,
+  .aside,
+  .site-body-left-column,
+  #left,
+  #sidebar,
+  #side,
+  aside {
+      background-color: var(--ukiyo-bg-light) !important;
+      color: var(--ukiyo-text-muted) !important;
+  }
+    
+
+  /* Scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--ukiyo-accent);
+    border-radius: 5px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ukiyo-accent-hover);
+  }
+  ::-webkit-scrollbar-track {
+    background-color: var(--ukiyo-bg-alt);
+  }
+
+  /* Images and media – optional subtle dim */
+  img, video, iframe {
+    filter: brightness(0.9) contrast(0.95);
+  }
+
+  /* Optional: invert bright sites slightly */
+  [style*="background-color: white"],
+  [style*="background-color:#fff"],
+  [style*="background:#fff"],
+  [style*="background: white"] {
+    background-color: var(--ukiyo-bg) !important;
+    color: var(--ukiyo-text) !important;
+  }
+    
+  /* Make buttons square */
+  button,
+  input[type="button"],
+  input[type="submit"],
+  .btn,
+  [class*="button"],
+  [class*="btn"],
+  a.button,
+  a.btn {
+    border-radius: 0 !important; /* or 2px if you prefer slight rounding */
+    background-image: none !important; /* remove gradient backgrounds */
+  }
+    
+
+    
+  /* === Universal Dark/Light Mode Normalizer === */
+  /* Forces sites using their own CSS variables to adopt Ukiyo's color scheme */
+  
+  :root, html, body {
+    /* Common variable names for text */
+    --text-color: var(--ukiyo-text) !important;
+    --text-normal: var(--ukiyo-text) !important;
+    --text-primary: var(--ukiyo-text) !important;
+    --text-secondary: var(--ukiyo-text-muted) !important;
+    --text-muted: var(--ukiyo-text-muted) !important;
+    --text-faint: var(--ukiyo-text-faint) !important;
+    --color-text: var(--ukiyo-text) !important;
+    --color-foreground: var(--ukiyo-text) !important;
+    --color-fg: var(--ukiyo-text) !important;
+    --foreground-color: var(--ukiyo-text) !important;
+  
+    /* Common variable names for background */
+    --background: var(--ukiyo-bg) !important;
+    --background-color: var(--ukiyo-bg) !important;
+    --background-primary: var(--ukiyo-bg) !important;
+    --background-secondary: var(--ukiyo-bg-alt) !important;
+    --background-body: var(--ukiyo-bg) !important;
+    --color-background: var(--ukiyo-bg) !important;
+    --color-bg: var(--ukiyo-bg) !important;
+    --surface-color: var(--ukiyo-bg-alt) !important;
+  
+    /* Common variable names for accents */
+    --accent: var(--ukiyo-accent) !important;
+    --accent-color: var(--ukiyo-accent) !important;
+    --color-accent: var(--ukiyo-accent) !important;
+    --link-color: var(--ukiyo-accent) !important;
+    --brand-color: var(--ukiyo-accent) !important;
+    --primary-color: var(--ukiyo-accent) !important;
+    --highlight-color: var(--ukiyo-accent-hover) !important;
+  
+    /* Selections */
+    --selection-bg: var(--ukiyo-selection) !important;
+    --text-selection: var(--ukiyo-selection) !important;
+  
+    /* Borders and outlines */
+    --border-color: var(--ukiyo-accent) !important;
+    --border: var(--ukiyo-accent) !important;
+  
+    /* In case sites define 'dark' or 'light' backgrounds explicitly */
+    --dark-bg: var(--ukiyo-bg) !important;
+    --light-bg: var(--ukiyo-bg-alt) !important;
+  }
+  
+  /* Force dark color scheme for browser chrome elements (form controls, scrollbars) */
+  :root {
+    color-scheme: dark;
+  }
+
+  /* Remove gradients globally */
+  * {
+    background-image: none !important;
+    background-color: inherit !important;
+  }
