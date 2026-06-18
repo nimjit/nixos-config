@@ -121,4 +121,5 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 112 | 2026-06-18  02:04 | 86d5ecc | emacs: reset to minimal config (evil + which-key + theme) |
 | 113 | 2026-06-18  16:39 | 41d8302 | updated generations |
 | 114 | 2026-06-18  17:16 | 99516ec | qutebrowser: HM module, Ukiyo theme, CSS stylesheets, Greasemonkey list-view, ad blocking |
+| 115 | 2026-06-18  17:31 | 327c0d8 | qutebrowser: fix stylesheet URL pattern error; restore scoped dim/flat rules |
 | 114 | 2026-06-18  17:19 | 2396ad1 | updated generations |
