@@ -1,4 +1,4 @@
-{ ... }: {
+{ lib, ... }: {
 
   programs.qutebrowser = {
     enable = true;
@@ -22,8 +22,8 @@
       content.javascript.enabled = true;
       content.autoplay            = false;
 
-      fonts.default_family = "CMU Typewriter Text";
-      fonts.default_size   = "11pt";
+      fonts.default_family = lib.mkForce "CMU Typewriter Text";
+      fonts.default_size   = lib.mkForce "11pt";
 
       scrolling.smooth = true;
       tabs.last_close  = "close";
