@@ -122,4 +122,5 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 113 | 2026-06-18  16:39 | 41d8302 | updated generations |
 | 114 | 2026-06-18  17:16 | 99516ec | qutebrowser: HM module, Ukiyo theme, CSS stylesheets, Greasemonkey list-view, ad blocking |
 | 115 | 2026-06-18  17:31 | 327c0d8 | qutebrowser: fix stylesheet URL pattern error; restore scoped dim/flat rules |
+| 116 | 2026-06-18  17:51 | 982402c | krohnkite: DWM tiling + Alt+HJKL positional focus KWin script |
 | 114 | 2026-06-18  17:19 | 2396ad1 | updated generations |
