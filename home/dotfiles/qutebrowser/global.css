@@ -176,3 +176,25 @@
     color-scheme: dark;
   }
 
+  /* Subtle dim — img and video only; NOT iframe (filter on iframes breaks stacking
+     contexts in Google Images and similar lightbox panels) */
+  img, video {
+    filter: brightness(0.9) contrast(0.95);
+  }
+
+  /* Override hardcoded white on the page root — scoped to html/body only to avoid
+     breaking popups, tooltips, and dialog divs that set their own background */
+  html[style*="background-color: white"], body[style*="background-color: white"],
+  html[style*="background-color:#fff"],   body[style*="background-color:#fff"],
+  html[style*="background:#fff"],         body[style*="background:#fff"],
+  html[style*="background: white"],       body[style*="background: white"] {
+    background-color: var(--ukiyo-bg) !important;
+    color: var(--ukiyo-text) !important;
+  }
+
+  /* Remove decorative gradients from layout containers for a flat look.
+     Intentional gradients on buttons/badges are preserved (not targeted here). */
+  html, body, main, article, section, header, footer, nav, aside {
+    background-image: none !important;
+  }
+

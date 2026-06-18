@@ -38,14 +38,13 @@
     };
 
     extraConfig = ''
-      # ── Per-site stylesheets ──────────────────────────────────────────
-      config.set('content.user_stylesheets',
-        ['${./dotfiles/qutebrowser/global.css}'])
-
-      config.set('content.user_stylesheets',
-        ['${./dotfiles/qutebrowser/global.css}',
-         '${./dotfiles/qutebrowser/youtube.css}'],
-        'https://www.youtube.com/*')
+      # ── Stylesheets loaded globally ───────────────────────────────────
+      # content.user_stylesheets does not support URL patterns in qutebrowser.
+      # youtube.css only targets ytd-* selectors so it's safe on all pages.
+      c.content.user_stylesheets = [
+        '${./dotfiles/qutebrowser/global.css}',
+        '${./dotfiles/qutebrowser/youtube.css}',
+      ]
 
       # ── Ukiyo color scheme ────────────────────────────────────────────
       _bg  = "#372d29"
