@@ -74,9 +74,9 @@ Do not edit the file, do not include it in a plan, do not suggest it as part of 
 - `rebuild` alias hardcodes `-H desktop` — `$(hostname)` expansion fails in zsh alias context. Should be made hostname-aware once the root cause is understood.
 - Netrw sidebar workflow being migrated to yazi-based workflow. Netrw config is retained in `init.lua` for Windows compatibility but is no longer the primary navigation method on Linux.
 - Obsidian vault has a redundant double-folder: `Obsidian/Rennaissance_Vault_Structure/` — consider flattening.
-- Emacs runs slow at full window size; works fine at 100% display scaling. After exam, plan to investigate further — see `plans/emacs.md`.
+- Emacs performance resolved: monitors set to 100% scaling, performance is acceptable. User is starting fresh — building config themselves from scratch, using markdown (not org) initially. See `plans/emacs.md`.
 - Python path in nvim (`vim.g.python_path`) is hardcoded to `/run/current-system/sw/bin/python3`. Should eventually be generalised (e.g. respect virtual envs or `NVIM_PYTHON` env var that is already set).
-- `yt-feed` mpv playback fails with "importing the supplied dmabufs failed" on NVIDIA — `--hwdec=no` was added but videos still do not play. Root cause unknown; needs further investigation.
+- `yt-feed` mpv playback: fixed with `--gpu-api=opengl` in `play()`. Forces OpenGL texture upload instead of DMA-buf presentation path, which was failing on NVIDIA Wayland.
 
 ### Larger projects
 
@@ -85,8 +85,7 @@ Do not edit the file, do not include it in a plan, do not suggest it as part of 
 - **Window manager switch** (KDE → Sway): full step plan in `plans/window-manager.md`.
   Key open item: test Nvidia legacy_535 + Wayland (`WLR_RENDERER=vulkan`).
   Strategy: keep KDE, add sway as parallel SDDM session, test before removing KDE.
-- **Emacs setup**: full step plan in `plans/emacs.md`.
-- **Ereader export**: automate typst/markdown → PDF → ereader transfer. Plan in `plans/ereader-export.md`.
+- **Emacs setup**: user building from scratch themselves, markdown-first. Plan in `plans/emacs.md`.
 - **Dashboard graphs**: render weight log and other vault data as inline graphs in the neovim dashboard. Plan in `plans/dashboard-graphs.md`.
 
 ### CLI migration
