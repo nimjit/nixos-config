@@ -1,4 +1,31 @@
-{ pkgs, username, ... }: {
+{ pkgs, username, ... }:
+
+let
+  # Packaged as a system derivation so KWin discovers it at startup the same
+  # way it discovers Krohnkite — via the system XDG data path.
+  kwinFocusByPosition = pkgs.runCommand "kwin-focus-by-position" {} ''
+    mkdir -p $out/share/kwin/scripts/focus-by-position/contents/{code,ui}
+    cp ${../home/dotfiles/kwin/focus-by-position.qml} \
+       $out/share/kwin/scripts/focus-by-position/contents/ui/main.qml
+    cp ${../home/dotfiles/kwin/focus-by-position.js} \
+       $out/share/kwin/scripts/focus-by-position/contents/code/main.js
+    cat > $out/share/kwin/scripts/focus-by-position/metadata.json << 'JSON'
+    {
+      "KPlugin": {
+        "Authors": [{ "Name": "thijmen" }],
+        "Description": "Focus windows by screen position (Alt+HJKL)",
+        "Id": "focus-by-position",
+        "License": "MIT",
+        "Name": "Focus by Position",
+        "Version": "1.0"
+      },
+      "X-Plasma-API-Minimum-Version": "6.0"
+    }
+    JSON
+  '';
+in
+
+{
 
   # ── Nix settings ──────────────────────────────────────────────────────────
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
@@ -118,8 +145,10 @@
     typst
     pandoc          # document converter; used by ereader export and courseware pipeline
 
-    # KDE tiling
+    # KDE tiling + decoration
     pkgs.kdePackages.krohnkite   # DWM-style dynamic tiling for KWin 6 (anametologin fork)
+    pkgs.klassy                  # window decoration with coloured active border support
+    kwinFocusByPosition          # Alt+HJKL positional window focus
 
     # Tools
     direnv        # per-project environments

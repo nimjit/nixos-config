@@ -38,6 +38,19 @@
     };
 
     extraConfig = ''
+      # ── Google sign-in fix ────────────────────────────────────────────
+      # QtWebEngine UA is blocked by Google. Override to plain Chrome UA for
+      # all Google domains and googleapis (sign-in redirects through several).
+      _chrome_ua = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+      for _pattern in [
+          'https://accounts.google.com/*',
+          'https://*.google.com/*',
+          'https://*.googleapis.com/*',
+          'https://*.gstatic.com/*',
+      ]:
+          config.set('content.headers.user_agent', _chrome_ua, _pattern)
+          config.set('content.javascript.can_open_tabs_automatically', True, _pattern)
+
       # ── Stylesheets loaded globally ───────────────────────────────────
       # content.user_stylesheets does not support URL patterns in qutebrowser.
       # youtube.css only targets ytd-* selectors so it's safe on all pages.
@@ -154,6 +167,14 @@
       c.colors.tabs.pinned.selected.even.fg         = _fg
 
       c.colors.webpage.bg                           = _bg
+
+      # ── User theme overrides ──────────────────────────────────────────
+      # Edit ~/.config/qutebrowser/theme.py freely — no rebuild needed.
+      # Reload with :config-source inside qutebrowser.
+      import os as _os
+      _theme = _os.path.expanduser('~/.config/qutebrowser/theme.py')
+      if _os.path.exists(_theme):
+          config.source(_theme)
     '';
   };
 
