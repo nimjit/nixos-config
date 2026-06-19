@@ -144,3 +144,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 130 | 2026-06-19  16:53 | a82af59 | vault graph PNG: full 3-flake snowflake (Knowledge+Sources+People), right-aligned, larger |
 | 131 | 2026-06-19  17:01 | a82af59 | vault graph: fix bg colour (#372d29), fix size (70% pane width), fix right-align |
 | 132 | 2026-06-19  17:30 | 56a298a | vault graph: use vim.o.columns for 70% right-aligned PNG (was using wrong win width) |
+| 133 | 2026-06-19  18:15 | 2bd5c6b | vault graph: add width=img_cols to img:render() so PNG scales to 70% instead of native pixel size |
