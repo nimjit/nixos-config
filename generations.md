@@ -134,3 +134,9 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 121 | 2026-06-19  00:28 | 556faf9 | (same commit, re-run) |
 | 121 | 2026-06-19  00:30 | dc50ca4 | kronkhite+qutebrowser working on fixing |
 | 122 | 2026-06-19  02:10 | dc50ca4 | (same commit, re-run) |
+| 123 | 2026-06-19  12:21 | a82af59 | still working on qutebrowser config |
+| 124 | 2026-06-19  12:29 | a82af59 | (same commit, re-run) |
+| 125 | 2026-06-19  12:34 | a82af59 | (same commit, re-run) |
+| 126 | 2026-06-19  12:41 | a82af59 | (same commit, re-run) |
+| 127 | 2026-06-19  13:19 | a82af59 | weight chart: plot-weights.py → kitty hsplit in vault dashboard |
+| 128 | 2026-06-19  15:40 | a82af59 | weight chart: inline image.nvim render, 4-series, N=85 matches vault graph |

@@ -10,7 +10,7 @@
       enable_audio_bell = false;
       confirm_os_window_close = 0;
       window_padding_width = 8;
-      hide_window_decorations = "yes";
+      hide_window_decorations = "no";
       tab_bar_style = "powerline";
       tab_powerline_style = "slanted";
       # Required for messages() and music() to manage kitty tabs via 'kitty @'

@@ -25,6 +25,12 @@
   # Hand-crafted Ukiyo colorscheme — loaded by `colorscheme Ukiyo` in init.lua
   xdg.configFile."nvim/colors/Ukiyo.lua".source = ./dotfiles/neovim/colors/Ukiyo.lua;
 
+  # Weight chart script — called by dashboard.lua after opening vault or logging weight
+  home.file.".local/bin/plot-weights" = {
+    source = ./dotfiles/plot-weights.py;
+    executable = true;
+  };
+
   # Stable Python path for g:python3_host_prog in init.vim
   home.sessionVariables = {
     NVIM_PYTHON = "${pkgs.python3}/bin/python3";
