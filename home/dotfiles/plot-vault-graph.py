@@ -23,7 +23,7 @@ SKIP_FOLDERS = {".obsidian", "Attachments", "Templates", "html",
                 "XX_SCRATCH_XX", "Dailies", "Music Library"}
 
 # ── Colours (from vault_snowflake.py, Ukiyo palette) ─────────────────────────
-BG          = "#2b2723"
+BG          = "#372d29"
 FG          = "#ccc2b7"
 EDGE_COL    = "#504431"
 ROOT_COL    = "#ba945f"

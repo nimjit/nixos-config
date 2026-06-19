@@ -718,12 +718,15 @@ function M.open_vault_graph()
         vim.api.nvim_buf_delete(buf, { force = true })
     end)
 
-    -- PNG right-aligned: compute actual window width at render time, use ~65% for image
+    -- PNG: 70 % of full terminal width, right-aligned.
+    -- image.nvim with kitty protocol places images at terminal-absolute pixel positions,
+    -- so vim.o.columns (not window width) is the correct coordinate reference.
     local script   = vim.fn.expand("~/.local/bin/plot-vault-graph")
+    local term_w   = vim.o.columns
+    local img_cols = math.floor(term_w * 0.70)   -- 70 % of terminal
+    local right_x  = term_w - img_cols            -- flush to the right
     local out = {}
-    -- Pass a generous column count now; actual placement uses win width from vim.schedule
-    local pre_cols = math.max(vim.o.columns - 4, 40)
-    vim.fn.jobstart({ script, "--cols", tostring(pre_cols) }, {
+    vim.fn.jobstart({ script, "--cols", tostring(img_cols) }, {
         stdout_buffered = true,
         on_stdout = function(_, data) out = data end,
         on_exit   = function(_, code)
@@ -735,10 +738,6 @@ function M.open_vault_graph()
                 local wins = vim.fn.win_findbuf(buf)
                 if #wins == 0 then return end
                 local win = wins[1]
-                -- img_cols ≈ 65% of window width; right_x = window_width - img_cols - 1
-                local win_w   = vim.api.nvim_win_get_width(win)
-                local img_cols = math.floor(win_w * 0.65)
-                local right_x  = math.max(win_w - img_cols - 1, 40)
                 local ok, image_api = pcall(require, "image")
                 if not ok then return end
                 local img = image_api.from_file(png, {
