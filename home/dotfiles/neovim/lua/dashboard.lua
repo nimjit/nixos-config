@@ -587,7 +587,7 @@ function M.open_vault()
     end)
 
     km("g", function()
-        vim.fn.system("firefox --new-tab " .. vim.fn.shellescape(vault_snowflake) .. " &")
+        M.open_vault_graph()
     end)
 
     km("d", function()
@@ -604,6 +604,153 @@ function M.open_vault()
     end)
 
     return buf
+end
+
+-- ── Vault graph view (collapsible tree + PNG) ────────────────────────────────
+
+function M.open_vault_graph()
+    local GRAPH_EXCLUDE = {
+        [".obsidian"] = true, [".trash"] = true,
+        Attachments = true, Templates = true,
+        XX_SCRATCH_XX = true, html = true,
+    }
+
+    local children_cache = {}
+
+    local function get_children(dir)
+        if children_cache[dir] then return children_cache[dir] end
+        local result = {}
+        local cmd = 'find ' .. vim.fn.shellescape(dir) ..
+            ' -mindepth 1 -maxdepth 1 \\( -type d -o -name "*.md" \\) 2>/dev/null | sort'
+        local handle = io.popen(cmd)
+        if handle then
+            for path in handle:lines() do
+                local name = path:match("([^/]+)$") or ""
+                if name ~= "" and not name:match("^%.") and not GRAPH_EXCLUDE[name] then
+                    local is_dir = vim.fn.isdirectory(path) == 1
+                    result[#result + 1] = {
+                        name = name,
+                        path = path,
+                        type = is_dir and "dir" or "file",
+                    }
+                end
+            end
+            handle:close()
+        end
+        children_cache[dir] = result
+        return result
+    end
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[buf].buftype   = "nofile"
+    vim.bo[buf].bufhidden = "wipe"
+    vim.bo[buf].swapfile  = false
+    vim.bo[buf].filetype  = "markdown"
+    vim.api.nvim_set_current_buf(buf)
+
+    -- Depth-1 expanded by default; depth-2+ collapsed
+    local expanded = {
+        [VAULT]                  = true,
+        [VAULT .. "/Knowledge"] = true,
+    }
+    local node_map = {}  -- line_number → {path, type}
+
+    local function render()
+        local lines  = { "# VAULT GRAPH", "" }
+        local lnmap  = {}
+
+        local function walk(dir, depth)
+            local children = get_children(dir)
+            local pad = ("  "):rep(depth)
+            for _, child in ipairs(children) do
+                if child.type == "dir" then
+                    local icon = expanded[child.path] and "▼ " or "▶ "
+                    lines[#lines + 1] = pad .. icon .. child.name .. "/"
+                else
+                    lines[#lines + 1] = pad .. "· " .. child.name
+                end
+                lnmap[#lines] = child
+                if child.type == "dir" and expanded[child.path] then
+                    walk(child.path, depth + 1)
+                end
+            end
+        end
+
+        walk(VAULT, 0)
+
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = "*[Enter] toggle/open  [o] open in yazi  [q] close*"
+
+        vim.bo[buf].modifiable = true
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+        vim.bo[buf].modifiable = false
+        node_map = lnmap
+    end
+
+    render()
+
+    local function km(k, fn) vim.keymap.set("n", k, fn, { buffer = buf, nowait = true }) end
+
+    km("<CR>", function()
+        local lnum = vim.api.nvim_win_get_cursor(0)[1]
+        local node = node_map[lnum]
+        if not node then return end
+        if node.type == "dir" then
+            expanded[node.path] = not expanded[node.path]
+            render()
+            vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+        else
+            vim.api.nvim_buf_delete(buf, { force = true })
+            vim.cmd("edit " .. vim.fn.fnameescape(node.path))
+        end
+    end)
+
+    km("o", function()
+        local lnum = vim.api.nvim_win_get_cursor(0)[1]
+        local node = node_map[lnum]
+        if node and node.type == "dir" then
+            vim.api.nvim_buf_delete(buf, { force = true })
+            open_yazi(node.path)
+        end
+    end)
+
+    km("q", function()
+        vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
+    -- PNG right-aligned: compute actual window width at render time, use ~65% for image
+    local script   = vim.fn.expand("~/.local/bin/plot-vault-graph")
+    local out = {}
+    -- Pass a generous column count now; actual placement uses win width from vim.schedule
+    local pre_cols = math.max(vim.o.columns - 4, 40)
+    vim.fn.jobstart({ script, "--cols", tostring(pre_cols) }, {
+        stdout_buffered = true,
+        on_stdout = function(_, data) out = data end,
+        on_exit   = function(_, code)
+            if code ~= 0 then return end
+            local png = vim.trim(table.concat(out, "\n"))
+            if png == "" then return end
+            vim.schedule(function()
+                if not vim.api.nvim_buf_is_valid(buf) then return end
+                local wins = vim.fn.win_findbuf(buf)
+                if #wins == 0 then return end
+                local win = wins[1]
+                -- img_cols ≈ 65% of window width; right_x = window_width - img_cols - 1
+                local win_w   = vim.api.nvim_win_get_width(win)
+                local img_cols = math.floor(win_w * 0.65)
+                local right_x  = math.max(win_w - img_cols - 1, 40)
+                local ok, image_api = pcall(require, "image")
+                if not ok then return end
+                local img = image_api.from_file(png, {
+                    id                   = "vault_graph",
+                    buffer               = buf,
+                    window               = win,
+                    with_virtual_padding = false,
+                })
+                img:render({ x = right_x, y = 0 })
+            end)
+        end,
+    })
 end
 
 -- ── Uni dashboard ─────────────────────────────────────────────────────────────

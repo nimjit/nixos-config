@@ -127,6 +127,21 @@
       vault-work() { nvim -c WorkflowVault; }
       nixos-work() { nvim -c WorkflowNixos; }
 
+      # Terminal web browser (w3m)
+      # wb           → opens WB_HOME (localhost:8080 by default)
+      # wb URL       → opens specific URL
+      # Inside neovim terminal ($NVIM is set): opens in a bottom split
+      # Navigation: arrows/Enter=follow link, U=enter URL, B=back, q=quit
+      WB_HOME="http://localhost:8080"
+      wb() {
+        local url="''${1:-$WB_HOME}"
+        if [[ -n "$NVIM" ]]; then
+          nvim --server "$NVIM" --remote-send ":botright split | terminal w3m $(printf '%q' "$url")<CR>"
+        else
+          w3m "$url"
+        fi
+      }
+
       # nchat and rmpc run in persistent dtach sessions.
       # dtach -A: attach if session exists, create+attach if not.
       # Closing the kitty tab detaches; calling again re-attaches.

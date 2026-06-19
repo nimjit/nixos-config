@@ -31,6 +31,12 @@
     executable = true;
   };
 
+  # Vault structure graph — called by dashboard.lua [g] → open_vault_graph()
+  home.file.".local/bin/plot-vault-graph" = {
+    source = ./dotfiles/plot-vault-graph.py;
+    executable = true;
+  };
+
   # Stable Python path for g:python3_host_prog in init.vim
   home.sessionVariables = {
     NVIM_PYTHON = "${pkgs.python3}/bin/python3";

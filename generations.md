@@ -140,3 +140,5 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 126 | 2026-06-19  12:41 | a82af59 | (same commit, re-run) |
 | 127 | 2026-06-19  13:19 | a82af59 | weight chart: plot-weights.py → kitty hsplit in vault dashboard |
 | 128 | 2026-06-19  15:40 | a82af59 | weight chart: inline image.nvim render, 4-series, N=85 matches vault graph |
+| 129 | 2026-06-19  16:46 | a82af59 | vault graph view: collapsible ASCII tree + PNG overlay; w3m + wb(); [g] no longer opens Firefox |
+| 130 | 2026-06-19  16:53 | a82af59 | vault graph PNG: full 3-flake snowflake (Knowledge+Sources+People), right-aligned, larger |

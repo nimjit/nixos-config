@@ -97,6 +97,7 @@ in
     # Terminal tools
     wiki-tui   # Wikipedia TUI; K in neovim markdown opens vsplit
     yt-dlp     # YouTube downloader; used by mpv and the yt-feed TUI
+    w3m        # text-mode browser; natural terminal theming; used for text-heavy sites
 
     # CLI tools
     nchat          # WhatsApp in terminal (desktop notifications, no browser tab)
