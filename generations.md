@@ -142,3 +142,5 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 128 | 2026-06-19  15:40 | a82af59 | weight chart: inline image.nvim render, 4-series, N=85 matches vault graph |
 | 129 | 2026-06-19  16:46 | a82af59 | vault graph view: collapsible ASCII tree + PNG overlay; w3m + wb(); [g] no longer opens Firefox |
 | 130 | 2026-06-19  16:53 | a82af59 | vault graph PNG: full 3-flake snowflake (Knowledge+Sources+People), right-aligned, larger |
+| 131 | 2026-06-19  17:01 | a82af59 | vault graph: fix bg colour (#372d29), fix size (70% pane width), fix right-align |
+| 132 | 2026-06-19  17:30 | 56a298a | vault graph: use vim.o.columns for 70% right-aligned PNG (was using wrong win width) |
