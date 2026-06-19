@@ -647,14 +647,41 @@ function M.open_vault_graph()
         end
     end)
 
+    -- Float window for the PNG: neovim positions it at terminal-absolute col,
+    -- so we don't rely on image.nvim's x coordinate (which is window-relative).
+    local term_w   = vim.o.columns
+    local term_h   = vim.o.lines
+    local img_cols = math.floor(term_w * 0.70)
+    local img_rows = term_h - 3  -- leave room for status/cmdline
+    local img_col  = term_w - img_cols
+
+    local img_buf = vim.api.nvim_create_buf(false, true)
+    local img_win = vim.api.nvim_open_win(img_buf, false, {
+        relative  = "editor",
+        row       = 0,
+        col       = img_col,
+        width     = img_cols,
+        height    = img_rows,
+        style     = "minimal",
+        border    = "none",
+        focusable = false,
+        zindex    = 10,
+    })
+    vim.wo[img_win].winblend = 100  -- transparent bg; only the kitty image pixels show
+
+    -- Close the float when the tree buffer is wiped (q, <CR> on file, o)
+    vim.api.nvim_create_autocmd("BufWipeout", {
+        buffer   = buf,
+        once     = true,
+        callback = function()
+            if vim.api.nvim_win_is_valid(img_win) then
+                vim.api.nvim_win_close(img_win, true)
+            end
+        end,
+    })
+
     km("q", function() vim.api.nvim_buf_delete(buf, { force = true }) end)
 
-    -- PNG: 70% of terminal width, right-aligned.
-    -- `width` tells image.nvim to scale the PNG to exactly img_cols cells wide,
-    -- so it doesn't render at native pixel size (which would be ~600 cols wide).
-    local term_w   = vim.o.columns
-    local img_cols = math.floor(term_w * 0.70)
-    local right_x  = term_w - img_cols
     local out = {}
     vim.fn.jobstart(
         { vim.fn.expand("~/.local/bin/plot-vault-graph"), "--cols", tostring(img_cols) },
@@ -666,18 +693,17 @@ function M.open_vault_graph()
                 local png = vim.trim(table.concat(out, "\n"))
                 if png == "" then return end
                 vim.schedule(function()
-                    if not vim.api.nvim_buf_is_valid(buf) then return end
-                    local wins = vim.fn.win_findbuf(buf)
-                    if #wins == 0 then return end
+                    if not vim.api.nvim_buf_is_valid(img_buf) then return end
+                    if not vim.api.nvim_win_is_valid(img_win) then return end
                     local ok, image_api = pcall(require, "image")
                     if not ok then return end
                     local img = image_api.from_file(png, {
                         id                   = "vault_graph",
-                        buffer               = buf,
-                        window               = wins[1],
+                        buffer               = img_buf,
+                        window               = img_win,
                         with_virtual_padding = false,
                     })
-                    img:render({ x = right_x, y = 0, width = img_cols })
+                    img:render({ x = 0, y = 0, width = img_cols, height = img_rows })
                 end)
             end,
         }
