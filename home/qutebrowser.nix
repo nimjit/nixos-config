@@ -51,13 +51,10 @@
           config.set('content.headers.user_agent', _chrome_ua, _pattern)
           config.set('content.javascript.can_open_tabs_automatically', True, _pattern)
 
-      # ── Stylesheets loaded globally ───────────────────────────────────
-      # content.user_stylesheets does not support URL patterns in qutebrowser.
-      # youtube.css only targets ytd-* selectors so it's safe on all pages.
-      c.content.user_stylesheets = [
-        '${./dotfiles/qutebrowser/global.css}',
-        '${./dotfiles/qutebrowser/youtube.css}',
-      ]
+      # ── Stylesheet ───────────────────────────────────────────────────
+      # Single file: global.css contains YouTube-specific rules at the bottom
+      # (ytd-* selectors are no-ops on other sites).
+      c.content.user_stylesheets = ['${./dotfiles/qutebrowser/global.css}']
 
       # ── Ukiyo color scheme ────────────────────────────────────────────
       _bg  = "#372d29"

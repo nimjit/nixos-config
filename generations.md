@@ -132,3 +132,5 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 119 | 2026-06-19  00:10 | 556faf9 | (same commit, re-run) |
 | 120 | 2026-06-19  00:14 | 556faf9 | (same commit, re-run) |
 | 121 | 2026-06-19  00:28 | 556faf9 | (same commit, re-run) |
+| 121 | 2026-06-19  00:30 | dc50ca4 | kronkhite+qutebrowser working on fixing |
+| 122 | 2026-06-19  02:10 | dc50ca4 | (same commit, re-run) |

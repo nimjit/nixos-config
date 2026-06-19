@@ -1,200 +1,349 @@
+/* ================================================================
+   Ukiyo — qutebrowser stylesheet (single file, all sites)
+   YouTube-specific rules at the bottom use ytd-* selectors and
+   are no-ops on every other site.
+   CSS changes: Ctrl+R to reload.  theme.py changes: :config-source
+   ================================================================ */
+
+
+/* ── Palette ─────────────────────────────────────────────────────── */
+
 :root {
-    --ukiyo-bg: #372d29;
-    --ukiyo-bg-light: #413632;
-    --ukiyo-bg-alt: #2b2723;
-    --ukiyo-bg-button-hover: #4e4340;
-    --ukiyo-text: #ccc2b7;
-    --ukiyo-text-muted: #b2a699;
-    --ukiyo-text-faint: #868074;
-    --ukiyo-accent: #ba945f;
-    --ukiyo-accent-hover: #e0ba86;
-    --ukiyo-selection: #6154508f;
-    --ukiyo-font: "CMU Typewriter Text";
-  }
+  --ukiyo-bg:              #372d29;
+  --ukiyo-bg-light:        #413632;
+  --ukiyo-bg-alt:          #2b2723;
+  --ukiyo-bg-button-hover: #4e4340;
+  --ukiyo-text:            #ccc2b7;
+  --ukiyo-text-muted:      #b2a699;
+  --ukiyo-text-faint:      #868074;
+  --ukiyo-accent:          #ba945f;
+  --ukiyo-accent-hover:    #e0ba86;
+  --ukiyo-selection:       #6154508f;
+  --ukiyo-font:            "CMU Typewriter Text";
+}
 
-  html, body {
-    background-color: var(--ukiyo-bg) !important;
-    color: var(--ukiyo-text) !important;
-    font-family: var(--ukiyo-font) !important;
-  }
 
-  /* Links */
-  a, a:visited {
-    color: var(--ukiyo-accent) !important;
-    text-decoration: underline !important;
-  }
+/* ── Base ────────────────────────────────────────────────────────── */
 
-  a:hover {
-    color: var(--ukiyo-accent-hover) !important;
-    text-decoration: underline !important;
-  }
+html, body {
+  background-color: var(--ukiyo-bg) !important;
+  color:            var(--ukiyo-text) !important;
+  font-family:      var(--ukiyo-font) !important;
+}
 
-  /* Text selections */
-  ::selection {
-    background-color: var(--ukiyo-selection) !important;
-    color: var(--ukiyo-text) !important;
-  }
+a, a:visited {
+  color:           var(--ukiyo-accent) !important;
+  text-decoration: underline !important;
+}
+a:hover { color: var(--ukiyo-accent-hover) !important; }
 
-  /* Inputs, textareas, buttons */
-  input, textarea, select, button {
-    background-color: var(--ukiyo-bg-light) !important;
-    color: var(--ukiyo-text) !important;
-    border: none !important;
-    border-bottom: 0.1px solid var(--ukiyo-accent) !important;
-    font-family: var(--ukiyo-font) !important;
-  }
+::selection {
+  background-color: var(--ukiyo-selection) !important;
+  color:            var(--ukiyo-text) !important;
+}
 
-  input::placeholder, textarea::placeholder {
-    color: var(--ukiyo-text-faint) !important;
-  }
+:root { color-scheme: dark; }
 
-  button:hover {
-    background-color: var(--ukiyo-bg-button-hover) !important;
-    color: var(--ukiyo-bg-alt) !important;
-  }
-    
-  /* Apply Ukiyo colors to typical left columns / sidebars / headers / popups / bottom bars */
-  .page-layout__header, /*obsidian
-  /**/
-  .BlobViewHeader-module__Box--pvsIA, /*Github*/
-  .HeaderMenu-dropdown,
-  /**/
-  .d2l-widget.d2l-tile, /*Brightspace*/
-  .d2l-labs-navigation,
-  .d2l-navigation-s.d2l-branding-navigation-dark-foreground-color.d2l-navigation-s-linkarea-no-color,
-  .d2l-branding-navigation-background-color.d2l-visible-on-ancestor-target,
-  .d2l-dropdown-content-container,
-  .d2l-dropdown-content-top,
-  .d2l-dropdown-content-bottom,
-  .d2l-courseselector-wrapper,
-  /**/
-  .Xx7Mif.E5eFb, /*google.com*/
-  .aajZCb,
-  .xrOgrb,
-  /**/
-  .content-fade, /*chatgpt*/
-  /**/
-  .left,
-  .left-column,
-  .left-col,
-  .sidebar,
-  .sidebar-left,
-  .nav,
-  .navbar,
-  .aside,
-  .site-body-left-column,
-  #left,
-  #sidebar,
-  #side,
-  aside {
-      background-color: var(--ukiyo-bg-light) !important;
-      color: var(--ukiyo-text-muted) !important;
-  }
-    
 
-  /* Scrollbars */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: var(--ukiyo-accent);
-    border-radius: 5px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--ukiyo-accent-hover);
-  }
-  ::-webkit-scrollbar-track {
-    background-color: var(--ukiyo-bg-alt);
-  }
+/* ── Inputs & buttons ────────────────────────────────────────────── */
 
-  /* Make buttons square */
-  button,
-  input[type="button"],
-  input[type="submit"],
-  .btn,
-  [class*="button"],
-  [class*="btn"],
-  a.button,
-  a.btn {
-    border-radius: 0 !important; /* or 2px if you prefer slight rounding */
-    background-image: none !important; /* remove gradient backgrounds */
-  }
-    
+input, textarea, select, button {
+  background-color: var(--ukiyo-bg-light) !important;
+  color:            var(--ukiyo-text) !important;
+  border:           none !important;
+  border-bottom:    0.1px solid var(--ukiyo-accent) !important;
+  font-family:      var(--ukiyo-font) !important;
+}
 
-    
-  /* === Universal Dark/Light Mode Normalizer === */
-  /* Forces sites using their own CSS variables to adopt Ukiyo's color scheme */
-  
-  :root, html, body {
-    /* Common variable names for text */
-    --text-color: var(--ukiyo-text) !important;
-    --text-normal: var(--ukiyo-text) !important;
-    --text-primary: var(--ukiyo-text) !important;
-    --text-secondary: var(--ukiyo-text-muted) !important;
-    --text-muted: var(--ukiyo-text-muted) !important;
-    --text-faint: var(--ukiyo-text-faint) !important;
-    --color-text: var(--ukiyo-text) !important;
-    --color-foreground: var(--ukiyo-text) !important;
-    --color-fg: var(--ukiyo-text) !important;
-    --foreground-color: var(--ukiyo-text) !important;
-  
-    /* Common variable names for background */
-    --background: var(--ukiyo-bg) !important;
-    --background-color: var(--ukiyo-bg) !important;
-    --background-primary: var(--ukiyo-bg) !important;
-    --background-secondary: var(--ukiyo-bg-alt) !important;
-    --background-body: var(--ukiyo-bg) !important;
-    --color-background: var(--ukiyo-bg) !important;
-    --color-bg: var(--ukiyo-bg) !important;
-    --surface-color: var(--ukiyo-bg-alt) !important;
-  
-    /* Common variable names for accents */
-    --accent: var(--ukiyo-accent) !important;
-    --accent-color: var(--ukiyo-accent) !important;
-    --color-accent: var(--ukiyo-accent) !important;
-    --link-color: var(--ukiyo-accent) !important;
-    --brand-color: var(--ukiyo-accent) !important;
-    --primary-color: var(--ukiyo-accent) !important;
-    --highlight-color: var(--ukiyo-accent-hover) !important;
-  
-    /* Selections */
-    --selection-bg: var(--ukiyo-selection) !important;
-    --text-selection: var(--ukiyo-selection) !important;
-  
-    /* Borders and outlines */
-    --border-color: var(--ukiyo-accent) !important;
-    --border: var(--ukiyo-accent) !important;
-  
-    /* In case sites define 'dark' or 'light' backgrounds explicitly */
-    --dark-bg: var(--ukiyo-bg) !important;
-    --light-bg: var(--ukiyo-bg-alt) !important;
-  }
-  
-  /* Force dark color scheme for browser chrome elements (form controls, scrollbars) */
-  :root {
-    color-scheme: dark;
-  }
+input::placeholder, textarea::placeholder {
+  color: var(--ukiyo-text-faint) !important;
+}
 
-  /* Subtle dim — img and video only; NOT iframe (filter on iframes breaks stacking
-     contexts in Google Images and similar lightbox panels) */
-  img, video {
-    filter: brightness(0.9) contrast(0.95);
-  }
+button:hover {
+  background-color: var(--ukiyo-bg-button-hover) !important;
+  color:            var(--ukiyo-bg-alt) !important;
+}
 
-  /* Override hardcoded white on the page root — scoped to html/body only to avoid
-     breaking popups, tooltips, and dialog divs that set their own background */
-  html[style*="background-color: white"], body[style*="background-color: white"],
-  html[style*="background-color:#fff"],   body[style*="background-color:#fff"],
-  html[style*="background:#fff"],         body[style*="background:#fff"],
-  html[style*="background: white"],       body[style*="background: white"] {
-    background-color: var(--ukiyo-bg) !important;
-    color: var(--ukiyo-text) !important;
-  }
+button,
+input[type="button"],
+input[type="submit"],
+.btn,
+[class*="button"],
+[class*="btn"],
+a.button,
+a.btn {
+  border-radius:    0 !important;
+  background-image: none !important;
+}
 
-  /* Remove decorative gradients from layout containers for a flat look.
-     Intentional gradients on buttons/badges are preserved (not targeted here). */
-  html, body, main, article, section, header, footer, nav, aside {
-    background-image: none !important;
-  }
 
+/* ── Sidebars / navbars ──────────────────────────────────────────── */
+
+.page-layout__header,
+.BlobViewHeader-module__Box--pvsIA,
+.HeaderMenu-dropdown,
+.d2l-widget.d2l-tile,
+.d2l-labs-navigation,
+.d2l-navigation-s.d2l-branding-navigation-dark-foreground-color.d2l-navigation-s-linkarea-no-color,
+.d2l-branding-navigation-background-color.d2l-visible-on-ancestor-target,
+.d2l-dropdown-content-container,
+.d2l-dropdown-content-top,
+.d2l-dropdown-content-bottom,
+.d2l-courseselector-wrapper,
+.Xx7Mif.E5eFb,
+.aajZCb,
+.xrOgrb,
+.content-fade,
+.left,
+.left-column,
+.left-col,
+.sidebar,
+.sidebar-left,
+.nav,
+.navbar,
+.aside,
+.site-body-left-column,
+#left,
+#sidebar,
+#side,
+aside {
+  background-color: var(--ukiyo-bg-light) !important;
+  color:            var(--ukiyo-text-muted) !important;
+}
+
+
+/* ── Universal CSS variable remapping ────────────────────────────── */
+/* Sites that read their own variables will pick up the Ukiyo palette */
+
+:root, html, body {
+  --text-color:        var(--ukiyo-text) !important;
+  --text-normal:       var(--ukiyo-text) !important;
+  --text-primary:      var(--ukiyo-text) !important;
+  --text-secondary:    var(--ukiyo-text-muted) !important;
+  --text-muted:        var(--ukiyo-text-muted) !important;
+  --text-faint:        var(--ukiyo-text-faint) !important;
+  --color-text:        var(--ukiyo-text) !important;
+  --color-foreground:  var(--ukiyo-text) !important;
+  --color-fg:          var(--ukiyo-text) !important;
+  --foreground-color:  var(--ukiyo-text) !important;
+
+  --background:          var(--ukiyo-bg) !important;
+  --background-color:    var(--ukiyo-bg) !important;
+  --background-primary:  var(--ukiyo-bg) !important;
+  --background-secondary:var(--ukiyo-bg-alt) !important;
+  --background-body:     var(--ukiyo-bg) !important;
+  --color-background:    var(--ukiyo-bg) !important;
+  --color-bg:            var(--ukiyo-bg) !important;
+  --surface-color:       var(--ukiyo-bg-alt) !important;
+
+  --accent:          var(--ukiyo-accent) !important;
+  --accent-color:    var(--ukiyo-accent) !important;
+  --color-accent:    var(--ukiyo-accent) !important;
+  --link-color:      var(--ukiyo-accent) !important;
+  --brand-color:     var(--ukiyo-accent) !important;
+  --primary-color:   var(--ukiyo-accent) !important;
+  --highlight-color: var(--ukiyo-accent-hover) !important;
+
+  --selection-bg:    var(--ukiyo-selection) !important;
+  --text-selection:  var(--ukiyo-selection) !important;
+
+  --border-color: var(--ukiyo-accent) !important;
+  --border:       var(--ukiyo-accent) !important;
+
+  --dark-bg:  var(--ukiyo-bg) !important;
+  --light-bg: var(--ukiyo-bg-alt) !important;
+}
+
+
+/* ── Media dim ───────────────────────────────────────────────────── */
+
+img, video { filter: brightness(0.9) contrast(0.95); }
+
+
+/* ── Background cascade ──────────────────────────────────────────── */
+/* Force all non-media elements to inherit the dark root background.
+   html/body are excluded so their explicit #372d29 stays in place.
+   Media elements are excluded so thumbnails render as-is. */
+
+*:not(html):not(body):not(img):not(video):not(picture):not(svg):not(canvas) {
+  background-color: inherit !important;
+  background-image: none !important;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   YOUTUBE  —  ytd-* selectors are no-ops on every other site
+   ════════════════════════════════════════════════════════════════════ */
+
+
+/* ── YouTube color variables ─────────────────────────────────────── */
+/* Background vars are overridden by the cascade rule above, but text,
+   icon, and accent vars are still picked up by YouTube's own CSS. */
+
+html[dark], ytd-app[dark],
+html:not([dark-theme="false"]), ytd-app {
+  --yt-spec-base-background:          #372d29;
+  --yt-spec-raised-background:        #413632;
+  --yt-spec-menu-background:          #4e4340;
+  --yt-spec-inverted-background:      #ccc2b7;
+  --yt-spec-additive-background:      rgba(199,194,183,0.08);
+  --yt-spec-10-percent-layer:         rgba(199,194,183,0.10);
+  --yt-spec-5-percent-layer:          rgba(199,194,183,0.05);
+
+  --yt-spec-text-primary:             #ccc2b7;
+  --yt-spec-text-secondary:           rgba(199,194,183,0.55);
+  --yt-spec-text-disabled:            rgba(199,194,183,0.35);
+
+  --yt-spec-call-to-action:           #ba945f;
+  --yt-spec-call-to-action-inverse:   #372d29;
+  --yt-spec-icon-active-other:        #ccc2b7;
+  --yt-spec-icon-inactive:            rgba(199,194,183,0.50);
+  --yt-spec-icon-disabled:            rgba(199,194,183,0.30);
+
+  --yt-spec-brand-button-background:  #ba945f;
+  --yt-spec-brand-button-text:        #372d29;
+  --yt-spec-static-brand-red:         #ba945f;
+  --yt-spec-red-indicator:            #ba945f;
+  --yt-spec-red-error:                #ba945f;
+
+  --yt-spec-badge-live-background:    #ba945f;
+  --yt-spec-badge-live-text:          #372d29;
+}
+
+yt-page-navigation-progress {
+  --paper-progress-active-color: #ba945f !important;
+}
+
+
+/* ── No rounded corners ──────────────────────────────────────────── */
+
+a.ytd-thumbnail, ytd-thumbnail,
+ytd-mini-guide-entry-renderer,
+ytd-rich-metadata-renderer,
+ytd-menu-popup-renderer,
+tp-yt-paper-dialog[modern],
+ytd-engagement-panel-section-list-renderer[modern-panels],
+#endpoint.yt-simple-endpoint.ytd-guide-entry-renderer,
+.ytp-settings-menu,
+.ytp-ce-video.ytp-ce-large-round,
+ytd-guide-entry-renderer[active],
+ytd-mini-guide-entry-renderer[guide-refresh],
+yt-interaction.ytd-guide-entry-renderer,
+ytd-playlist-video-renderer,
+ytd-thumbnail[size=large]:before,
+.ytp-tooltip.ytp-preview,
+.ytp-tooltip-bg,
+ytd-playlist-thumbnail,
+.yt-img-shadow,
+.immersive-header-container,
+#container.ytd-playlist-panel-renderer,
+tp-yt-paper-toast.yt-notification-action-renderer,
+.thumbnail-container.ytd-notification-renderer,
+#ytd-player,
+.yt-interaction,
+yt-thumbnail-view-model,
+.ytd-app,
+.html5-main-video,
+.html5-video-player,
+.ytp-popup,
+.ytp-progress-list {
+  border-radius: unset !important;
+}
+
+.ytd-rich-item-renderer-highlight {
+  background-color: unset !important;
+  box-shadow:       unset !important;
+  border-radius:    unset !important;
+}
+
+#description.ytd-watch-metadata,
+ytd-rich-metadata-renderer {
+  background:       transparent !important;
+  background-color: transparent !important;
+  border-radius:    unset !important;
+}
+
+
+/* ── Full video titles ───────────────────────────────────────────── */
+
+#video-title.ytd-playlist-panel-video-renderer,
+#title.ytd-structured-description-video-lockup-renderer,
+#video-title.ytd-compact-video-renderer,
+h1.ytd-watch-metadata,
+h4.ytd-macro-markers-list-item-renderer,
+#video-title.yt-simple-endpoint.ytd-grid-video-renderer,
+#video-title.ytd-rich-grid-media,
+.ytLockupMetadataViewModelTitle {
+  max-height:         unset !important;
+  -webkit-line-clamp: unset !important;
+}
+
+#video-title.yt-simple-endpoint.ytd-grid-video-renderer {
+  display: unset !important;
+}
+
+.ytContentMetadataViewModelMetadataRow { flex-wrap: wrap; }
+
+
+/* ── Hide shorts ─────────────────────────────────────────────────── */
+
+ytd-reel-shelf-renderer,
+ytd-reel-video-renderer,
+ytd-shorts,
+a[href^="/shorts"],
+ytd-guide-entry-renderer a[href="/shorts"],
+[is-shorts],
+.ShortsLockupViewModelHostThumbnailContainerRounded,
+.shortsLockupViewModelHostThumbnailContainerRounded,
+.shortsLockupViewModelHostThumbnailParentContainer,
+ytd-browse[page-subtype="shorts"] {
+  display: none !important;
+}
+
+
+/* ── Hide clutter ────────────────────────────────────────────────── */
+
+/* Feed filter chips */
+#chips-wrapper > .ytd-feed-filter-chip-bar-renderer.style-scope        { display: none !important; }
+.yt-related-chip-cloud-renderer.style-scope > .yt-chip-cloud-renderer  { display: none !important; }
+
+/* Sidebar guide sections (keep Home + Subscriptions, hide the rest) */
+ytd-guide-section-renderer.ytd-guide-renderer.style-scope:nth-of-type(3) { display: none !important; }
+ytd-guide-section-renderer.ytd-guide-renderer.style-scope:nth-of-type(4) { display: none !important; }
+ytd-guide-section-renderer.ytd-guide-renderer.style-scope:nth-of-type(5) { display: none !important; }
+#guide-links-primary   { display: none !important; }
+#guide-links-secondary { display: none !important; }
+
+/* Video page clutter */
+.yt-video-attributes-section-view-model                                                            { display: none !important; }
+ytd-horizontal-card-list-renderer.ytd-structured-description-content-renderer.style-scope:nth-of-type(1) { display: none !important; }
+ytd-horizontal-card-list-renderer.ytd-structured-description-content-renderer.style-scope:nth-of-type(2) { display: none !important; }
+ytd-video-description-transcript-section-renderer.ytd-structured-description-content-renderer      { display: none !important; }
+ytd-video-description-infocards-section-renderer.ytd-structured-description-content-renderer       { display: none !important; }
+.ytd-metadata-row-container-renderer.style-scope > .ytd-rich-metadata-row-renderer.style-scope    { display: none !important; }
+.ytd-watch-flexy.style-scope > .ytd-expandable-metadata-renderer.style-scope                      { display: none !important; }
+#author-thumbnail                                                                                   { display: none !important; }
+
+/* Player UI clutter */
+.ytd-subscribe-button-renderer.style-scope > yt-button-shape { display: none !important; }
+.ytp-autonav-toggle-button-container   { display: none !important; }
+.ytp-button.ytp-subtitles-button       { display: none !important; }
+.ytp-button.ytp-miniplayer-button      { display: none !important; }
+.ytp-button.ytp-size-button            { display: none !important; }
+.ytp-fullerscreen-edu-text             { display: none !important; }
+.ytp-fullerscreen-edu-chevron          { display: none !important; }
+
+/* Masthead right side (sign-in button, notifications) */
+#end > .ytd-masthead.style-scope { display: none !important; }
+
+/* Google search sidebar */
+.GcKpu { display: none !important; }
+
+
+/* ── Theater mode full height ────────────────────────────────────── */
+
+#page-manager > ytd-watch-flexy[theater-requested_]:not([fullscreen]) #player-full-bleed-container {
+  height:     calc(100vh - 56px) !important;
+  max-height: calc(100vh - 56px) !important;
+  min-height: calc(100vh - 56px) !important;
+}
