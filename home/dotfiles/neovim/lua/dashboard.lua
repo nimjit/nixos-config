@@ -386,18 +386,19 @@ function M.render_buffer(title, sections, footer_keys)
     end
 
     -- Title bar
-    local date_str = os.date("%Y-%m-%d") .. "  " .. DAYS[tonumber(os.date("%w")) + 1]
-    push("# " .. title .. "  ·  " .. date_str)
+    local date_str = os.date("%Y-%m-%d  ") .. DAYS[tonumber(os.date("%w")) + 1]
+    local pad = math.max(0, 68 - #title - #date_str)
+    push(" " .. title .. string.rep(" ", pad) .. date_str)
     push("")
 
     for _, section in ipairs(sections) do
-        push("## " .. section.header)
+        push(" " .. section.header)
         if #section.lines == 0 then
-            push("  — none —")
+            push("   — none —")
         else
             for _, entry in ipairs(section.lines) do
                 local interactive = entry.path or entry.callback
-                local prefix = interactive and "- → " or "- "
+                local prefix = interactive and "  → " or "    "
                 push(prefix .. entry.text, entry.path, entry.callback)
             end
         end
@@ -405,12 +406,10 @@ function M.render_buffer(title, sections, footer_keys)
     end
 
     if footer_keys and #footer_keys > 0 then
-        push("---")
-        push("*" .. table.concat(footer_keys, "   ") .. "*")
+        push(" " .. table.concat(footer_keys, "   "))
     end
 
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, raw_lines)
-    vim.bo[buf].filetype   = "markdown"
     vim.bo[buf].modifiable = false
 
     vim.keymap.set("n", "<CR>", function()
@@ -426,56 +425,6 @@ function M.render_buffer(title, sections, footer_keys)
     end, { buffer = buf, nowait = true })
 
     return buf, path_map
-end
-
--- ── Weight chart (inline via image.nvim) ─────────────────────────────────────
-
-local function show_weight_chart(buf)
-    local script = vim.fn.expand("~/.local/bin/plot-weights")
-    local cols   = math.max(vim.o.columns - 6, 60)
-    local out    = {}
-    vim.fn.jobstart({ script, "--cols", tostring(cols) }, {
-        stdout_buffered = true,
-        on_stdout = function(_, data) out = data end,
-        on_exit = function(_, code)
-            if code ~= 0 then return end
-            local png = vim.trim(table.concat(out, "\n"))
-            if png == "" then return end
-            vim.schedule(function()
-                if not vim.api.nvim_buf_is_valid(buf) then return end
-                local wins = vim.fn.win_findbuf(buf)
-                if #wins == 0 then return end
-                local win = wins[1]
-
-                -- Find existing ## WEIGHT line or append one
-                local img_row  -- 0-indexed buffer row where image renders
-                local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-                for i, l in ipairs(lines) do
-                    if l == "## WEIGHT" then
-                        img_row = i  -- 0-indexed: header is at i-1, canvas line at i
-                        break
-                    end
-                end
-                if not img_row then
-                    local n = #lines
-                    vim.bo[buf].modifiable = true
-                    vim.api.nvim_buf_set_lines(buf, n, n, false, { "", "## WEIGHT", "" })
-                    vim.bo[buf].modifiable = false
-                    img_row = n + 2  -- 0-indexed canvas line after header
-                end
-
-                local ok, image_api = pcall(require, "image")
-                if not ok then return end
-                local img = image_api.from_file(png, {
-                    id                   = "weight_chart",
-                    buffer               = buf,
-                    window               = win,
-                    with_virtual_padding = true,
-                })
-                img:render({ x = 0, y = img_row })
-            end)
-        end,
-    })
 end
 
 -- ── Yazi picker (shared) ──────────────────────────────────────────────────────
@@ -508,7 +457,7 @@ end
 -- ── Vault dashboard ───────────────────────────────────────────────────────────
 
 function M.open_vault()
-    local vault_snowflake = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/vault_snowflake.html"
+    local vault_snowflake = "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/vault_snowflake.html"
 
     -- Birthdays
     local bdays = M.birthdays_this_month(VAULT .. "/People")
@@ -577,7 +526,6 @@ function M.open_vault()
 
     local footer = { "[f] browse", "[g] knowledge graph", "[d] daily note", "[w] log weight" }
     local buf, _ = M.render_buffer("VAULT", sections, footer)
-    show_weight_chart(buf)
 
     local function km(k, fn) vim.keymap.set("n", k, fn, { buffer = buf, nowait = true }) end
 
@@ -597,10 +545,7 @@ function M.open_vault()
 
     km("w", function()
         local weight = vim.fn.input("Weight (kg): ")
-        if weight ~= "" then
-            M.log_weight(weight)
-            show_weight_chart(buf)
-        end
+        if weight ~= "" then M.log_weight(weight) end
     end)
 
     return buf
@@ -620,19 +565,16 @@ function M.open_vault_graph()
     local function get_children(dir)
         if children_cache[dir] then return children_cache[dir] end
         local result = {}
-        local cmd = 'find ' .. vim.fn.shellescape(dir) ..
+        local handle = io.popen(
+            'find ' .. vim.fn.shellescape(dir) ..
             ' -mindepth 1 -maxdepth 1 \\( -type d -o -name "*.md" \\) 2>/dev/null | sort'
-        local handle = io.popen(cmd)
+        )
         if handle then
             for path in handle:lines() do
                 local name = path:match("([^/]+)$") or ""
                 if name ~= "" and not name:match("^%.") and not GRAPH_EXCLUDE[name] then
                     local is_dir = vim.fn.isdirectory(path) == 1
-                    result[#result + 1] = {
-                        name = name,
-                        path = path,
-                        type = is_dir and "dir" or "file",
-                    }
+                    result[#result + 1] = { name = name, path = path, type = is_dir and "dir" or "file" }
                 end
             end
             handle:close()
@@ -645,30 +587,22 @@ function M.open_vault_graph()
     vim.bo[buf].buftype   = "nofile"
     vim.bo[buf].bufhidden = "wipe"
     vim.bo[buf].swapfile  = false
-    vim.bo[buf].filetype  = "markdown"
     vim.api.nvim_set_current_buf(buf)
 
-    -- Depth-1 expanded by default; depth-2+ collapsed
-    local expanded = {
-        [VAULT]                  = true,
-        [VAULT .. "/Knowledge"] = true,
-    }
-    local node_map = {}  -- line_number → {path, type}
+    local expanded = { [VAULT] = true, [VAULT .. "/Knowledge"] = true }
+    local node_map = {}
 
     local function render()
-        local lines  = { "# VAULT GRAPH", "" }
-        local lnmap  = {}
+        local lines = { " VAULT GRAPH", "" }
+        local lnmap = {}
 
         local function walk(dir, depth)
-            local children = get_children(dir)
             local pad = ("  "):rep(depth)
-            for _, child in ipairs(children) do
-                if child.type == "dir" then
-                    local icon = expanded[child.path] and "▼ " or "▶ "
-                    lines[#lines + 1] = pad .. icon .. child.name .. "/"
-                else
-                    lines[#lines + 1] = pad .. "· " .. child.name
-                end
+            for _, child in ipairs(get_children(dir)) do
+                local icon = child.type == "dir"
+                    and (expanded[child.path] and "▼ " or "▶ ")
+                    or  "· "
+                lines[#lines + 1] = pad .. icon .. child.name .. (child.type == "dir" and "/" or "")
                 lnmap[#lines] = child
                 if child.type == "dir" and expanded[child.path] then
                     walk(child.path, depth + 1)
@@ -677,9 +611,8 @@ function M.open_vault_graph()
         end
 
         walk(VAULT, 0)
-
         lines[#lines + 1] = ""
-        lines[#lines + 1] = "*[Enter] toggle/open  [o] open in yazi  [q] close*"
+        lines[#lines + 1] = " [Enter] toggle/open  [o] open in yazi  [q] close"
 
         vim.bo[buf].modifiable = true
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -714,42 +647,41 @@ function M.open_vault_graph()
         end
     end)
 
-    km("q", function()
-        vim.api.nvim_buf_delete(buf, { force = true })
-    end)
+    km("q", function() vim.api.nvim_buf_delete(buf, { force = true }) end)
 
-    -- PNG: 70 % of full terminal width, right-aligned.
-    -- image.nvim with kitty protocol places images at terminal-absolute pixel positions,
-    -- so vim.o.columns (not window width) is the correct coordinate reference.
-    local script   = vim.fn.expand("~/.local/bin/plot-vault-graph")
+    -- PNG: 70% of terminal width, right-aligned.
+    -- `width` tells image.nvim to scale the PNG to exactly img_cols cells wide,
+    -- so it doesn't render at native pixel size (which would be ~600 cols wide).
     local term_w   = vim.o.columns
-    local img_cols = math.floor(term_w * 0.70)   -- 70 % of terminal
-    local right_x  = term_w - img_cols            -- flush to the right
+    local img_cols = math.floor(term_w * 0.70)
+    local right_x  = term_w - img_cols
     local out = {}
-    vim.fn.jobstart({ script, "--cols", tostring(img_cols) }, {
-        stdout_buffered = true,
-        on_stdout = function(_, data) out = data end,
-        on_exit   = function(_, code)
-            if code ~= 0 then return end
-            local png = vim.trim(table.concat(out, "\n"))
-            if png == "" then return end
-            vim.schedule(function()
-                if not vim.api.nvim_buf_is_valid(buf) then return end
-                local wins = vim.fn.win_findbuf(buf)
-                if #wins == 0 then return end
-                local win = wins[1]
-                local ok, image_api = pcall(require, "image")
-                if not ok then return end
-                local img = image_api.from_file(png, {
-                    id                   = "vault_graph",
-                    buffer               = buf,
-                    window               = win,
-                    with_virtual_padding = false,
-                })
-                img:render({ x = right_x, y = 0 })
-            end)
-        end,
-    })
+    vim.fn.jobstart(
+        { vim.fn.expand("~/.local/bin/plot-vault-graph"), "--cols", tostring(img_cols) },
+        {
+            stdout_buffered = true,
+            on_stdout = function(_, data) out = data end,
+            on_exit = function(_, code)
+                if code ~= 0 then return end
+                local png = vim.trim(table.concat(out, "\n"))
+                if png == "" then return end
+                vim.schedule(function()
+                    if not vim.api.nvim_buf_is_valid(buf) then return end
+                    local wins = vim.fn.win_findbuf(buf)
+                    if #wins == 0 then return end
+                    local ok, image_api = pcall(require, "image")
+                    if not ok then return end
+                    local img = image_api.from_file(png, {
+                        id                   = "vault_graph",
+                        buffer               = buf,
+                        window               = wins[1],
+                        with_virtual_padding = false,
+                    })
+                    img:render({ x = right_x, y = 0, width = img_cols })
+                end)
+            end,
+        }
+    )
 end
 
 -- ── Uni dashboard ─────────────────────────────────────────────────────────────
@@ -811,7 +743,7 @@ function M.open_uni()
     end)
 
     km("g", function()
-        vim.fn.system("firefox --new-tab " .. vim.fn.shellescape(uni_snowflake) .. " &")
+        vim.fn.system("xdg-open " .. vim.fn.shellescape(uni_snowflake) .. " &")
     end)
 
     km("n", function()
@@ -937,58 +869,6 @@ function M.course_view(course)
     end)
 
     return buf
-end
-
--- ── Vault search ─────────────────────────────────────────────────────────────
-
-function M.vault_search(query)
-    if not query then
-        vim.ui.input({ prompt = "Search vault: " }, function(q)
-            if q and q ~= "" then M.vault_search(q) end
-        end)
-        return
-    end
-
-    local buf_path = vim.fn.expand("%:p")
-    local vault = buf_path:find(UNI, 1, true) and UNI or VAULT
-
-    local cmd = string.format(
-        "grep -rn --include='*.md'"
-        .. " --exclude-dir=Attachments --exclude-dir=Templates --exclude-dir=.obsidian"
-        .. " -i %s %s 2>/dev/null",
-        vim.fn.shellescape(query),
-        vim.fn.shellescape(vault)
-    )
-    local raw = vim.fn.systemlist(cmd)
-
-    local entries = {}
-    for _, line in ipairs(raw) do
-        local file, lnum, text = line:match("^(.-):(%d+):(.*)")
-        if file then
-            local short = file:gsub(vim.pesc(vault) .. "/", "")
-            local snippet = text:match("^%s*(.-)%s*$"):sub(1, 55)
-            entries[#entries + 1] = {
-                display = string.format("  %-42s %s", short .. ":" .. lnum, snippet),
-                path    = file,
-                lnum    = tonumber(lnum),
-            }
-        end
-    end
-
-    local result_lines = {}
-    for _, e in ipairs(entries) do
-        result_lines[#result_lines + 1] = {
-            text = e.display,
-            callback = function()
-                vim.cmd("edit +" .. e.lnum .. " " .. vim.fn.fnameescape(e.path))
-            end,
-        }
-    end
-
-    local sections = {
-        { header = "RESULTS FOR: " .. query, lines = result_lines },
-    }
-    M.render_buffer("SEARCH", sections, { "[q] close" })
 end
 
 return M
