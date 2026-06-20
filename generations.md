@@ -146,3 +146,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 132 | 2026-06-19  17:30 | 56a298a | vault graph: use vim.o.columns for 70% right-aligned PNG (was using wrong win width) |
 | 133 | 2026-06-19  18:15 | 2bd5c6b | vault graph: add width=img_cols to img:render() so PNG scales to 70% instead of native pixel size |
 | 134 | 2026-06-20  00:20 | b465e98 | generations: log gen 133 |
+| 135 | 2026-06-20  13:32 | c1f0d9d | improved vault graph view positioning |

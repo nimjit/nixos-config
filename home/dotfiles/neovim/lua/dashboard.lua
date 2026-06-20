@@ -410,6 +410,7 @@ function M.render_buffer(title, sections, footer_keys)
     end
 
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, raw_lines)
+    vim.bo[buf].filetype   = "markdown"
     vim.bo[buf].modifiable = false
 
     vim.keymap.set("n", "<CR>", function()
@@ -425,6 +426,52 @@ function M.render_buffer(title, sections, footer_keys)
     end, { buffer = buf, nowait = true })
 
     return buf, path_map
+end
+
+-- ── Weight chart (inline via image.nvim) ─────────────────────────────────────
+
+local function show_weight_chart(buf)
+    local script = vim.fn.expand("~/.local/bin/plot-weights")
+    local cols   = math.max(vim.o.columns - 6, 60)
+    local out    = {}
+    vim.fn.jobstart({ script, "--cols", tostring(cols) }, {
+        stdout_buffered = true,
+        on_stdout = function(_, data) out = data end,
+        on_exit = function(_, code)
+            if code ~= 0 then return end
+            local png = vim.trim(table.concat(out, "\n"))
+            if png == "" then return end
+            vim.schedule(function()
+                if not vim.api.nvim_buf_is_valid(buf) then return end
+                local wins = vim.fn.win_findbuf(buf)
+                if #wins == 0 then return end
+                local win = wins[1]
+
+                local img_row
+                local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+                for i, l in ipairs(lines) do
+                    if l == "## WEIGHT" then img_row = i; break end
+                end
+                if not img_row then
+                    local n = #lines
+                    vim.bo[buf].modifiable = true
+                    vim.api.nvim_buf_set_lines(buf, n, n, false, { "", "## WEIGHT", "" })
+                    vim.bo[buf].modifiable = false
+                    img_row = n + 2
+                end
+
+                local ok, image_api = pcall(require, "image")
+                if not ok then return end
+                local img = image_api.from_file(png, {
+                    id                   = "weight_chart",
+                    buffer               = buf,
+                    window               = win,
+                    with_virtual_padding = true,
+                })
+                img:render({ x = 0, y = img_row })
+            end)
+        end,
+    })
 end
 
 -- ── Yazi picker (shared) ──────────────────────────────────────────────────────
@@ -526,6 +573,7 @@ function M.open_vault()
 
     local footer = { "[f] browse", "[g] knowledge graph", "[d] daily note", "[w] log weight" }
     local buf, _ = M.render_buffer("VAULT", sections, footer)
+    show_weight_chart(buf)
 
     local function km(k, fn) vim.keymap.set("n", k, fn, { buffer = buf, nowait = true }) end
 
@@ -545,7 +593,10 @@ function M.open_vault()
 
     km("w", function()
         local weight = vim.fn.input("Weight (kg): ")
-        if weight ~= "" then M.log_weight(weight) end
+        if weight ~= "" then
+            M.log_weight(weight)
+            show_weight_chart(buf)
+        end
     end)
 
     return buf
@@ -647,12 +698,12 @@ function M.open_vault_graph()
         end
     end)
 
-    -- Float window for the PNG: neovim positions it at terminal-absolute col,
-    -- so we don't rely on image.nvim's x coordinate (which is window-relative).
+    -- Float window for the PNG — neovim positions floats at terminal-absolute
+    -- columns, so this is reliable unlike image.nvim's window-relative x coord.
     local term_w   = vim.o.columns
     local term_h   = vim.o.lines
     local img_cols = math.floor(term_w * 0.70)
-    local img_rows = term_h - 3  -- leave room for status/cmdline
+    local img_rows = term_h - 3
     local img_col  = term_w - img_cols
 
     local img_buf = vim.api.nvim_create_buf(false, true)
@@ -667,9 +718,8 @@ function M.open_vault_graph()
         focusable = false,
         zindex    = 10,
     })
-    vim.wo[img_win].winblend = 100  -- transparent bg; only the kitty image pixels show
+    vim.wo[img_win].winblend = 100
 
-    -- Close the float when the tree buffer is wiped (q, <CR> on file, o)
     vim.api.nvim_create_autocmd("BufWipeout", {
         buffer   = buf,
         once     = true,
