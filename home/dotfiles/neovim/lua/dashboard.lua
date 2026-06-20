@@ -386,19 +386,18 @@ function M.render_buffer(title, sections, footer_keys)
     end
 
     -- Title bar
-    local date_str = os.date("%Y-%m-%d  ") .. DAYS[tonumber(os.date("%w")) + 1]
-    local pad = math.max(0, 68 - #title - #date_str)
-    push(" " .. title .. string.rep(" ", pad) .. date_str)
+    local date_str = os.date("%Y-%m-%d") .. "  " .. DAYS[tonumber(os.date("%w")) + 1]
+    push("# " .. title .. "  ·  " .. date_str)
     push("")
 
     for _, section in ipairs(sections) do
-        push(" " .. section.header)
+        push("## " .. section.header)
         if #section.lines == 0 then
-            push("   — none —")
+            push("  — none —")
         else
             for _, entry in ipairs(section.lines) do
                 local interactive = entry.path or entry.callback
-                local prefix = interactive and "  → " or "    "
+                local prefix = interactive and "- → " or "- "
                 push(prefix .. entry.text, entry.path, entry.callback)
             end
         end
@@ -406,7 +405,8 @@ function M.render_buffer(title, sections, footer_keys)
     end
 
     if footer_keys and #footer_keys > 0 then
-        push(" " .. table.concat(footer_keys, "   "))
+        push("---")
+        push("*" .. table.concat(footer_keys, "   ") .. "*")
     end
 
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, raw_lines)
