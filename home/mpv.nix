@@ -1,7 +1,12 @@
-{ ... }: {
+{ pkgs, ... }: {
 
   programs.mpv = {
     enable = true;
+    scripts = with pkgs.mpvScripts; [
+      uosc          # modern minimal UI (replaces default progress bar)
+      thumbfast     # thumbnail previews on seek bar
+      sponsorblock  # auto-skip YouTube sponsor segments
+    ];
     config = {
       # Video
       hwdec = "auto-safe";          # hardware decoding where possible

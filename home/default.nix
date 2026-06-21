@@ -9,18 +9,15 @@
     ./zsh.nix
     ./rofi.nix
     ./nchat.nix
-    ./calcurse.nix
     ./btop.nix
     ./emacs.nix
     ./mpd.nix
     ./zathura.nix
     ./khal.nix
-    ./sway.nix
-    ./waybar.nix
     ./mako.nix
     ./qutebrowser.nix
     ./kwin.nix
-  #  ./autostart.nix  # KDE session restart is fine, the script runs even when session restore is active, which is annoying.
+    ./git.nix
   ];
 
   # ── Home basics ───────────────────────────────────────────────────────────
@@ -39,21 +36,6 @@
     enable = true;
     nix-direnv.enable = true;
   };
-
-  # ── Git ───────────────────────────────────────────────────────────────────
-  programs.git = {
-    enable = true;
-    settings = {
-      user.name = "nimjit";
-      user.email = "tidemanus@gmail.com";
-      init.defaultBranch = "main";
-      pull.rebase = false;
-    };
-    settings = {
-      credential.helper = "store";
-    };
-  };
-
 
   # ── New tab page server ───────────────────────────────────────────────────
   # Serves ~/.config/newtab/index.html at http://localhost:8080

@@ -31,9 +31,12 @@ Tracks `nixpkgs` and `home-manager` on `release-26.05` (stable).
 │   ├── yazi.nix
 │   ├── mpv.nix
 │   ├── firefox.nix
-│   ├── autostart.nix      # disabled (commented out in default.nix)
-│   ├── email.nix
+│   ├── git.nix            # git user config (split from default.nix)
 │   └── dotfiles/          # static dotfiles copied/linked by home-manager
+├── plans/
+│   ├── Active/            # plans in progress
+│   ├── Done/              # reference docs for shipped features
+│   └── Binned/            # shelved plans (sway.nix, waybar.nix, window-manager.md)
 └── themes/
     └── ukiyo.nix          # color theme
 ```
@@ -74,23 +77,23 @@ Do not edit the file, do not include it in a plan, do not suggest it as part of 
 - `rebuild` alias hardcodes `-H desktop` — `$(hostname)` expansion fails in zsh alias context. Should be made hostname-aware once the root cause is understood.
 - Netrw sidebar workflow being migrated to yazi-based workflow. Netrw config is retained in `init.lua` for Windows compatibility but is no longer the primary navigation method on Linux.
 - Obsidian vault has a redundant double-folder: `Obsidian/Rennaissance_Vault_Structure/` — consider flattening.
-- Emacs performance resolved: monitors set to 100% scaling, performance is acceptable. User is starting fresh — building config themselves from scratch, using markdown (not org) initially. See `plans/emacs.md`.
 - Python path in nvim (`vim.g.python_path`) is hardcoded to `/run/current-system/sw/bin/python3`. Should eventually be generalised (e.g. respect virtual envs or `NVIM_PYTHON` env var that is already set).
 - `yt-feed` mpv playback: fixed with `--gpu-api=opengl` in `play()`. Forces OpenGL texture upload instead of DMA-buf presentation path, which was failing on NVIDIA Wayland.
+
+### Active plans (see `plans/Active/`)
+
+- **emacs.md** — fresh start, building from scratch: evil → markdown-mode → spell check → next pain point
+- **email.md** — aerc to replace Thunderbird; Gmail + TU Delft OAuth2 via oauth2ms
+- **cli-migration.md** — w3m `wb` shell function, KDE shortcut for lpass-rofi, kitty splits discussion
+- **yazi.md** — file openers, keymaps, preview improvements
+- **prompt.md** — starship or pure zsh prompt with Ukiyo palette
 
 ### Larger projects
 
 - **Snowflake visualisers**: `vault_snowflake.py` (personal), `uni_snowflake.py` (uni),
   `nixos_snowflake.py` (this repo) — run with `python3 <script>` to regenerate HTML.
-- **Window manager switch** (KDE → Sway): full step plan in `plans/window-manager.md`.
-  Key open item: test Nvidia legacy_535 + Wayland (`WLR_RENDERER=vulkan`).
-  Strategy: keep KDE, add sway as parallel SDDM session, test before removing KDE.
-- **Emacs setup**: user building from scratch themselves, markdown-first. Plan in `plans/emacs.md`.
-- **Dashboard graphs**: render weight log and other vault data as inline graphs in the neovim dashboard. Plan in `plans/dashboard-graphs.md`.
-
-### CLI migration
-
-- **nchat**: Replace WhatsApp Web browser tab with `nchat` (in nixpkgs, uses whatsmeow). Gives desktop notifications without keeping a browser tab open. Add to packages + make a `messages()` workflow function.
-- **New tab page**: Tabliss (extension) as new tab breaks Tridactyl — Firefox security prevents extensions injecting into `moz-extension://` pages. Fix: replace Tabliss with a self-hosted `file://` or `localhost` HTML page. Tridactyl works on those. Rebuild whatever Tabliss shows (links, clock) in plain HTML.
-- **lastpass-cli**: Add `lastpass-cli` to packages. Use `lpass` in terminal for credential access without a browser tab. Write a small rofi script for system-wide password copy via keyboard shortcut. Keep LastPass Firefox extension for browser autofill — same vault, no migration.
-- **calcurse + Google Calendar**: Add `calcurse` to packages and sync it with Google Calendar via CalDAV (`calcurse-caldav`). Google Calendar's CalDAV URL: `https://www.google.com/calendar/dav/<calendar_id>/events/`. Requires an app password (Google account → Security → App passwords). Gives a terminal calendar without keeping a browser tab open.
+  See `plans/Done/snowflakes.md`.
+- **Window manager switch** (KDE → Sway): **binned** — staying on KDE + Krohnkite.
+  Config archived in `plans/Binned/`.
+- **Dashboard graphs**: weight chart done; neovim-native vault graph planned.
+  See `plans/Done/dashboard-graphs.md`.

@@ -121,6 +121,21 @@
         fi
       }
 
+      # nixdiff: compare two NixOS generations to see what packages changed
+      # Usage: nixdiff        → compares last two generations automatically
+      #        nixdiff 133 134 → compares specific generations
+      nixdiff() {
+        if [[ $# -eq 0 ]]; then
+          local -a profiles=(/nix/var/nix/profiles/system-*-link(nN))
+          if (( ${#profiles} < 2 )); then
+            echo "Need at least 2 generations"; return 1
+          fi
+          nvd diff "${profiles[-2]}" "${profiles[-1]}"
+        else
+          nvd diff /nix/var/nix/profiles/system-$1-link /nix/var/nix/profiles/system-$2-link
+        fi
+      }
+
       # Workflow launchers
       uni-work()   { nvim -c WorkflowUni; }
       uni-code()   { nvim -c WorkflowCode; }

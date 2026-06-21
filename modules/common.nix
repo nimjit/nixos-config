@@ -89,7 +89,7 @@ in
     qbittorrent
     zathura       # PDF viewer; themed by Stylix automatically
     thunderbird   # email client; connects to Outlook via IMAP
-    calcurse
+    # calcurse removed — using khal/ikhal instead
 
     # AI
     claude-code
@@ -105,6 +105,7 @@ in
     libnotify      # provides notify-send; nchat auto-detects it for desktop notifications
     dtach          # detach/reattach a process from its terminal; keeps nchat alive
     fortune        # random quote for the zsh greeting
+    nvd            # diff two NixOS generations: what actually changed
 
     # Media
     spotify
@@ -201,46 +202,13 @@ in
   };
 
   # ── Auto-update service ───────────────────────────────────────────────────
-  # Pulls latest config from GitHub and rebuilds on boot and daily.
-  # Requires the config to be cloned at /etc/nixos.
-  # (On first install it won't exist yet; the service will fail silently
-  #  until you clone the repo there, which the install guide covers.)
-
-  systemd.services.nixos-autoupdate = {
-    description = "Pull latest NixOS config and rebuild";
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      User = "root";
-      ExecStart = pkgs.writeShellScript "nixos-autoupdate" ''
-        set -e
-        CONFIG_DIR="/etc/nixos"
-        if [ ! -d "$CONFIG_DIR/.git" ]; then
-          echo "Config dir is not a git repo; skipping update"
-          exit 0
-        fi
-        cd "$CONFIG_DIR"
-        ${pkgs.git}/bin/git pull --ff-only origin main || {
-          echo "Git pull failed; skipping rebuild"
-          exit 0
-        }
-        /run/current-system/sw/bin/nixos-rebuild switch --flake ".#$(hostname)" \
-          && echo "Rebuild succeeded" \
-          || echo "Rebuild failed; system unchanged"
-      '';
-    };
-  };
-
-  systemd.timers.nixos-autoupdate = {
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnBootSec = "5min";      # run 5 min after boot
-      OnCalendar = "daily";
-      Persistent = true;
-      RandomizedDelaySec = "30min";
-    };
-  };
+  # Disabled on desktop — too risky (bad commit = broken boot, no notification).
+  # Re-enable on the USB install where unattended self-updating makes sense.
+  # To re-enable: uncomment both blocks below and set the correct hostname in
+  # the ExecStart flake target.
+  #
+  # systemd.services.nixos-autoupdate = { ... };
+  # systemd.timers.nixos-autoupdate   = { ... };
 
   # ── Health check service ──────────────────────────────────────────────────
   systemd.services.nixos-health = {
