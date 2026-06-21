@@ -128,7 +128,8 @@
         if [[ $# -eq 0 ]]; then
           local -a profiles=(/nix/var/nix/profiles/system-*-link(nN))
           if (( ${#profiles} < 2 )); then
-            echo "Need at least 2 generations"; return 1
+            echo "Need at least 2 generations"
+            return 1
           fi
           nvd diff "${profiles[-2]}" "${profiles[-1]}"
         else
