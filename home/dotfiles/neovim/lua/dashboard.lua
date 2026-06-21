@@ -397,7 +397,7 @@ function M.render_buffer(title, sections, footer_keys)
         else
             for _, entry in ipairs(section.lines) do
                 local interactive = entry.path or entry.callback
-                local prefix = interactive and "- → " or "- "
+                local prefix = interactive and " → " or " "
                 push(prefix .. entry.text, entry.path, entry.callback)
             end
         end
