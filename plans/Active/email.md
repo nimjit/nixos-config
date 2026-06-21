@@ -6,8 +6,8 @@ Replace Thunderbird with **aerc** (terminal TUI, keyboard-driven) handling two a
 
 | Account | Provider | Auth |
 |---------|----------|------|
-| `tidemanus@gmail.com` | Gmail | App password |
-| `t.j.nouwens@student.tudelft.nl` | Microsoft 365 | OAuth2 via `oauth2ms` |
+| `<gmail>` | Gmail | App password |
+| `<uni-email>` | Microsoft 365 | OAuth2 via `oauth2ms` |
 
 ---
 
@@ -47,21 +47,21 @@ oauth2ms
     enable = true;
     accounts = {
       Gmail = {
-        source = "imaps://tidemanus@gmail.com@imap.gmail.com";
+        source = "imaps://<gmail>@imap.gmail.com";
         source-cred-cmd = "lpass show --password 'Gmail App Password aerc'";
-        outgoing = "smtps+plain://tidemanus@gmail.com@smtp.gmail.com:465";
+        outgoing = "smtps+plain://<gmail>@smtp.gmail.com:465";
         outgoing-cred-cmd = "lpass show --password 'Gmail App Password aerc'";
         default = "INBOX";
-        from = "Thijmen <tidemanus@gmail.com>";
+        from = "Thijmen <<gmail>>";
         copy-to = "[Gmail]/Sent Mail";
       };
       University = {
-        source = "imaps+xoauth2://t.j.nouwens@student.tudelft.nl@outlook.office365.com";
+        source = "imaps+xoauth2://<uni-email>@outlook.office365.com";
         source-cred-cmd = "oauth2ms";
-        outgoing = "smtp+xoauth2://t.j.nouwens@student.tudelft.nl@smtp.office365.com:587";
+        outgoing = "smtp+xoauth2://<uni-email>@smtp.office365.com:587";
         outgoing-cred-cmd = "oauth2ms";
         default = "INBOX";
-        from = "Thijmen Nouwens <t.j.nouwens@student.tudelft.nl>";
+        from = "Thijmen Nouwens <<uni-email>>";
         copy-to = "Sent Items";
       };
     };
@@ -76,16 +76,16 @@ oauth2ms
 ### Gmail app password
 
 1. myaccount.google.com → Security → App passwords → create "aerc"
-2. Store in LastPass: `lpass login thijmen.nouwens@gmail.com && lpass add 'Gmail App Password aerc'`
+2. Store in LastPass: `lpass login <lpass-email> && lpass add 'Gmail App Password aerc'`
 
 ### Microsoft 365 OAuth2
 
 ```json
-// ~/.config/oauth2ms/config.json (not in repo)
+// ~/.config/oauth2ms/config.json (not in repo — fill in your details)
 {
   "client_id": "d3590ed6-52b3-4102-aeff-aad2292ab01c",
   "tenant_id": "common",
-  "username": "t.j.nouwens@student.tudelft.nl"
+  "username": "<uni-email>"
 }
 ```
 
