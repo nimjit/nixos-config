@@ -160,10 +160,13 @@ def load_channels():
 # ── RSS fetching ───────────────────────────────────────────────────────────────
 
 def fetch_rss(channel_id):
-    # UULF prefix = long-form only feed; YouTube strips Shorts server-side
-    feed_id = "UULF" + channel_id[2:] if channel_id.startswith("UC") else channel_id
+    # UULF playlist = long-form only; must use playlist_id= not channel_id=
+    if channel_id.startswith("UC"):
+        url = "https://www.youtube.com/feeds/videos.xml?playlist_id=UULF" + channel_id[2:]
+    else:
+        url = RSS_BASE + channel_id
     try:
-        with urllib.request.urlopen(RSS_BASE + feed_id, timeout=8) as r:
+        with urllib.request.urlopen(url, timeout=8) as r:
             return r.read()
     except Exception:
         return None
