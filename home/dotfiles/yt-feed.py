@@ -74,15 +74,14 @@ def term_size():
     sz = shutil.get_terminal_size()
     return sz.lines, sz.columns
 
-def show_thumb(vid_id, thumb_url, row):
-    path = download_thumb(vid_id, thumb_url)
-    if not path:
-        return
-    subprocess.run(
+def _icat_popen(path, row):
+    """Launch a non-blocking icat subprocess for one thumbnail."""
+    return subprocess.Popen(
         ["kitty", "+kitten", "icat", "--silent",
          "--place", f"{THUMB_W}x{THUMB_H}@{LEFT_MARGIN}x{row}",
-         "--transfer-mode=stream", path],
-        stdout=sys.stdout
+         "--transfer-mode=file", path],
+        stdout=sys.stdout,
+        stderr=subprocess.DEVNULL,
     )
 
 # ── Duration cache (still used for detail view metadata) ──────────────────────
@@ -260,19 +259,31 @@ def _statusbar(cursor, total, cols, search_str):
     sys.stdout.write(f"{DIM}{bar[:cols-1]}{RESET}{filt}")
 
 def render_list_full(videos, cursor, offset, rows, cols, dur_cache, search_str):
-    """Full redraw: clear screen (ESC[2J also clears kitty images), re-place everything."""
+    """Full redraw: clear, launch all icat subprocesses in parallel, then draw text."""
     sys.stdout.write(f"{ESC}[2J{ESC}[H")
-    sys.stdout.flush()
+    sys.stdout.flush()  # must flush before subprocesses write to same fd
+
     visible = max(1, (rows - 2) // ENTRY_H)
+    slots = []
+    procs = []
+
     for i in range(visible):
         idx = offset + i
         if idx >= len(videos):
             break
-        row = i * ENTRY_H + 1
-        show_thumb(videos[idx]["id"], videos[idx]["thumb"], row)
-        _entry_text(videos[idx], row, idx == cursor, cols, dur_cache)
+        path = download_thumb(videos[idx]["id"], videos[idx]["thumb"])
+        row  = i * ENTRY_H + 1
+        slots.append((i, idx, row))
+        if path:
+            procs.append(_icat_popen(path, row))
         if idx + 1 < len(videos):
             preload_thumb(videos[idx + 1])
+
+    for p in procs:
+        p.wait()
+
+    for i, idx, row in slots:
+        _entry_text(videos[idx], row, idx == cursor, cols, dur_cache)
     move(rows, 1)
     _statusbar(cursor, len(videos), cols, search_str)
     sys.stdout.flush()
@@ -306,7 +317,9 @@ def render_detail(video, rows, cols, dur_cache):
     sys.stdout.write(f"{ESC}[2J{ESC}[H")
     sys.stdout.flush()
 
-    show_thumb(video["id"], video["thumb"], 1)
+    path = download_thumb(video["id"], video["thumb"])
+    if path:
+        _icat_popen(path, 1).wait()
 
     dur = fmt_duration(dur_cache.get(video["id"]))
     dur_str = f"  {dur}" if dur else ""
