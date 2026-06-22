@@ -3,13 +3,14 @@
 yt-feed — terminal YouTube feed viewer
 Reads channel IDs from ~/.config/yt-feed/channels.txt
   Format: CHANNEL_ID    # optional comment / blank lines for grouping
-Fetches RSS, renders with kitty icat thumbnails, j/k nav, Enter → mpv
+Fetches RSS (UULF prefix = long-form only), renders with kitty native image protocol.
 """
 
 import os
 import sys
 import json
 import time
+import base64
 import select
 import signal
 import shutil
@@ -29,17 +30,14 @@ DUR_CACHE_FILE = os.path.join(CACHE_DIR, "durations.json")
 RSS_CACHE_FILE = os.path.join(CACHE_DIR, "rss_cache.json")
 MPV_LOG        = os.path.join(CACHE_DIR, "mpv-last.log")
 RSS_BASE       = "https://www.youtube.com/feeds/videos.xml?channel_id="
-RSS_TTL        = 2 * 3600   # seconds before re-fetching a channel's feed
+RSS_TTL        = 2 * 3600
 MAX_VIDEOS     = 50
-LONG_MIN_SECS  = 5 * 60   # ≥ 5 min = "long"
 
 # Layout
-LEFT_MARGIN = 20   # columns from left edge before thumbnail starts
+LEFT_MARGIN = 20   # 1-indexed terminal column where thumbnail starts
 THUMB_W     = 38   # thumbnail width in terminal columns
-# THUMB_H: mqdefault.jpg is 320×180 (16:9). Typical kitty cell ≈ 10×20 px.
-# height_px = THUMB_W * 10 * (9/16) ≈ 213 px → 213/20 ≈ 10.7 rows → 11
-THUMB_H     = 11
-TEXT_COL    = LEFT_MARGIN + THUMB_W + 3   # text starts after thumbnail + gap
+THUMB_H     = 11   # thumbnail height in terminal rows (≈ 16:9 at 10×20 px/cell)
+TEXT_COL    = LEFT_MARGIN + THUMB_W + 3
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -51,11 +49,21 @@ BOLD  = f"{ESC}[1m"
 DIM   = f"{ESC}[2m"
 REV   = f"{ESC}[7m"
 
-def fg(r, g, b):    return f"{ESC}[38;2;{r};{g};{b}m"
-def move(row, col): print(f"{ESC}[{row};{col}H", end="", flush=True)
-def clear():        print(f"{ESC}[2J{ESC}[H", end="", flush=True)
-def hide_cursor():  print(f"{ESC}[?25l", end="", flush=True)
-def show_cursor():  print(f"{ESC}[?25h", end="", flush=True)
+def fg(r, g, b): return f"{ESC}[38;2;{r};{g};{b}m"
+
+def move(row, col):
+    sys.stdout.write(f"{ESC}[{row};{col}H")
+
+def erase_line():
+    sys.stdout.write(f"{ESC}[K")
+
+def hide_cursor():
+    sys.stdout.write(f"{ESC}[?25l")
+    sys.stdout.flush()
+
+def show_cursor():
+    sys.stdout.write(f"{ESC}[?25h")
+    sys.stdout.flush()
 
 ACCENT  = fg(204, 153, 102)
 MUTED   = fg(140, 120, 110)
@@ -67,7 +75,50 @@ def term_size():
     sz = shutil.get_terminal_size()
     return sz.lines, sz.columns
 
-# ── Duration cache ─────────────────────────────────────────────────────────────
+# ── Kitty native image protocol ────────────────────────────────────────────────
+#
+# Two-phase rendering: transmit once (image data → kitty GPU cache), then
+# place/delete using just ~50-byte escape sequences — no subprocess, no re-upload.
+#
+# t=f: kitty reads file from disk directly (fastest path; handles JPEG natively).
+# q=2: suppress all terminal responses (fire-and-forget).
+# d=A: delete all visible image placements; stored data stays in kitty by ID.
+
+_img_ids    = {}    # vid_id → kitty image ID (stable for process lifetime)
+_uploaded   = set() # image IDs whose data is in kitty's store
+_id_seq     = [0]
+
+def _img_id(vid_id):
+    if vid_id not in _img_ids:
+        _id_seq[0] += 1
+        _img_ids[vid_id] = _id_seq[0]
+    return _img_ids[vid_id]
+
+def _apc(payload):
+    sys.stdout.write(f"{ESC}_{payload}{ESC}\\")
+
+def icat_transmit(img_id, path):
+    encoded = base64.standard_b64encode(path.encode()).decode()
+    _apc(f"Ga=T,t=f,i={img_id},q=2;{encoded}")
+    _uploaded.add(img_id)
+
+def icat_place(img_id, row, col, w_cols, h_rows):
+    move(row, col)
+    _apc(f"Ga=p,i={img_id},c={w_cols},r={h_rows},q=2;")
+
+def icat_delete_all():
+    _apc("Ga=d,d=A,q=2;")
+
+def show_thumb(vid_id, thumb_url, row):
+    path = download_thumb(vid_id, thumb_url)
+    if not path:
+        return
+    iid = _img_id(vid_id)
+    if iid not in _uploaded:
+        icat_transmit(iid, path)
+    icat_place(iid, row, LEFT_MARGIN, THUMB_W, THUMB_H)
+
+# ── Duration cache (still used for detail view metadata) ──────────────────────
 
 def load_dur_cache():
     try:
@@ -83,53 +134,12 @@ def save_dur_cache(cache):
     except Exception:
         pass
 
-# ── RSS cache ──────────────────────────────────────────────────────────────────
-
-def load_rss_cache():
-    try:
-        with open(RSS_CACHE_FILE) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-def save_rss_cache(cache):
-    try:
-        with open(RSS_CACHE_FILE, "w") as f:
-            json.dump(cache, f)
-    except Exception:
-        pass
-
-def fetch_duration(vid_id):
-    try:
-        r = subprocess.run(
-            ["yt-dlp", "--no-playlist", "--print", "duration",
-             f"https://www.youtube.com/watch?v={vid_id}"],
-            capture_output=True, text=True, timeout=20
-        )
-        return int(r.stdout.strip()) if r.returncode == 0 else None
-    except Exception:
-        return None
-
 def fmt_duration(secs):
     if secs is None:
-        return "?:??"
-    h, r = divmod(secs, 3600)
+        return ""
+    h, r = divmod(int(secs), 3600)
     m, s = divmod(r, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
-
-def enrich_durations(videos, cache):
-    """Background thread: fetch durations for uncached videos, save cache."""
-    missing = [v["id"] for v in videos if v["id"] not in cache]
-    if not missing:
-        return
-    with ThreadPoolExecutor(max_workers=6) as ex:
-        futures = {ex.submit(fetch_duration, vid_id): vid_id for vid_id in missing}
-        for fut in as_completed(futures):
-            vid_id = futures[fut]
-            result = fut.result()
-            if result is not None:
-                cache[vid_id] = result
-    save_dur_cache(cache)
 
 # ── Channel loading ────────────────────────────────────────────────────────────
 
@@ -150,8 +160,10 @@ def load_channels():
 # ── RSS fetching ───────────────────────────────────────────────────────────────
 
 def fetch_rss(channel_id):
+    # UULF prefix = long-form only feed; YouTube strips Shorts server-side
+    feed_id = "UULF" + channel_id[2:] if channel_id.startswith("UC") else channel_id
     try:
-        with urllib.request.urlopen(RSS_BASE + channel_id, timeout=8) as r:
+        with urllib.request.urlopen(RSS_BASE + feed_id, timeout=8) as r:
             return r.read()
     except Exception:
         return None
@@ -176,13 +188,26 @@ def parse_feed(xml_bytes):
             "title":   title,
             "channel": channel_name,
             "url":     f"https://www.youtube.com/watch?v={vid_id}",
-            # mqdefault = 320×180, guaranteed 16:9 (hqdefault from RSS is 4:3)
             "thumb":   f"https://i.ytimg.com/vi/{vid_id}/mqdefault.jpg",
             "date":    published[:10] if published else "",
         })
     return entries
 
-def fetch_all(channel_ids):
+def load_rss_cache():
+    try:
+        with open(RSS_CACHE_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def save_rss_cache(cache):
+    try:
+        with open(RSS_CACHE_FILE, "w") as f:
+            json.dump(cache, f)
+    except Exception:
+        pass
+
+def fetch_all(channel_ids, force=False):
     rss_cache = load_rss_cache()
     now       = time.time()
     videos    = []
@@ -190,7 +215,7 @@ def fetch_all(channel_ids):
 
     for cid in channel_ids:
         entry = rss_cache.get(cid)
-        if entry and now - entry["ts"] < RSS_TTL:
+        if not force and entry and now - entry["ts"] < RSS_TTL:
             videos.extend(parse_feed(entry["xml"].encode()))
         else:
             stale.append(cid)
@@ -225,63 +250,72 @@ def download_thumb(vid_id, url):
         return None
 
 def preload_thumb(video):
-    """Fire-and-forget background thumbnail download."""
     threading.Thread(
         target=download_thumb,
         args=(video["id"], video["thumb"]),
         daemon=True
     ).start()
 
-def show_thumb(path, row):
-    if path and os.path.exists(path):
-        subprocess.run(
-            ["kitty", "+kitten", "icat", "--silent",
-             "--place", f"{THUMB_W}x{THUMB_H}@{LEFT_MARGIN}x{row}",
-             "--transfer-mode=stream", path],
-            stdout=sys.stdout
-        )
-
 # ── List view ──────────────────────────────────────────────────────────────────
 
 ENTRY_H = THUMB_H + 1
 
-def render_entry(video, row, selected, cols, dur_cache):
-    show_thumb(download_thumb(video["id"], video["thumb"]), row)
-
+def _entry_text(video, row, selected, cols, dur_cache):
+    """Write the text lines for one entry. Never touches thumbnails."""
+    dur = fmt_duration(dur_cache.get(video["id"]))
     bar = REV if selected else ""
     rst = RESET
-    dur = fmt_duration(dur_cache.get(video["id"]))
 
-    move(row + 1, TEXT_COL)
-    title   = video["title"]
-    max_t   = cols - TEXT_COL - 1
+    title = video["title"]
+    max_t = cols - TEXT_COL - 1
     if len(title) > max_t:
         title = title[:max_t - 1] + "…"
-    print(f"{bar}{BOLD}{HILIGHT}{title}{rst}", end="", flush=True)
+
+    move(row + 1, TEXT_COL)
+    sys.stdout.write(f"{bar}{BOLD}{HILIGHT}{title}{rst}"); erase_line()
 
     move(row + 2, TEXT_COL)
-    print(f"{MUTED}{video['channel']}   {DIM}{video['date']}  {dur}{rst}", end="", flush=True)
+    dur_str = f"  {dur}" if dur else ""
+    sys.stdout.write(f"{MUTED}{video['channel']}   {DIM}{video['date']}{dur_str}{rst}"); erase_line()
 
+    move(row + 3, TEXT_COL); erase_line()
     if selected:
-        move(row + 3, TEXT_COL)
-        print(f"{ACCENT}► Enter: play  o: browser  d: detail  q: quit{rst}", end="", flush=True)
+        sys.stdout.write(f"{ACCENT}► Enter: play  o: browser  d: detail  q: quit{rst}")
 
-def render_list(videos, cursor, offset, rows, cols, dur_cache, long_only):
-    clear()
+def _statusbar(cursor, total, cols, search_str):
+    filt = f"  {ACCENT}/{search_str}{RESET}" if search_str else ""
+    bar  = f" {cursor+1}/{total}  j/k: nav  Enter: play  o: browser  d: detail  /: filter  r: refresh  q: quit"
+    erase_line()
+    sys.stdout.write(f"{DIM}{bar[:cols-1]}{RESET}{filt}")
+
+def render_list_full(videos, cursor, offset, rows, cols, dur_cache, search_str):
+    """Full redraw: delete all images, clear screen, re-place everything."""
+    icat_delete_all()
+    sys.stdout.write(f"{ESC}[2J{ESC}[H")
     visible = max(1, (rows - 2) // ENTRY_H)
     for i in range(visible):
         idx = offset + i
         if idx >= len(videos):
             break
-        render_entry(videos[idx], i * ENTRY_H + 1, idx == cursor, cols, dur_cache)
-        # preload the thumbnail one ahead
+        row = i * ENTRY_H + 1
+        show_thumb(videos[idx]["id"], videos[idx]["thumb"], row)
+        _entry_text(videos[idx], row, idx == cursor, cols, dur_cache)
         if idx + 1 < len(videos):
             preload_thumb(videos[idx + 1])
-
     move(rows, 1)
-    flag = f"  {ACCENT}[long only]{RESET}" if long_only else ""
-    bar  = f" {cursor+1}/{len(videos)}  j/k: nav  Enter: play  o: browser  d: detail  L: long  /: filter  r: refresh  q: quit"
-    print(f"{DIM}{bar[:cols-1]}{RESET}{flag}", end="", flush=True)
+    _statusbar(cursor, len(videos), cols, search_str)
+    sys.stdout.flush()
+
+def render_list_cursor(videos, old_cursor, new_cursor, offset, rows, cols, dur_cache, search_str):
+    """Viewport unchanged: only redraw text at the two affected rows."""
+    visible = max(1, (rows - 2) // ENTRY_H)
+    for cur in (old_cursor, new_cursor):
+        slot = cur - offset
+        if 0 <= slot < visible:
+            _entry_text(videos[cur], slot * ENTRY_H + 1, cur == new_cursor, cols, dur_cache)
+    move(rows, 1)
+    _statusbar(new_cursor, len(videos), cols, search_str)
+    sys.stdout.flush()
 
 # ── Detail view ────────────────────────────────────────────────────────────────
 
@@ -298,31 +332,34 @@ def fetch_detail(url):
     return None
 
 def render_detail(video, rows, cols, dur_cache):
-    clear()
-    show_thumb(download_thumb(video["id"], video["thumb"]), 1)
+    icat_delete_all()
+    sys.stdout.write(f"{ESC}[2J{ESC}[H")
+    sys.stdout.flush()
+
+    show_thumb(video["id"], video["thumb"], 1)
 
     dur = fmt_duration(dur_cache.get(video["id"]))
+    dur_str = f"  {dur}" if dur else ""
+
     move(1, TEXT_COL)
     title = video["title"]
-    max_t = cols - TEXT_COL - 1
-    if len(title) > max_t:
-        title = title[:max_t - 1] + "…"
-    print(f"{BOLD}{HILIGHT}{title}{RESET}", end="", flush=True)
+    if len(title) > cols - TEXT_COL - 1:
+        title = title[:cols - TEXT_COL - 2] + "…"
+    sys.stdout.write(f"{BOLD}{HILIGHT}{title}{RESET}")
 
     move(2, TEXT_COL)
-    print(f"{MUTED}{video['channel']}   {video['date']}  {dur}{RESET}", end="", flush=True)
+    sys.stdout.write(f"{MUTED}{video['channel']}   {video['date']}{dur_str}{RESET}")
 
     move(3, TEXT_COL)
-    print(f"{ACCENT}{video['url']}{RESET}", end="", flush=True)
+    sys.stdout.write(f"{ACCENT}{video['url']}{RESET}")
 
     move(5, TEXT_COL)
-    print(f"{DIM}Loading metadata…{RESET}", end="", flush=True)
+    sys.stdout.write(f"{DIM}Loading metadata…{RESET}")
     sys.stdout.flush()
 
     data = fetch_detail(video["url"])
 
-    move(5, TEXT_COL)
-    print(" " * (cols - TEXT_COL), end="", flush=True)
+    move(5, TEXT_COL); erase_line()
 
     row = 5
     if data:
@@ -333,18 +370,19 @@ def render_detail(video, rows, cols, dur_cache):
         desc = (data.get("description") or "")[:400]
         for i, line in enumerate(desc.splitlines()[:6]):
             move(row + i, TEXT_COL)
-            print(f"{MUTED}{line[:cols - TEXT_COL - 1]}{RESET}", end="", flush=True)
+            sys.stdout.write(f"{MUTED}{line[:cols - TEXT_COL - 1]}{RESET}")
         row += 8
 
         for ch in (data.get("chapters") or [])[:8]:
             t  = int(ch.get("start_time", 0))
             ts = f"{t//60}:{t%60:02d}"
             move(row, TEXT_COL)
-            print(f"{DIM}{ts}  {MUTED}{ch['title'][:cols-TEXT_COL-8]}{RESET}", end="", flush=True)
+            sys.stdout.write(f"{DIM}{ts}  {MUTED}{ch['title'][:cols - TEXT_COL - 8]}{RESET}")
             row += 1
 
     move(rows, 1)
-    print(f"{DIM} Enter: play  b: back  q: quit{RESET}", end="", flush=True)
+    sys.stdout.write(f"{DIM} Enter: play  b: back  q: quit{RESET}")
+    sys.stdout.flush()
 
 # ── Input ──────────────────────────────────────────────────────────────────────
 
@@ -367,9 +405,10 @@ def getch():
 
 def prompt_filter(rows, cols):
     move(rows, 1)
-    print(f"{RESET}{' '*(cols-1)}", end="", flush=True)
+    sys.stdout.write(f"{RESET}{' ' * (cols - 1)}")
     move(rows, 1)
-    print(f"{ACCENT}/ {RESET}", end="", flush=True)
+    sys.stdout.write(f"{ACCENT}/ {RESET}")
+    sys.stdout.flush()
     show_cursor()
     query = ""
     fd  = sys.stdin.fileno()
@@ -388,7 +427,8 @@ def prompt_filter(rows, cols):
             else:
                 query += ch
             move(rows, 3)
-            print(f"{HILIGHT}{query}{' '*(cols-4-len(query))}{RESET}", end="", flush=True)
+            sys.stdout.write(f"{HILIGHT}{query}{' ' * (cols - 4 - len(query))}{RESET}")
+            sys.stdout.flush()
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
     hide_cursor()
@@ -407,51 +447,50 @@ def play(url):
 
 # ── Main loop ──────────────────────────────────────────────────────────────────
 
-def apply_filters(source, search_str, long_only, dur_cache):
-    out = source
-    if search_str:
-        out = [v for v in out
-               if search_str in v["title"].lower() or search_str in v["channel"].lower()]
-    if long_only:
-        # uncached videos pass through (duration unknown); press r after bg fetch
-        out = [v for v in out
-               if dur_cache.get(v["id"], LONG_MIN_SECS) >= LONG_MIN_SECS]
-    return out
+def apply_filters(source, search_str):
+    if not search_str:
+        return source
+    q = search_str.lower()
+    return [v for v in source
+            if q in v["title"].lower() or q in v["channel"].lower()]
 
 def run():
-    signal.signal(signal.SIGINT, lambda *_: (show_cursor(), sys.exit(0)))
+    def _exit(*_):
+        icat_delete_all()
+        sys.stdout.write(f"{ESC}[2J{ESC}[H")
+        show_cursor()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _exit)
     hide_cursor()
 
     channels = load_channels()
     if not channels:
         show_cursor()
-        print(f"No channels found.\nAdd YouTube channel IDs to:\n  {CHANNELS_FILE}\nFormat: CHANNEL_ID    # Channel name")
+        print(f"No channels found.\nAdd YouTube channel IDs to:\n  {CHANNELS_FILE}")
         return
 
     rows, cols = term_size()
-    clear()
+    sys.stdout.write(f"{ESC}[2J{ESC}[H")
     move(rows // 2, cols // 2 - 12)
-    print(f"{DIM}Fetching feeds…{RESET}", end="", flush=True)
+    sys.stdout.write(f"{DIM}Fetching feeds…{RESET}")
+    sys.stdout.flush()
 
     all_videos = fetch_all(channels)
     dur_cache  = load_dur_cache()
 
     if not all_videos:
-        clear()
+        sys.stdout.write(f"{ESC}[2J{ESC}[H")
         show_cursor()
         print("No videos found. Check channel IDs in channels.txt.")
         return
 
-    threading.Thread(target=enrich_durations, args=(all_videos, dur_cache), daemon=True).start()
-
-    search_str = ""
-    long_only  = True   # default: show long-form videos only
-
-    filtered       = apply_filters(all_videos, search_str, long_only, dur_cache)
+    search_str     = ""
+    filtered       = apply_filters(all_videos, search_str)
     cursor, offset = 0, 0
     mode           = "list"
 
-    render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+    render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str)
 
     while True:
         rows, cols = term_size()
@@ -461,17 +500,25 @@ def run():
         if mode == "list":
             if key in ("j", "\x1b[B"):
                 if cursor < len(filtered) - 1:
+                    old_cursor, old_offset = cursor, offset
                     cursor += 1
                     if cursor >= offset + visible:
                         offset += 1
-                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+                    if offset != old_offset:
+                        render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str)
+                    else:
+                        render_list_cursor(filtered, old_cursor, cursor, offset, rows, cols, dur_cache, search_str)
 
             elif key in ("k", "\x1b[A"):
                 if cursor > 0:
+                    old_cursor, old_offset = cursor, offset
                     cursor -= 1
                     if cursor < offset:
                         offset -= 1
-                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+                    if offset != old_offset:
+                        render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str)
+                    else:
+                        render_list_cursor(filtered, old_cursor, cursor, offset, rows, cols, dur_cache, search_str)
 
             elif key in ("\r", "\n"):
                 if filtered:
@@ -482,17 +529,11 @@ def run():
                     mode = "detail"
                     render_detail(filtered[cursor], rows, cols, dur_cache)
 
-            elif key == "L":
-                long_only      = not long_only
-                filtered       = apply_filters(all_videos, search_str, long_only, dur_cache)
-                cursor, offset = 0, 0
-                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
-
             elif key == "/":
                 search_str     = prompt_filter(rows, cols)
-                filtered       = apply_filters(all_videos, search_str, long_only, dur_cache)
+                filtered       = apply_filters(all_videos, search_str)
                 cursor, offset = 0, 0
-                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+                render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str)
 
             elif key == "o":
                 if filtered:
@@ -504,8 +545,12 @@ def run():
                     )
 
             elif key == "r":
-                filtered = apply_filters(all_videos, search_str, long_only, dur_cache)
-                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+                move(rows, 1)
+                sys.stdout.write(f"{DIM} Refreshing…{RESET}"); sys.stdout.flush()
+                all_videos  = fetch_all(channels, force=True)
+                filtered    = apply_filters(all_videos, search_str)
+                cursor, offset = 0, 0
+                render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str)
 
             elif key in ("q", "\x03"):
                 break
@@ -516,11 +561,12 @@ def run():
                     play(filtered[cursor]["url"])
             elif key == "b":
                 mode = "list"
-                render_list(filtered, cursor, offset, rows, cols, dur_cache, long_only)
+                render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str)
             elif key in ("q", "\x03"):
                 break
 
-    clear()
+    icat_delete_all()
+    sys.stdout.write(f"{ESC}[2J{ESC}[H")
     show_cursor()
 
 if __name__ == "__main__":
