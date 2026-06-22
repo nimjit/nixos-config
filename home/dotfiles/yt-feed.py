@@ -77,16 +77,15 @@ def term_size():
 
 # ── Kitty native image protocol ────────────────────────────────────────────────
 #
-# Two-phase rendering: transmit once (image data → kitty GPU cache), then
-# place/delete using just ~50-byte escape sequences — no subprocess, no re-upload.
+# a=T,t=f: transmit from file path (kitty reads JPEG directly) + display at
+# current cursor position in one shot. q=2 suppresses terminal responses.
+# a=d,d=A: delete all visible placements (used before full redraws).
 #
-# t=f: kitty reads file from disk directly (fastest path; handles JPEG natively).
-# q=2: suppress all terminal responses (fire-and-forget).
-# d=A: delete all visible image placements; stored data stays in kitty by ID.
+# a=p (place stored image) is kitty's animation API, not a general re-display
+# command — don't use it for static images.
 
-_img_ids    = {}    # vid_id → kitty image ID (stable for process lifetime)
-_uploaded   = set() # image IDs whose data is in kitty's store
-_id_seq     = [0]
+_img_ids = {}
+_id_seq  = [0]
 
 def _img_id(vid_id):
     if vid_id not in _img_ids:
@@ -97,15 +96,6 @@ def _img_id(vid_id):
 def _apc(payload):
     sys.stdout.write(f"{ESC}_{payload}{ESC}\\")
 
-def icat_transmit(img_id, path):
-    encoded = base64.standard_b64encode(path.encode()).decode()
-    _apc(f"Ga=T,t=f,i={img_id},q=2;{encoded}")
-    _uploaded.add(img_id)
-
-def icat_place(img_id, row, col, w_cols, h_rows):
-    move(row, col)
-    _apc(f"Ga=p,i={img_id},c={w_cols},r={h_rows},q=2;")
-
 def icat_delete_all():
     _apc("Ga=d,d=A,q=2;")
 
@@ -113,10 +103,9 @@ def show_thumb(vid_id, thumb_url, row):
     path = download_thumb(vid_id, thumb_url)
     if not path:
         return
-    iid = _img_id(vid_id)
-    if iid not in _uploaded:
-        icat_transmit(iid, path)
-    icat_place(iid, row, LEFT_MARGIN, THUMB_W, THUMB_H)
+    encoded = base64.standard_b64encode(path.encode()).decode()
+    move(row, LEFT_MARGIN)
+    _apc(f"Ga=T,t=f,i={_img_id(vid_id)},c={THUMB_W},r={THUMB_H},q=2;{encoded}")
 
 # ── Duration cache (still used for detail view metadata) ──────────────────────
 
@@ -180,7 +169,8 @@ def parse_feed(xml_bytes):
         root = ET.fromstring(xml_bytes)
     except Exception:
         return []
-    channel_name = root.findtext("atom:title", default="?", namespaces=NS)
+    # atom:title is "Videos" for UULF playlist feeds; author/name has the real name
+    channel_name = root.findtext("atom:author/atom:name", default="?", namespaces=NS)
     entries = []
     for entry in root.findall("atom:entry", NS)[:MAX_VIDEOS]:
         vid_id    = entry.findtext("yt:videoId", default="", namespaces=NS)
