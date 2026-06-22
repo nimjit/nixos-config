@@ -10,7 +10,6 @@ import os
 import sys
 import json
 import time
-import base64
 import select
 import signal
 import shutil
@@ -75,37 +74,16 @@ def term_size():
     sz = shutil.get_terminal_size()
     return sz.lines, sz.columns
 
-# ── Kitty native image protocol ────────────────────────────────────────────────
-#
-# a=T,t=f: transmit from file path (kitty reads JPEG directly) + display at
-# current cursor position in one shot. q=2 suppresses terminal responses.
-# a=d,d=A: delete all visible placements (used before full redraws).
-#
-# a=p (place stored image) is kitty's animation API, not a general re-display
-# command — don't use it for static images.
-
-_img_ids = {}
-_id_seq  = [0]
-
-def _img_id(vid_id):
-    if vid_id not in _img_ids:
-        _id_seq[0] += 1
-        _img_ids[vid_id] = _id_seq[0]
-    return _img_ids[vid_id]
-
-def _apc(payload):
-    sys.stdout.write(f"{ESC}_{payload}{ESC}\\")
-
-def icat_delete_all():
-    _apc("Ga=d,d=A,q=2;")
-
 def show_thumb(vid_id, thumb_url, row):
     path = download_thumb(vid_id, thumb_url)
     if not path:
         return
-    encoded = base64.standard_b64encode(path.encode()).decode()
-    move(row, LEFT_MARGIN)
-    _apc(f"Ga=T,t=f,i={_img_id(vid_id)},c={THUMB_W},r={THUMB_H},q=2;{encoded}")
+    subprocess.run(
+        ["kitty", "+kitten", "icat", "--silent",
+         "--place", f"{THUMB_W}x{THUMB_H}@{LEFT_MARGIN}x{row}",
+         "--transfer-mode=stream", path],
+        stdout=sys.stdout
+    )
 
 # ── Duration cache (still used for detail view metadata) ──────────────────────
 
@@ -282,9 +260,9 @@ def _statusbar(cursor, total, cols, search_str):
     sys.stdout.write(f"{DIM}{bar[:cols-1]}{RESET}{filt}")
 
 def render_list_full(videos, cursor, offset, rows, cols, dur_cache, search_str):
-    """Full redraw: delete all images, clear screen, re-place everything."""
-    icat_delete_all()
+    """Full redraw: clear screen (ESC[2J also clears kitty images), re-place everything."""
     sys.stdout.write(f"{ESC}[2J{ESC}[H")
+    sys.stdout.flush()
     visible = max(1, (rows - 2) // ENTRY_H)
     for i in range(visible):
         idx = offset + i
@@ -325,7 +303,6 @@ def fetch_detail(url):
     return None
 
 def render_detail(video, rows, cols, dur_cache):
-    icat_delete_all()
     sys.stdout.write(f"{ESC}[2J{ESC}[H")
     sys.stdout.flush()
 
@@ -448,13 +425,11 @@ def apply_filters(source, search_str):
             if q in v["title"].lower() or q in v["channel"].lower()]
 
 def run():
-    def _exit(*_):
-        icat_delete_all()
-        sys.stdout.write(f"{ESC}[2J{ESC}[H")
-        show_cursor()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, _exit)
+    signal.signal(signal.SIGINT, lambda *_: (
+        sys.stdout.write(f"{ESC}[2J{ESC}[H"),
+        show_cursor(),
+        sys.exit(0),
+    ))
     hide_cursor()
 
     channels = load_channels()
@@ -558,7 +533,6 @@ def run():
             elif key in ("q", "\x03"):
                 break
 
-    icat_delete_all()
     sys.stdout.write(f"{ESC}[2J{ESC}[H")
     show_cursor()
 
