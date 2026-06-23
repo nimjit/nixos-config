@@ -212,7 +212,8 @@ is lost. Each .md file explains what the feature was and how to reactivate it.
 | File | Topic |
 |------|-------|
 | `emacs.md` | Fresh start: evil → markdown-mode → spell check |
-| `email.md` | aerc to replace Thunderbird; OAuth2 for university mail |
+| `email.md` | neomutt + Gmail; future: nouwens.org account, colours, notifications |
+| `rss.md` | newsboat for newsletters/blogs; migration from Gmail subscriptions |
 | `cli-migration.md` | w3m `wb` function, KDE lpass-rofi shortcut |
 
 ### Larger projects in progress
