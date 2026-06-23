@@ -155,3 +155,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 148 | 2026-06-23  22:51 | — | email: fix secrets.nix format, remove TUDelft/davmail |
 | 149 | 2026-06-23  23:03 | 70f49f5 | email: neomutt gmail setup, remove TUDelft account and davmail |
 | 150 | 2026-06-23  23:21 | f331eae | email: move secrets outside git, fix mbsync [Gmail] glob |
+| 151 | 2026-06-23  23:39 | 82be46f | email: fix Gmail folder names (Dutch) and lpass session timeout |
