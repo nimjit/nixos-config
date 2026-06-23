@@ -65,6 +65,8 @@
     sessionVariables = {
       # lpass --clip uses wl-copy on Wayland
       LPASS_CLIPBOARD_COMMAND = "wl-copy";
+      # Keep lpass agent alive for the full login session (needed for mbsync timer)
+      LPASS_AGENT_TIMEOUT = "0";
       # bat as man pager — colored, searchable man pages
       MANPAGER = "sh -c 'col -bx | bat -l man -p'";
       # matplotlib renders plots inline in the terminal (no Qt window; use plt.savefig() to save)

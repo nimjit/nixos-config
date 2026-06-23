@@ -29,11 +29,12 @@ in {
       realName = "Thijmen Nouwens";
       primary  = true;
 
+      # Gmail IMAP uses Dutch folder names (matches the account's UI language)
       folders = {
         inbox  = "INBOX";
-        sent   = "[Gmail]/Sent Mail";
-        drafts = "[Gmail]/Drafts";
-        trash  = "[Gmail]/Trash";
+        sent   = "[Gmail]/Verzonden berichten";
+        drafts = "[Gmail]/Concepten";
+        trash  = "[Gmail]/Prullenbak";
       };
 
       imap = {
@@ -55,17 +56,16 @@ in {
         enable  = true;
         create  = "maildir";
         expunge = "both";
-        # Sync inbox + Gmail special folders only (skip All Mail — too large)
-        # [[]Gmail] escapes the literal [ — plain [Gmail] is parsed as a glob
-        # character class (matching G/m/a/i/l) and never matches the folder.
-        patterns = [ "INBOX" "[[]Gmail]/Sent Mail" "[[]Gmail]/Drafts" "[[]Gmail]/Trash" ];
+        # Sync inbox + Gmail special folders only (skip All Mail — too large).
+        # Gmail uses the account's UI language for IMAP folder names (Dutch here).
+        patterns = [ "INBOX" "[Gmail]/Verzonden berichten" "[Gmail]/Concepten" "[Gmail]/Prullenbak" ];
       };
 
       msmtp.enable = true;
 
       neomutt = {
         enable         = true;
-        extraMailboxes = [ "[Gmail]/Sent Mail" "[Gmail]/Drafts" "[Gmail]/Trash" ];
+        extraMailboxes = [ "[Gmail]/Verzonden berichten" "[Gmail]/Concepten" "[Gmail]/Prullenbak" ];
       };
     };
   };
