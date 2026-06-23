@@ -80,7 +80,7 @@
 
       # rebuild: switch + save git hash for nix status + append to generations.md
       rebuild() {
-        nh os switch /etc/nixos -H desktop || return 1
+        nh os switch /etc/nixos -H desktop -- --impure || return 1
         git -C /etc/nixos rev-parse HEAD > ~/.config/nixos-last-build-hash
         local gen=$(nixos-rebuild list-generations 2>/dev/null | awk '/True/{print $1}')
         local dt=$(date "+%Y-%m-%d  %H:%M")

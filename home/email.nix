@@ -1,7 +1,7 @@
 { config, ... }:
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Before rebuilding, create home/secrets.nix (gitignored) with your addresses:
+# Before rebuilding, create ~/.config/nixos-secrets.nix with your addresses:
 #
 #   {
 #     gmailAddress = "you@gmail.com";    # ← FILL IN
@@ -9,10 +9,12 @@
 #   }
 #
 # Then follow the one-time setup steps in plans/Active/email.md.
+# Rebuild must use --impure (already set in the rebuild alias) because this
+# file lives outside the git repo.
 # ─────────────────────────────────────────────────────────────────────────────
 
 let
-  s       = import ./secrets.nix;
+  s       = import /home/thijmen/.config/nixos-secrets.nix;
   maildir = "${config.home.homeDirectory}/Mail";
 in {
 
@@ -54,7 +56,9 @@ in {
         create  = "maildir";
         expunge = "both";
         # Sync inbox + Gmail special folders only (skip All Mail — too large)
-        patterns = [ "INBOX" "[Gmail]/Sent Mail" "[Gmail]/Drafts" "[Gmail]/Trash" ];
+        # [[]Gmail] escapes the literal [ — plain [Gmail] is parsed as a glob
+        # character class (matching G/m/a/i/l) and never matches the folder.
+        patterns = [ "INBOX" "[[]Gmail]/Sent Mail" "[[]Gmail]/Drafts" "[[]Gmail]/Trash" ];
       };
 
       msmtp.enable = true;

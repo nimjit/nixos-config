@@ -3,7 +3,6 @@ secrets/*.age
 secrets/*.key
 *.secret
 .env
-home/secrets.nix
 
 # Wallpapers — large files; store separately or use git-lfs
 # Comment out if you want to commit your wallpapers
