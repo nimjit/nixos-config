@@ -1,200 +1,244 @@
-# Email — neomutt setup plan
+# Email — neomutt
 
 ## Goal
 
-Replace Thunderbird with neomutt. Two accounts:
+Terminal email for Gmail (working) and `thijmen@nouwens.org` (planned).
+TU Delft uses browser.
 
-| Account | Provider | Auth |
-|---------|----------|------|
-| Gmail | Gmail | App password via LastPass |
-| `@student.tudelft.nl` | Microsoft 365 | OAuth2 via davmail |
+| Account | Provider | Auth | Status |
+|---------|----------|------|--------|
+| Gmail | Gmail IMAP | App password via lpass | ✓ working |
+| `thijmen@nouwens.org` | Self-hosted (dad's server) | lpass | planned |
 
 ---
 
 ## Architecture
 
 ```
-IMAP fetch       Send         OAuth2 bridge
-─────────────    ──────────   ──────────────────
-mbsync ──────────────────────── davmail (MS365 only)
-  │              msmtp               │
-  ▼                                  │
-~/Mail/                        localhost:1143/1025
+mbsync (IMAP → maildir, every 5 min)
+  ↓
+~/Mail/
   Gmail/
-  TUDelft/
-      └── Inbox/
-          Sent/
-          Drafts/
-          Trash/
+    INBOX/
+    [Gmail]/Verzonden berichten/
+    [Gmail]/Concepten/
+    [Gmail]/Prullenbak/
+  Nouwens/          ← future
+
+neomutt reads ~/Mail/
+msmtp sends outgoing mail
+mako shows new-mail notifications
 ```
-
-- **mbsync** — syncs IMAP → local maildir on a systemd timer
-- **msmtp** — sends outgoing mail
-- **davmail** — local proxy for TU Delft; handles Microsoft OAuth2, presents plain
-  IMAP/SMTP on localhost so mbsync doesn't need to deal with OAuth2
-- **neomutt** — reads/writes the local maildir
-
-Gmail connects directly. TU Delft goes through davmail on localhost:1143/1025.
 
 ---
 
-## UI layout
+## Current UI
 
 ```
 ┌──────────────────┬──────────────────────────────────────────────────┐
 │ Gmail            │  # From               Subject              Date  │
-│  Inbox      (12) │  * Alice              Re: meeting          14:03 │
-│  Sent            │    Bob                Project update       13:45 │
-│  Drafts          │    newsletter         Weekly digest        09:00 │
-│  Trash           │                                                  │
-│                  ├──────────────────────────────────────────────────┤
-│ TU Delft         │  From: Alice <alice@example.com>                 │
-│  Inbox       (3) │  To:   Thijmen                                   │
-│  Sent            │  Date: Mon 23 Jun 14:03                          │
-│  Trash           │                                                  │
+│  INBOX      (12) │  * Alice              Re: meeting          14:03 │
+│  Verzonden       │    Bob                Project update       13:45 │
+│  Concepten       │                                                  │
+│  Prullenbak      ├──────────────────────────────────────────────────┤
+│                  │  From: Alice <alice@example.com>                 │
+│                  │  To:   Thijmen                                   │
+│                  │  Date: Mon 23 Jun 14:03                          │
+│                  │                                                  │
 │                  │  Hi Thijmen,                                     │
-│                  │                                                  │
-│                  │  Can we move the meeting to Thursday?            │
-│                  │                                                  │
 │  [?] help        │                                                  │
 └──────────────────┴──────────────────────────────────────────────────┘
 ```
 
-- Left sidebar: folder list per account, unread counts
-- Top right: message index (list)
-- Bottom right: pager (open message), appears when a message is selected
-- `?` opens a personal cheatsheet (same pattern as yt-feed and dashboard)
-
-Sidebar width ~20 cols. Stylix themes neomutt automatically.
-
 ---
 
-## Key bindings (planned)
+## Current key bindings
 
-### Index (message list)
+### Index
 
 | Key | Action |
 |-----|--------|
-| `j` / `k` | Move up/down |
-| `Enter` / `l` | Open message |
-| `r` | Reply |
-| `R` | Reply-all |
-| `m` | Compose new |
-| `d` | Delete (moves to Trash) |
-| `s` | Save / move to folder |
-| `u` | Mark unread |
-| `Tab` | Switch account |
+| `j` / `k` | Up / down |
+| `l` / `Enter` | Open message |
+| `gg` / `G` | First / last |
+| `m` | Compose |
+| `r` / `R` | Reply / reply-all |
+| `d` | Delete |
+| `u` | Toggle read/unread |
+| `v` | View attachments |
+| `gi` | Go to INBOX |
 | `b` | Toggle sidebar |
 | `?` | Key cheatsheet |
 
-### Pager (reading a message)
+### Pager
 
 | Key | Action |
 |-----|--------|
 | `j` / `k` | Scroll |
 | `q` | Back to index |
-| `r` | Reply |
-| `d` | Delete |
-| `v` | View attachments |
+| `r` / `R` | Reply / reply-all |
 
 ### Sidebar
 
 | Key | Action |
 |-----|--------|
-| `J` / `K` | Move between folders |
-| `Enter` | Open folder |
+| `J` / `K` | Next / previous folder |
+| `Ctrl+O` | Open highlighted folder |
 
 ---
 
 ## Secrets
 
-Email addresses are kept out of git in `home/secrets.nix` (gitignored):
+Secrets live at `~/.config/nixos-secrets.nix` (outside the git repo).
+`email.nix` imports it via absolute path; rebuild uses `--impure`.
 
 ```nix
-# home/secrets.nix — create manually on each machine, never commit
 {
-  gmailAddress   = "you@gmail.com";
-  tudelftAddress = "t.nouwens@student.tudelft.nl";
+  gmailAddress  = "you@gmail.com";
+  nouwensAddress = "thijmen@nouwens.org";   # add when ready
 }
 ```
 
-`home/email.nix` imports it:
-
-```nix
-let s = import ./secrets.nix; in {
-  accounts.email.accounts.Gmail.address = s.gmailAddress;
-  ...
-}
-```
-
-Passwords are never in the config — `passwordCommand` calls `lpass` at runtime.
-OAuth2 tokens are stored by davmail outside the repo.
+Passwords via `lpass show --password 'Entry Name'` in `passwordCommand`.
+`LPASS_AGENT_TIMEOUT=0` keeps the agent alive for the full login session.
 
 ---
 
-## Adding an account
-
-Add a block to `home/email.nix` under `accounts.email.accounts`, add the address
-to `home/secrets.nix`, then `rebuild`. mbsync will create the local folders on
-next sync. For Microsoft 365 accounts: point imap/smtp at davmail localhost instead.
+## Adding an account (template)
 
 ```nix
-accounts.email.accounts.WorkClient = {
-  address    = s.workAddress;   # add to secrets.nix
-  realName   = "Thijmen Nouwens";
-  imap.host  = "imap.workclient.com";
-  smtp.host  = "smtp.workclient.com";
-  mbsync     = { enable = true; create = "maildir"; };
-  neomutt    = { enable = true; };
-  passwordCommand = "lpass show --password 'WorkClient email'";
+accounts.email.accounts.Nouwens = {
+  address         = s.nouwensAddress;
+  userName        = s.nouwensAddress;
+  realName        = "Thijmen Nouwens";
+  imap            = { host = "mail.nouwens.org"; port = 993; tls.enable = true; };
+  smtp            = { host = "mail.nouwens.org"; port = 465; tls = { enable = true; useStartTls = false; }; };
+  passwordCommand = "lpass show --password 'Nouwens mail'";
+  mbsync          = { enable = true; create = "maildir"; expunge = "both"; patterns = [ "INBOX" "Sent" "Drafts" "Trash" ]; };
+  msmtp.enable    = true;
+  neomutt         = { enable = true; extraMailboxes = [ "Sent" "Drafts" "Trash" ]; };
 };
 ```
 
----
+Then add a `gn` macro (go to Nouwens INBOX) and a `folder-hook` for the from address.
 
-## Files to create
-
-```
-home/
-  email.nix          # accounts.email + neomutt + mbsync + msmtp config
-```
-
----
-
-## One-time setup (manual, not in nix)
-
-### Gmail app password
-1. myaccount.google.com → Security → App passwords → create "neomutt"
-2. `lpass add 'Gmail App Password neomutt'`
-
----
-
-## Future work
-
-### Additional accounts
-- `thijmen@nouwens.org` — self-hosted mail server (run by dad); goal is to move
-  more things here from Gmail over time. Add as a plain IMAP account (no OAuth2,
-  no davmail needed). Credentials via LastPass.
-
-### Email organisation
-- Filter and route incoming mail more deliberately rather than everything landing
-  in one inbox. Consider neomutt hooks or server-side filters once accounts are stable.
-
-### lpass-rofi (`Alt+P`) display fix
-- Each entry currently shows a hash prefix before the name (LastPass entry ID).
-  Fix the display format in `home/dotfiles/lpass-rofi.sh` to strip the ID.
+> **Note:** Gmail IMAP uses the account's UI language for folder names.
+> Dutch: Verzonden berichten, Concepten, Prullenbak.
+> Check with `mbsync -c /tmp/test.conf -l AccountName` using `Patterns *`.
 
 ---
 
 ## Status
 
-- [x] Create `home/secrets.nix` with email addresses (manual, not in git)
-- [x] Create `home/email.nix` — accounts, mbsync, msmtp, neomutt, cheatsheet
-- [x] Wire into `home/default.nix`
-- [x] Gmail app password stored in LastPass
-- [x] Rebuild successful — neomutt opens, Gmail INBOX visible
-- [ ] Investigate `[Gmail]/Sent Mail` etc. not syncing (mbsync only syncs INBOX so far)
-- [ ] Remove Thunderbird from `modules/common.nix` once confirmed working
+- [x] Gmail account: mbsync + msmtp + neomutt sidebar
+- [x] Secrets outside git (`~/.config/nixos-secrets.nix`, `--impure` rebuild)
+- [x] Dutch folder names fixed
+- [x] lpass session kept alive (`LPASS_AGENT_TIMEOUT=0`)
+- [x] lpass-rofi shows clean entry names (Alt+P)
+- [ ] Remove Thunderbird from `modules/common.nix` once comfortable
+- [ ] Add `thijmen@nouwens.org` account
 
-> **Note:** TU Delft (@student.tudelft.nl) was attempted via davmail (MS365 OAuth2 proxy)
-> but dropped — OAuth2 browser flow and IMAP auth issues made it unreliable. Use browser for uni mail.
+---
+
+## Future work
+
+### 1. Movement improvements
+
+`Ctrl+O` to open a sidebar folder is awkward — requires leaving the keyboard home row.
+Options:
+- Remap to `o` or `Enter` in the sidebar map (not index/pager, where those keys are already used)
+- Add `H` / `L` to jump left into sidebar / open highlighted folder
+- Consider: `\n` (Enter in sidebar context) or a dedicated `<space>` to open
+
+Also worth adding:
+- `s` → save/move message to folder (currently unbound)
+- `<Tab>` → jump between accounts (macro: `<change-folder>~/Mail/Gmail/INBOX<enter>` vs `~/Mail/Nouwens/INBOX`)
+
+### 2. Colours
+
+Stylix only sets foreground/background; neomutt has a rich colour system.
+Apply per-element colours matching the Ukiyo palette (same approach as khal's `[palette]` section):
+
+```
+color index        yellow  default  ~N       # unread
+color index        red     default  ~D       # deleted
+color index        green   default  ~T       # tagged
+color header       cyan    default  "^From:"
+color header       cyan    default  "^Subject:"
+color quoted       blue    default  "^>"
+color signature    brightblack default ""
+color attachment   magenta default  ""
+```
+
+Use `extraConfig` in `programs.neomutt`. Reference the Ukiyo base16 palette
+(see `themes/ukiyo.nix`): gold e0ba86, amber ba945f, text ccc2b7, dark 413632,
+green 9aad6e, red c72626.
+
+### 3. Notifications
+
+When mbsync pulls new mail, fire a `notify-send` via mako.
+Options:
+- Wrap mbsync in a shell script that compares "Near: +N" before/after
+- Or use `services.mbsync.postExec` (if the home-manager option exists)
+- Or a systemd `ExecStartPost=` on the mbsync service that runs a notify script
+
+Script outline:
+```bash
+result=$(mbsync Gmail 2>&1)
+new=$(echo "$result" | grep -oP 'Near: \+\K[0-9]+')
+(( new > 0 )) && notify-send "📬 Mail" "$new new message(s)" --expire-time=5000
+```
+
+### 4. Greeting integration
+
+Add an "Unread mail" line to `_greeting()` in `zsh.nix`, alongside the calendar
+events and todo items. Position: after the schedule/todo columns, or as a third
+column if unread count > 0.
+
+```bash
+unread=$(find ~/Mail/*/INBOX/new -type f 2>/dev/null | wc -l)
+(( unread > 0 )) && printf '  %s✉ %d unread%s\n' "$GOLD" "$unread" "$RESET"
+```
+
+Could also add `email` or `mail` to the hint line at the bottom of the greeting
+(currently: `today  vault-work  uni-work  messages  music  cal`).
+
+### 5. Khal interoperability
+
+Some emails contain calendar invites (`.ics` attachments). Neomutt can pipe
+attachments to external commands. Possible workflow:
+
+- `V` in attachment view → pipe `.ics` to `khal import` to add event to calendar
+- Or auto-import via a mailcap rule:
+  ```
+  text/calendar; khal import %s; needsterminal
+  ```
+  Declare in `xdg.configFile."neomutt/mailcap"` and set `mailcap_path` in neomutt settings.
+
+Also: neomutt can render HTML mail via `w3m` or `lynx` (already available as `wb`):
+```
+text/html; w3m -I utf-8 -T text/html %s; copiousoutput
+```
+
+### 6. Move subscriptions to nouwens.org
+
+Goal: reduce Gmail dependency over time.
+
+Process:
+1. Set up `thijmen@nouwens.org` in neomutt first (so you can receive there)
+2. Go through Gmail subscriptions / newsletters one by one:
+   - Keep → re-subscribe with nouwens.org address
+   - Cut → unsubscribe
+3. Update accounts on important services (bank, government, etc.)
+4. Forward Gmail to nouwens.org as a fallback during migration
+5. Eventually set Gmail to auto-archive rather than inbox (or stop checking it)
+
+No rush — treat it as background work. Tracking list could live in a vault note.
+
+### 7. Other ideas
+
+- **HTML rendering**: `w3m` mailcap rule (see §5) — many newsletters are HTML-only
+- **Address book**: `abook` or `notmuch` for contact completion when composing
+- **Search**: `notmuch` full-text search across all mailboxes (`/` currently only searches the current folder)
+- **Spam filter**: `bogofilter` or `spamc` as a post-sync hook to auto-tag/move spam
+- **Sent-mail deduplication**: Gmail server-saves a copy AND msmtp can save locally — check `set record` in neomutt to avoid duplicates
