@@ -149,3 +149,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 134 | 2026-06-20  00:20 | b465e98 | generations: log gen 133 |
 | 135 | 2026-06-20  13:32 | c1f0d9d | improved vault graph view positioning |
 | 137 | 2026-06-21  23:31 | 60a1eb0 | fix zsh.nix nixdiff: escape \${} as ''\${} in Nix '' strings |
+| 145 | 2026-06-23  12:59 | e6a91c0 | smol prompt and yazi improvements |
