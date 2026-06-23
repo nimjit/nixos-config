@@ -84,6 +84,56 @@ The neovim colorscheme must be updated separately from the Stylix palette.
 
 ---
 
+## Design philosophy
+
+**The terminal is the hub.** The appeal is cohesion: one kitty window, everything
+reachable from zsh, consistent vim-style keys, automatic Ukiyo theming, and a
+uniform mental model regardless of what's being done. GUIs are used when there is
+no real terminal alternative (browser), not as a preference.
+
+**Context switching** happens at two levels:
+- KDE virtual desktops for major contexts (uni, personal, nixos, etc.)
+- Kitty tabs within a context for related tools (e.g. editor + terminal + music)
+- Each context has a named entry alias (`uni-work`, `vault-work`, `nixos-work`, …)
+
+**Content routing** — where each type of content lives:
+
+| Content | Tool | Notes |
+|---------|------|-------|
+| Video | mpv / yt-feed | yt-feed for YouTube feed; mpv for direct playback |
+| Music | MPD + rmpc | Local library; rmpc is the TUI |
+| Articles / newsletters | newsboat (planned) | RSS feeds; newsletters migrated here from email |
+| Email | neomutt | Gmail working; nouwens.org planned |
+| Calendar | khal / ikhal | 12 Google calendars via vdirsyncer |
+| PDFs / ebooks | zathura | Stylix-themed; epub support planned |
+| WhatsApp | nchat | Terminal client |
+| Social media | phone | Intentionally not on the computer |
+| Passwords | lpass CLI | Alt+P via lpass-rofi for quick access |
+
+**UI conventions** — apply these when building any new terminal tool or config:
+- Navigation: `j`/`k` up/down, `h`/`l` or `q` back/open, `g`/`G` first/last
+- Help: `?` opens a personal cheatsheet (see neomutt, yt-feed pattern)
+- Sidebar: `J`/`K` to move, `b` to toggle — for tools with a folder/category list
+- Entry point alias in zsh that opens the tool in a kitty tab (see `music`, `messages`)
+- Notification on relevant events via `notify-send` → mako
+
+**Theming** — Stylix handles most apps automatically. Where it doesn't reach,
+apply the Ukiyo base16 colours manually (see `home/dotfiles/khal/config [palette]`
+for the reference approach). Never leave an app in default colours if it's part
+of a daily workflow.
+
+**Tool selection** — prefer a well-maintained existing tool over a custom one.
+`yt-feed` is the exception: YouTube has no API, thumbnails need kitty icat, and
+the card layout genuinely adds value. For text-based tools (newsboat, neomutt,
+khal) the existing tool is almost always the right choice.
+
+**Data** — strong preference for local storage and self-hosted services. Cloud is
+acceptable where there is no realistic alternative (Gmail, Google Calendar for
+shared calendars). Long-term direction: migrate email to `thijmen@nouwens.org`,
+newsletters to RSS, calendars to a self-hosted CalDAV if feasible.
+
+---
+
 ## Key applications
 
 | App | Purpose | Config |
