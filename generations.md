@@ -154,3 +154,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 147 | 2026-06-23  22:39 | — | email: fix mbsync userName + remove neomutt macro description fields |
 | 148 | 2026-06-23  22:51 | — | email: fix secrets.nix format, remove TUDelft/davmail |
 | 149 | 2026-06-23  23:03 | 70f49f5 | email: neomutt gmail setup, remove TUDelft account and davmail |
+| 150 | 2026-06-23  23:21 | f331eae | email: move secrets outside git, fix mbsync [Gmail] glob |
