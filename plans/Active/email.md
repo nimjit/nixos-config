@@ -220,20 +220,27 @@ Also: neomutt can render HTML mail via `w3m` or `lynx` (already available as `wb
 text/html; w3m -I utf-8 -T text/html %s; copiousoutput
 ```
 
-### 6. Move subscriptions to nouwens.org
+### 6. Move subscriptions out of Gmail
 
-Goal: reduce Gmail dependency over time.
+Goal: reduce Gmail dependency over time. Two separate destinations:
 
-Process:
-1. Set up `thijmen@nouwens.org` in neomutt first (so you can receive there)
-2. Go through Gmail subscriptions / newsletters one by one:
-   - Keep → re-subscribe with nouwens.org address
-   - Cut → unsubscribe
-3. Update accounts on important services (bank, government, etc.)
-4. Forward Gmail to nouwens.org as a fallback during migration
-5. Eventually set Gmail to auto-archive rather than inbox (or stop checking it)
+**Newsletters / blogs → RSS** (not nouwens.org)
+A future RSS CLI tool will handle these — same pattern as `yt-feed` (terminal
+reader, keyboard-driven, Stylix-themed). When that exists, migrate newsletters
+there: unsubscribe from email, subscribe via RSS feed URL instead.
+See `plans/Active/rss.md` (to be created) for the RSS system design.
 
-No rush — treat it as background work. Tracking list could live in a vault note.
+**Accounts / services → nouwens.org**
+Things that actually need a reply address (bank, government, important services):
+1. Set up `thijmen@nouwens.org` in neomutt first
+2. Re-register services one by one with the nouwens.org address
+3. Forward Gmail → nouwens.org during migration as a fallback
+4. Eventually let Gmail go quiet (auto-archive, stop checking)
+
+**Decision rule when going through Gmail inbox:**
+- Is it a newsletter / one-way content? → find the RSS feed, unsubscribe from email
+- Is it a service that needs a reply address? → migrate to nouwens.org
+- Is it something to cut entirely? → unsubscribe
 
 ### 7. Other ideas
 
