@@ -150,3 +150,6 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 135 | 2026-06-20  13:32 | c1f0d9d | improved vault graph view positioning |
 | 137 | 2026-06-21  23:31 | 60a1eb0 | fix zsh.nix nixdiff: escape \${} as ''\${} in Nix '' strings |
 | 145 | 2026-06-23  12:59 | e6a91c0 | smol prompt and yazi improvements |
+| 146 | 2026-06-23  22:34 | 5fa6dd8 | updated generations |
+| 147 | 2026-06-23  22:39 | 5fa6dd8 | (same commit, re-run) |
+| 148 | 2026-06-23  22:51 | 5fa6dd8 | (same commit, re-run) |

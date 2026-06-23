@@ -18,6 +18,7 @@
     ./qutebrowser.nix
     ./kwin.nix
     ./git.nix
+    ./email.nix
   ];
 
   # ── Home basics ───────────────────────────────────────────────────────────
