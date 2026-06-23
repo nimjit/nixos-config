@@ -317,45 +317,67 @@ def render_list_cursor(videos, old_cursor, new_cursor, offset, rows, cols, dur_c
 # ── Category picker ────────────────────────────────────────────────────────────
 
 def prompt_category(categories, current_cat, rows, cols):
-    """Centered popup. Returns new category string, or None for 'all'."""
-    cats   = categories[:9]
-    items  = [None] + cats                    # None = all
-    labels = ["all"] + cats
-    keys   = ["0"] + [str(i) for i in range(1, len(cats) + 1)]
+    """Centered popup with j/k navigation. Returns chosen category or None for all."""
+    items  = [None] + list(categories)   # None = "all"
+    labels = ["all"] + list(categories)
 
-    box_w = max(len(l) for l in labels) + 10
-    box_h = len(items) + 4                    # top border + header + divider + items + bottom
-    r0    = max(1, (rows - box_h) // 2)
-    c0    = max(1, (cols - box_w) // 2)
+    try:
+        sel = items.index(current_cat)
+    except ValueError:
+        sel = 0
 
-    inner = box_w - 2
+    box_w    = max(len(l) for l in labels) + 8
+    max_vis  = min(len(items), rows - 8)   # cap visible rows to fit screen
+    box_h    = max_vis + 4                 # border top + header + divider + rows + border bot
+    r0       = max(1, (rows - box_h) // 2)
+    c0       = max(1, (cols - box_w) // 2)
+    inner    = box_w - 2
+    scroll   = max(0, sel - max_vis // 2)  # start scroll so selection is centred
 
-    move(r0, c0)
-    sys.stdout.write(f"{BOLD}{ACCENT}┌{'─' * inner}┐{RESET}")
-    move(r0 + 1, c0)
-    sys.stdout.write(f"{BOLD}{ACCENT}│{RESET}{DIM}{'category':^{inner}}{RESET}{BOLD}{ACCENT}│{RESET}")
-    move(r0 + 2, c0)
-    sys.stdout.write(f"{BOLD}{ACCENT}├{'─' * inner}┤{RESET}")
+    def _draw():
+        move(r0, c0)
+        sys.stdout.write(f"{BOLD}{ACCENT}┌{'─' * inner}┐{RESET}")
+        move(r0 + 1, c0)
+        sys.stdout.write(f"{BOLD}{ACCENT}│{RESET}{DIM}{'category':^{inner}}{RESET}{BOLD}{ACCENT}│{RESET}")
+        move(r0 + 2, c0)
+        sys.stdout.write(f"{BOLD}{ACCENT}├{'─' * inner}┤{RESET}")
+        for i in range(max_vis):
+            idx = scroll + i
+            move(r0 + 3 + i, c0)
+            if idx >= len(items):
+                sys.stdout.write(f"{BOLD}{ACCENT}│{RESET}{' ' * inner}{BOLD}{ACCENT}│{RESET}")
+                continue
+            active = idx == sel
+            style  = HILIGHT if active else MUTED
+            mark   = "▶" if active else " "
+            text   = f" {mark}  {labels[idx]}"
+            sys.stdout.write(
+                f"{BOLD}{ACCENT}│{RESET}{style}{text:<{inner}}{RESET}{BOLD}{ACCENT}│{RESET}"
+            )
+        move(r0 + 3 + max_vis, c0)
+        sys.stdout.write(f"{BOLD}{ACCENT}└{'─' * inner}┘{RESET}")
+        sys.stdout.flush()
 
-    for i, (cat, label, key) in enumerate(zip(items, labels, keys)):
-        move(r0 + 3 + i, c0)
-        active = cat == current_cat
-        style  = HILIGHT if active else MUTED
-        mark   = "▶" if active else " "
-        text   = f" {mark} {key}  {label}"
-        sys.stdout.write(
-            f"{BOLD}{ACCENT}│{RESET}{style}{text:<{inner}}{RESET}{BOLD}{ACCENT}│{RESET}"
-        )
+    _draw()
 
-    move(r0 + 3 + len(items), c0)
-    sys.stdout.write(f"{BOLD}{ACCENT}└{'─' * inner}┘{RESET}")
-    sys.stdout.flush()
-
-    key = getch()
-    for cat, k in zip(items, keys):
-        if key == k:
-            return cat   # None if user pressed "0"
-    return current_cat   # Esc / unrecognised = no change
+    while True:
+        key = getch()
+        if key in ("j", "\x1b[B"):
+            if sel < len(items) - 1:
+                sel += 1
+                if sel >= scroll + max_vis:
+                    scroll += 1
+                _draw()
+        elif key in ("k", "\x1b[A"):
+            if sel > 0:
+                sel -= 1
+                if sel < scroll:
+                    scroll -= 1
+                _draw()
+        elif key in ("\r", "\n"):
+            return items[sel]
+        elif key in ("\x1b", "c", "q"):
+            return current_cat   # cancel — no change
 
 # ── Detail view ────────────────────────────────────────────────────────────────
 
