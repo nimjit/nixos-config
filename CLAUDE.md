@@ -86,51 +86,84 @@ The neovim colorscheme must be updated separately from the Stylix palette.
 
 ## Design philosophy
 
-**The terminal is the hub.** The appeal is cohesion: one kitty window, everything
-reachable from zsh, consistent vim-style keys, automatic Ukiyo theming, and a
-uniform mental model regardless of what's being done. GUIs are used when there is
-no real terminal alternative (browser), not as a preference.
+### Background
 
-**Context switching** happens at two levels:
-- KDE virtual desktops for major contexts (uni, personal, nixos, etc.)
-- Kitty tabs within a context for related tools (e.g. editor + terminal + music)
-- Each context has a named entry alias (`uni-work`, `vault-work`, `nixos-work`, …)
+This setup started with Obsidian, which became a full computing environment:
+custom music player sidebar, AI chatbox (Ollama), dashboards, calendar
+integration — all in inline JS and CSS. Performance issues drove a migration to
+neovim + terminal, replicating those features in a more stable stack. NixOS was
+adopted alongside this shift.
 
-**Content routing** — where each type of content lives:
+The underlying desire hasn't changed: **everything in one place, accessible from
+everywhere.** Obsidian was the first attempt. The terminal is the current one.
+Emacs (everything in one editor, Org-mode, elisp) is the acknowledged logical
+endpoint but is parked — performance issues at scale and the learning curve are
+blockers for now.
+
+The system is still being discovered. Part of the motivation for tinkering is
+figuring out what's actually missing. New tools should integrate cleanly but not
+lock anything in — keep things modular and easy to extend or replace.
+
+### Intentional computing
+
+A recurring theme: replacing algorithmic feeds with deliberate tools that surface
+your own priorities. yt-feed instead of the YouTube homepage. neomutt instead of
+checking email in a browser. The morning greeting showing schedule, deadlines, and
+todos instead of a social feed.
+
+**When building a new feature, ask: does this give the user their own purpose, or
+someone else's?** Anything that surfaces the user's existing commitments (calendar,
+notes, tasks, unread mail) is good. Anything that creates an infinite scroll or
+passive consumption loop is not.
+
+### Context switching
+
+- KDE virtual desktops for major context switches (uni, personal, nixos, etc.)
+- Kitty tabs within a context for related tools
+- Named entry aliases in zsh: `uni-work`, `vault-work`, `nixos-work`, `messages`, `music`
+
+### Content routing
 
 | Content | Tool | Notes |
 |---------|------|-------|
 | Video | mpv / yt-feed | yt-feed for YouTube feed; mpv for direct playback |
 | Music | MPD + rmpc | Local library; rmpc is the TUI |
-| Articles / newsletters | newsboat (planned) | RSS feeds; newsletters migrated here from email |
+| Articles / newsletters | newsboat (planned) | RSS; newsletters migrated from email |
 | Email | neomutt | Gmail working; nouwens.org planned |
 | Calendar | khal / ikhal | 12 Google calendars via vdirsyncer |
-| PDFs / ebooks | zathura | Stylix-themed; epub support planned |
+| PDFs / ebooks | zathura | Stylix-themed |
 | WhatsApp | nchat | Terminal client |
 | Social media | phone | Intentionally not on the computer |
 | Passwords | lpass CLI | Alt+P via lpass-rofi for quick access |
 
-**UI conventions** — apply these when building any new terminal tool or config:
+### UI conventions
+
+Apply these when building any new terminal tool or config:
 - Navigation: `j`/`k` up/down, `h`/`l` or `q` back/open, `g`/`G` first/last
-- Help: `?` opens a personal cheatsheet (see neomutt, yt-feed pattern)
-- Sidebar: `J`/`K` to move, `b` to toggle — for tools with a folder/category list
-- Entry point alias in zsh that opens the tool in a kitty tab (see `music`, `messages`)
-- Notification on relevant events via `notify-send` → mako
+- Help: `?` opens a personal cheatsheet (see neomutt, yt-feed)
+- Sidebar: `J`/`K` to move, `b` to toggle
+- Entry alias in zsh that opens the tool in a kitty tab (see `music`, `messages`)
+- Notify on relevant events via `notify-send` → mako
 
-**Theming** — Stylix handles most apps automatically. Where it doesn't reach,
-apply the Ukiyo base16 colours manually (see `home/dotfiles/khal/config [palette]`
-for the reference approach). Never leave an app in default colours if it's part
-of a daily workflow.
+### Theming
 
-**Tool selection** — prefer a well-maintained existing tool over a custom one.
-`yt-feed` is the exception: YouTube has no API, thumbnails need kitty icat, and
-the card layout genuinely adds value. For text-based tools (newsboat, neomutt,
-khal) the existing tool is almost always the right choice.
+Stylix handles most apps automatically. Where it doesn't reach, apply Ukiyo
+base16 colours manually — see `home/dotfiles/khal/config [palette]` for the
+reference approach. Never leave a daily-use app in default colours.
 
-**Data** — strong preference for local storage and self-hosted services. Cloud is
-acceptable where there is no realistic alternative (Gmail, Google Calendar for
-shared calendars). Long-term direction: migrate email to `thijmen@nouwens.org`,
-newsletters to RSS, calendars to a self-hosted CalDAV if feasible.
+### Tool selection
+
+Prefer a well-maintained existing tool over a custom one. `yt-feed` is the
+exception: no YouTube API, thumbnails need kitty icat, card layout adds real
+value. For text-based tools (newsboat, neomutt, khal) the existing tool is
+almost always right.
+
+### Data
+
+Strong preference for local storage and self-hosted services. Cloud is acceptable
+only where there is no real alternative. Long-term direction: email →
+`thijmen@nouwens.org`, newsletters → RSS, calendars → self-hosted CalDAV if
+feasible.
 
 ---
 
