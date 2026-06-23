@@ -21,12 +21,6 @@ Replacing persistent browser tabs with focused terminal tools.
 
 ## Open items
 
-### KDE shortcut for lpass-rofi
-
-`~/.local/bin/lpass-rofi` is installed. KDE shortcut (`Super+P`) is not yet
-configured — do this in System Settings → Shortcuts → Custom Shortcuts.
-Qutebrowser has `<Alt-p>` bound (via `qute-lastpass-auto` userscript).
-
 ### w3m terminal browser
 
 w3m is in packages. Still needed:

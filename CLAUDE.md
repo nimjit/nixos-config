@@ -214,8 +214,6 @@ is lost. Each .md file explains what the feature was and how to reactivate it.
 | `emacs.md` | Fresh start: evil → markdown-mode → spell check |
 | `email.md` | aerc to replace Thunderbird; OAuth2 for university mail |
 | `cli-migration.md` | w3m `wb` function, KDE lpass-rofi shortcut |
-| `yazi.md` | File openers, keymaps, preview improvements |
-| `prompt.md` | Starship or pure zsh prompt with Ukiyo palette |
 
 ### Larger projects in progress
 

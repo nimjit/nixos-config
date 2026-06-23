@@ -13,9 +13,15 @@
       };
       preview = {
         image_quality = 75;
-        max_width = 600;
-        max_height = 900;
+        max_width = 1200;
+        max_height = 1800;
       };
+    };
+
+    keymap = {
+      manager.prepend_keymap = [
+        { on = [ "l" ]; run = "enter"; desc = "Enter directory or open file"; }
+      ];
     };
 
     # Shell function: pressing 'y' in the terminal opens Yazi,

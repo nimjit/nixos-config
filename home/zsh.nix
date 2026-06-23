@@ -383,10 +383,15 @@ sys.exit(1)
     dotDir = "${config.xdg.configHome}/zsh";
   };
 
-  # Starship prompt — clean, fast, shows git status, python env, etc.
-  # Stylix themes it automatically.
+  # Starship prompt — Stylix themes it automatically.
   programs.starship = {
     enable = true;
     enableZshIntegration = true;
+    settings = {
+      python.disabled  = true;
+      nodejs.disabled  = true;
+      rust.disabled    = true;
+      package.disabled = true;
+    };
   };
 }
