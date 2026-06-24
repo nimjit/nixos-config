@@ -158,3 +158,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 151 | 2026-06-23  23:39 | 82be46f | email: fix Gmail folder names (Dutch) and lpass session timeout |
 | 152 | 2026-06-23  23:47 | 5e0c9d8 | lpass-rofi: show clean entry names instead of hash/date prefix |
 | 153 | 2026-06-24  00:00 | 2644b31 | email: colours, movement, notifications, greeting, abook |
+| 154 | 2026-06-24  00:00 | 532f717 | email: add GmailProf + NouwensLindemans accounts |
