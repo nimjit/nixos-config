@@ -160,3 +160,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 153 | 2026-06-24  00:00 | 2644b31 | email: colours, movement, notifications, greeting, abook |
 | 154 | 2026-06-24  00:00 | 532f717 | email: add GmailProf + NouwensLindemans accounts |
 | 155 | 2026-06-24  00:00 | d8eec49 | email: fix lpass entry names for new accounts |
+| 156 | 2026-06-24  00:00 | 89c0482 | email: fix NouwensLindemans TLS hostname |
