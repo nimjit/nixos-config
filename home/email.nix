@@ -5,7 +5,7 @@
 #
 #   {
 #     gmailAddress            = "tidemanus@gmail.com";
-#     gmailProfAddress        = "thijmen.nouwens@gmail.com";
+#     gmail2Address        = "thijmen.nouwens@gmail.com";
 #     nouwensLindemansAddress = "thijmen@nouwens-lindemans.nl";
 #   }
 #
@@ -69,8 +69,8 @@ in {
 
     # ── Gmail Professional (thijmen.nouwens) ────────────────────────────────
     accounts.GmailProf = {
-      address  = s.gmailProfAddress;
-      userName = s.gmailProfAddress;
+      address  = s.gmail2Address;
+      userName = s.gmail2Address;
       realName = "Thijmen Nouwens";
 
       # If this account's language is English the folder names differ:
@@ -263,7 +263,7 @@ in {
 
     extraConfig = ''
       folder-hook '${maildir}/Gmail/'             'set from="${s.gmailAddress}"'
-      folder-hook '${maildir}/GmailProf/'         'set from="${s.gmailProfAddress}"'
+      folder-hook '${maildir}/GmailProf/'         'set from="${s.gmail2Address}"'
       folder-hook '${maildir}/NouwensLindemans/'  'set from="${s.nouwensLindemansAddress}"'
 
       set query_command = "abook --mutt-query '%s'"
