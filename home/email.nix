@@ -181,7 +181,7 @@ in {
 
     sidebar = {
       enable = true;
-      width  = 22;
+      width  = 28;
     };
 
     settings = {
@@ -190,10 +190,9 @@ in {
 
       index_format = ''"%4C %Z  %{%d %b}  %-20.20L  %s"'';
 
-      sidebar_format        = ''"%B%* %?N?(%N) ?%S"'';
-      sidebar_short_path    = "yes";
-      sidebar_folder_indent = "yes";
-      sidebar_indent_string = ''"  "'';
+      sidebar_format        = ''"%B%* %?N?(%N)?  "'';
+      sidebar_short_path    = "no";
+      sidebar_folder_indent = "no";
 
       sort     = "threads";
       sort_aux = "reverse-last-date-received";
@@ -269,6 +268,23 @@ in {
       folder-hook '${maildir}/NouwensLindemans/'  'set from="${s.nouwensLindemansAddress}"'
 
       set query_command = "abook --mutt-query '%s'"
+
+      # ── Sidebar names ───────────────────────────────────────────────────────
+      # Clear home-manager generated mailbox entries, then re-add with labels.
+      # named-mailboxes gives each folder a display name; spaces indent visually.
+      unmailboxes *
+      named-mailboxes "Gmail"          ${maildir}/Gmail/INBOX
+      named-mailboxes "  Sent"         "${maildir}/Gmail/[Gmail]/Verzonden berichten"
+      named-mailboxes "  Drafts"       "${maildir}/Gmail/[Gmail]/Concepten"
+      named-mailboxes "  Trash"        "${maildir}/Gmail/[Gmail]/Prullenbak"
+      named-mailboxes "Gmail Pro"      ${maildir}/GmailProf/INBOX
+      named-mailboxes "  Sent"         "${maildir}/GmailProf/[Gmail]/Verzonden berichten"
+      named-mailboxes "  Drafts"       "${maildir}/GmailProf/[Gmail]/Concepten"
+      named-mailboxes "  Trash"        "${maildir}/GmailProf/[Gmail]/Prullenbak"
+      named-mailboxes "Lindemans"      ${maildir}/NouwensLindemans/INBOX
+      named-mailboxes "  Sent"         ${maildir}/NouwensLindemans/Sent
+      named-mailboxes "  Drafts"       ${maildir}/NouwensLindemans/Drafts
+      named-mailboxes "  Trash"        ${maildir}/NouwensLindemans/Trash
 
       # ── Colours ────────────────────────────────────────────────────────────
       # Ukiyo palette via Stylix base16 terminal colors:
