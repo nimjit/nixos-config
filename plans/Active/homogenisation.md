@@ -1,8 +1,29 @@
 # UI Homogenisation
 
-Maps the current state of each terminal tool against the intended UI conventions
-(defined in CLAUDE.md § UI conventions). For each gap: is it fixable or a hard
-constraint?
+Maps the current state of each terminal tool against the intended UI conventions.
+Central principle: **modal vs non-modal** determines which key layer applies.
+
+```
+ctrl+hjkl   tab / pane / persistent panel movement  (works in any context)
+hjkl        movement in modal areas                 (read-only, no text entry)
+fn+hjkl     movement in non-modal areas             (= arrow keys on this keyboard)
+gg / G      first / last in modal areas
+q / :q      quit in modal areas
+ctrl+q      quit in non-modal areas
+?           help in modal areas
+```
+
+**Why ctrl as the non-modal leader:** ctrl lives on the spacebar (thumb hold), so
+it is ergonomically close to hjkl. Non-modal apps have a persistent text entry
+box — any bare key press types. Ctrl is always safe there. This also keeps
+ctrl+hjkl consistent across layers: window movement (Super already handles
+desktops/windows), split movement, tab movement, and panel movement all use the
+same modifier.
+
+**Why fn+hjkl = arrows:** the physical arrow keys on this keyboard are fn+hjkl.
+Non-modal apps (nchat, ikhal) use arrows by default. This reframes that as "fn
+layer" rather than "broken convention" — it's the same key family, different
+modifier.
 
 ---
 
@@ -10,26 +31,28 @@ constraint?
 
 | Convention | Rule |
 |------------|------|
-| Navigation | `j`/`k` up/down, `h`/`l` or `q` back/open, `gg`/`G` first/last |
-| Help | `?` opens a personal cheatsheet |
-| Sidebar | `J`/`K` to move, `b` to toggle |
-| Quit | `q` to exit/back |
-| Entry alias | Opens in a kitty tab |
-| Notify | `notify-send` → mako on relevant events |
+| Navigation | `j`/`k`/`h`/`l` directions, `b`/`q` back/quit, `gg`/`G` first/last |
+| Help       | `?` opens a personal cheatsheet                    |
+| Sidebar    | `crtl`+`j`/`k` to move, `ctrl+h` to toggle               |
+| Quit       | `q` to exit/back                                   |
+| Entry alias| Opens in a kitty tab                             |
+| Notify     | `notify-send` → mako on relevant events            |
+| Tabs/buffer| `ctrl+hjkl`                                        |
 
 ---
 
 ## Tool matrix
 
-| | neomutt | nchat | rmpc | yt-feed | ikhal | neovim |
-|--|---------|-------|------|---------|-------|--------|
-| j/k nav | ✓ | ✗ arrow | ✓ | ✓ | ✓ h/j/k/l | ✓ |
-| h/l or q back/open | ✓ | ✗ | ✓ | b=back, q=quit | ✓ | ✓ |
-| g/G first/last | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ |
-| ? help | ✓ (custom) | Ctrl+G | ✓ | ✗ (hint bar only) | built-in | ✓ |
-| Sidebar J/K | ✓ | Ctrl+J/K | N/A (tabs) | N/A | N/A | N/A |
-| Quit `q` | ✓ | **Ctrl+Q** | ✓ | ✓ | ✓ | **:q** |
-| Ukiyo colours | ✓ | ~ okay | ✓ via terminal | ✓ visually | ✓ | ✓ |
+|                    | neomutt | nchat  | rmpc | yt-feed | ikhal | neovim | dashboards | QuteBrowser |
+|--------------------|---------|--------|------|---------|-------|--------|------------|-------------|
+| j/k nav            | ✓       | ✗      | ✓    | ✓       | ✓     | ✓      | ✓          | ✓           |
+| h/l or q back/open | ✓       | ✗      | ✓    | <CR>, q | ✓     | ✓      | <CR>, :q   | <CR>, :q    |
+| g/G first/last     | ✓       | ✗      | ✓    | ✓       | ✗     | ✓      | ✓          | ✓           |
+| dd delete          | ✗ (d)   | ✓      | N/A  | N/A     | N/A   | ✓      | N/A        | ✓           |
+| ? help             | ✓ (bar) | Ctrl+g | ✓    | ✓ (bar) | ✓     | ✓      | ✓          | ✓           |
+| Sidebar ctrl+jk    |Ctrl+j/k |Ctrl+j/k| N/A  | N/A     | N/A   | N/A    | N/A        | N/A         |
+| Quit   q           | ✓       | Ctrl+q | ✓    | ✓       | ✓     | :q     | :q         | :q          |
+| Ukiyo colours      | ✓       | ~ okay | ✓    | ✓       | ✓     | ✓      | ✓          | ✓  where possible |
 
 ---
 
@@ -39,7 +62,7 @@ constraint?
 
 **Vim-style:** Fully configured. j/k/l/gg/G all work. `q` exits pager back to index.
 
-**Sidebar:** J/K move cursor, `o` opens folder, `b` toggles. Matches convention.
+**Sidebar:** Ctrl+J/K move cursor, Ctrl+L opens folder, Ctrl+H toggles. Matches convention.
 
 **Colours:** Ukiyo via base16 terminal colors (color0–color15). Fully themed.
 
@@ -114,10 +137,9 @@ the right colors automatically — no separate theme file needed.
 
 **Vim-style:** ✓ j/k scrolling, Enter to play, q to quit, / to filter, c for
 category picker (which also uses j/k internally). `b` goes back from detail
-view. Reasonably vim-style for a custom TUI.
+view. `gg`/`G` first/last added. Reasonably vim-style for a custom TUI.
 
-**Missing:** `g`/`G` first/last, `?` help screen (currently a one-line hint
-bar only).
+**Missing:** `?` help screen (currently a one-line hint bar only).
 
 **Sidebar:** N/A — linear card list, no sidebar. Categories accessed via `c`
 popup, which uses j/k. This is fine; the structure doesn't call for a sidebar.
@@ -135,7 +157,6 @@ result matches. Not a concern in practice.
 **Quit:** `q` — matches convention.
 
 **Fixable:**
-- Add `g`/`G` for first/last
 - Add `?` help popup (same pattern as neomutt's cheatsheet)
 
 ---
@@ -183,7 +204,7 @@ paradigm. `q` in normal mode is a macro recorder, not quit. No fix appropriate.
 | :q quit | neovim | No | Modal editor paradigm |
 | Ctrl+J/K sidebar | nchat | No (justified) | Same family, different modifier |
 | J/K = reorder not navigate | rmpc | No (appropriate) | No sidebar; J/K reorders queue |
-| No g/G first/last | yt-feed | Yes | Add to getch() handler |
+| No g/G first/last | yt-feed | Done | Added to getch() handler |
 | No ? help popup | yt-feed | Yes | Already done in neomutt; add here |
 | Yellow-only colors | nchat | Partial | color.conf only supports named colors |
 
@@ -226,5 +247,6 @@ How each tool moves between its internal sections (tabs, panes, splits).
 
 ## Status
 
-- [ ] yt-feed: add `g`/`G` first/last
+- [x] yt-feed: add `g`/`G` first/last
+- [x] neomutt sidebar: J/K → Ctrl+J/K, `o` → Ctrl+L, `b` → Ctrl+H
 - [ ] yt-feed: add `?` help popup

@@ -138,10 +138,23 @@ passive consumption loop is not.
 
 ### UI conventions
 
+**Modal vs non-modal** is the key distinction. Modal tools (neomutt, rmpc, yt-feed,
+ikhal) have no persistent text entry box — bare keys are safe. Non-modal tools
+(nchat) always have an active text entry box — only ctrl-modified keys are safe.
+
+Key layer summary:
+- `ctrl+hjkl`: tab/pane/persistent panel movement (safe in any context)
+- `hjkl`: movement in modal areas
+- `fn+hjkl`: movement in non-modal areas (= physical arrow keys on this keyboard)
+- `gg`/`G`: first/last in modal areas
+- `q`/`:q`: quit in modal areas
+- `ctrl+q`: quit in non-modal areas
+- `?`: help in modal areas
+
 Apply these when building any new terminal tool or config:
 - Navigation: `j`/`k` up/down, `h`/`l` or `q` back/open, `g`/`G` first/last
 - Help: `?` opens a personal cheatsheet (see neomutt, yt-feed)
-- Sidebar: `J`/`K` to move, `b` to toggle
+- Sidebar: `Ctrl+J`/`Ctrl+K` to move, `Ctrl+H` to toggle, `Ctrl+L` to open
 - Entry alias in zsh that opens the tool in a kitty tab (see `music`, `messages`)
 - Notify on relevant events via `notify-send` → mako
 

@@ -227,8 +227,8 @@ in {
       { map = [ "pager" ]; key = "gg"; action = "top"; }
 
       # ── Sidebar ───────────────────────────────────────────────────────────
-      { map = [ "index" "pager" ]; key = "J"; action = "sidebar-next"; }
-      { map = [ "index" "pager" ]; key = "K"; action = "sidebar-prev"; }
+      { map = [ "index" "pager" ]; key = "<C-j>"; action = "sidebar-next"; }
+      { map = [ "index" "pager" ]; key = "<C-k>"; action = "sidebar-prev"; }
 
       # ── Actions ───────────────────────────────────────────────────────────
       { map = [ "index" "pager" ]; key = "r"; action = "reply"; }
@@ -241,10 +241,10 @@ in {
     ];
 
     macros = [
-      { map = [ "index" "pager" ]; key = "o";
+      { map = [ "index" "pager" ]; key = "<C-l>";
         action = "<sidebar-open>"; }
 
-      { map = [ "index" "pager" ]; key = "b";
+      { map = [ "index" "pager" ]; key = "<C-h>";
         action = "<enter-command>toggle sidebar_visible<enter>"; }
 
       # Account inbox shortcuts
@@ -338,9 +338,9 @@ in {
       q               back to message list (from pager)
 
     Sidebar
-      J / K           next / previous folder
-      o               open sidebar-highlighted folder
-      b               toggle sidebar
+      Ctrl+J / Ctrl+K   next / previous folder
+      Ctrl+L            open sidebar-highlighted folder
+      Ctrl+H            toggle sidebar
 
     Account shortcuts
       gi              Gmail (tidemanus)

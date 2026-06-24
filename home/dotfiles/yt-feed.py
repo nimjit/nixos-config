@@ -543,6 +543,7 @@ def run():
 
     render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str, current_cat)
 
+    last_key = None
     while True:
         rows, cols = term_size()
         visible    = max(1, (rows - 2) // ENTRY_H)
@@ -570,6 +571,17 @@ def run():
                         render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str, current_cat)
                     else:
                         render_list_cursor(filtered, old_cursor, cursor, offset, rows, cols, dur_cache, search_str, current_cat)
+
+            elif key == "g":
+                if last_key == "g" and filtered:
+                    cursor, offset = 0, 0
+                    render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str, current_cat)
+
+            elif key == "G":
+                if filtered:
+                    cursor = len(filtered) - 1
+                    offset = max(0, cursor - visible + 1)
+                    render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str, current_cat)
 
             elif key in ("\r", "\n"):
                 if filtered:
@@ -628,6 +640,8 @@ def run():
                 render_list_full(filtered, cursor, offset, rows, cols, dur_cache, search_str, current_cat)
             elif key in ("q", "\x03"):
                 break
+
+        last_key = key
 
     sys.stdout.write(f"{ESC}[2J{ESC}[H")
     show_cursor()
