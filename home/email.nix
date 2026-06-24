@@ -10,9 +10,9 @@
 #   }
 #
 # One-time lpass setup per account:
-#   lpass add 'Gmail App Password neomutt'           ← tidemanus
-#   lpass add 'Gmail App Password neomutt thijmen.nouwens'
-#   lpass add 'Nouwens-Lindemans mail'
+#   lpass add 'Gmail App Password neomutt'    ← tidemanus@gmail.com
+#   lpass add 'Gmail2 App Password neomutt'   ← thijmen.nouwens@gmail.com
+#   lpass add 'nouwens-lindemans.nl'           ← thijmen@nouwens-lindemans.nl
 #
 # Rebuild must use --impure (already set in the rebuild alias).
 # ─────────────────────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ in {
       smtp = { host = "smtp.gmail.com"; port = 465;
                tls = { enable = true; useStartTls = false; }; };
 
-      passwordCommand = "lpass show --password 'Gmail App Password neomutt thijmen.nouwens'";
+      passwordCommand = "lpass show --password 'Gmail2 App Password neomutt'";
 
       mbsync = {
         enable  = true;
@@ -122,7 +122,7 @@ in {
       smtp = { host = "mail.nouwens-lindemans.nl"; port = 465;
                tls = { enable = true; useStartTls = false; }; };
 
-      passwordCommand = "lpass show --password 'Nouwens-Lindemans mail'";
+      passwordCommand = "lpass show --password 'nouwens-lindemans.nl'";
 
       mbsync = {
         enable  = true;
