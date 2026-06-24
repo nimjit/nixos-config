@@ -118,8 +118,10 @@ in {
         trash  = "Trash";
       };
 
-      imap = { host = "mail.nouwens-lindemans.nl"; port = 993; tls.enable = true; };
-      smtp = { host = "mail.nouwens-lindemans.nl"; port = 465;
+      # Cert is issued for vserver04.een2drie.nl (the hosting provider's server name).
+      # Using that hostname makes TLS verification pass; the MX still points here.
+      imap = { host = "vserver04.een2drie.nl"; port = 993; tls.enable = true; };
+      smtp = { host = "vserver04.een2drie.nl"; port = 465;
                tls = { enable = true; useStartTls = false; }; };
 
       passwordCommand = "lpass show --password 'nouwens-lindemans.nl'";
