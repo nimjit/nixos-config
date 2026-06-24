@@ -135,6 +135,11 @@ Then add a `gn` macro (go to Nouwens INBOX) and a `folder-hook` for the from add
 - [x] Dutch folder names fixed
 - [x] lpass session kept alive (`LPASS_AGENT_TIMEOUT=0`)
 - [x] lpass-rofi shows clean entry names (Alt+P)
+- [x] Movement: `o` opens sidebar folder; `s` moves message to folder
+- [x] Colours: Ukiyo base16 palette applied (index, headers, quoted, status bar)
+- [x] Notifications: mbsync postExec fires notify-send on new mail
+- [x] Greeting: unread count in right column; `email` in hint line
+- [x] Address book: abook, Tab completion in compose, `A` adds sender
 - [ ] Remove Thunderbird from `modules/common.nix` once comfortable
 - [ ] Add `thijmen@nouwens.org` account
 

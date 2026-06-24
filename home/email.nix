@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Before rebuilding, create ~/.config/nixos-secrets.nix with your addresses:
@@ -17,6 +17,10 @@ let
   s       = import /home/thijmen/.config/nixos-secrets.nix;
   maildir = "${config.home.homeDirectory}/Mail";
 in {
+
+  # ── Address book ────────────────────────────────────────────────────────────
+
+  home.packages = with pkgs; [ abook ];
 
   # ── Accounts ────────────────────────────────────────────────────────────────
 
@@ -77,6 +81,26 @@ in {
   services.mbsync = {
     enable    = true;
     frequency = "*:0/5";  # sync every 5 minutes
+    postExec  = let
+      script = pkgs.writeShellScript "mbsync-notify" ''
+        # First run after boot: seed the count file without notifying.
+        count_file=/tmp/neomutt-mail-count
+        if [[ -f $count_file ]]; then
+          before=$(cat "$count_file")
+          after=$(find "$HOME/Mail" -path "*/INBOX/new/*" -type f 2>/dev/null | wc -l)
+          printf '%s' "$after" > "$count_file"
+          new=$(( after - before ))
+          if (( new > 0 )); then
+            ${pkgs.libnotify}/bin/notify-send \
+              --expire-time=5000 --urgency=normal \
+              "Mail" "$new new message(s)"
+          fi
+        else
+          find "$HOME/Mail" -path "*/INBOX/new/*" -type f 2>/dev/null \
+            | wc -l > "$count_file"
+        fi
+      '';
+    in "${script}";
   };
 
   # ── msmtp — outgoing mail ────────────────────────────────────────────────────
@@ -126,6 +150,7 @@ in {
       { map = [ "index" ]; key = "gg"; action = "first-entry"; }
       { map = [ "index" ]; key = "m";  action = "mail"; }
       { map = [ "index" ]; key = "u";  action = "toggle-new"; }
+      { map = [ "index" ]; key = "s";  action = "save-message"; }
 
       # ── Pager ─────────────────────────────────────────────────────────────
       { map = [ "pager" ]; key = "j";  action = "next-line"; }
@@ -144,10 +169,13 @@ in {
       { map = [ "index" "pager" ]; key = "R"; action = "group-reply"; }
       { map = [ "index" "pager" ]; key = "d"; action = "delete-message"; }
       { map = [ "index" "pager" ]; key = "v"; action = "view-attachments"; }
+
+      # ── Compose ───────────────────────────────────────────────────────────
+      { map = [ "editor" ]; key = "<Tab>"; action = "complete-query"; }
     ];
 
     macros = [
-      { map = [ "index" "pager" ]; key = "\\Co";
+      { map = [ "index" "pager" ]; key = "o";
         action = "<sidebar-open>"; }
 
       { map = [ "index" "pager" ]; key = "b";
@@ -156,12 +184,54 @@ in {
       { map = [ "index" "pager" ]; key = "gi";
         action = "<change-folder>${maildir}/Gmail/INBOX<enter>"; }
 
+      { map = [ "index" "pager" ]; key = "A";
+        action = "<pipe-message>abook --add-email-quiet<enter>"; }
+
       { map = [ "index" "pager" ]; key = "?";
         action = "<shell-escape>bat --style=plain ${config.xdg.configHome}/neomutt/keybindings<enter>"; }
     ];
 
     extraConfig = ''
       folder-hook '${maildir}/Gmail/' 'set from="${s.gmailAddress}"'
+
+      set query_command = "abook --mutt-query '%s'"
+
+      # ── Colours ────────────────────────────────────────────────────────────
+      # Ukiyo palette via Stylix base16 terminal colors:
+      #   color0=bg  color1=red  color3=amber  color4=gold
+      #   color6=warm-gold  color7=text  color8=dim  color12=secondary
+
+      color normal        color7   default
+      color indicator     color0   color3
+
+      color index         color4   default  "~U"
+      color index         color1   default  "~D"
+      color index         color3   default  "~F"
+      color index         color6   default  "~T"
+
+      color index_author  color4   default  "~U"
+      color index_subject color4   default  "~U"
+
+      color sidebar_new       color4   default
+      color sidebar_indicator color0   color3
+      color sidebar_divider   color8   default
+
+      color header     color3   default  "^From:"
+      color header     color3   default  "^Subject:"
+      color header     color4   default  "^Date:"
+      color header     color12  default  "^To:"
+      color header     color12  default  "^Cc:"
+      color hdrdefault color8   default
+
+      color quoted      color8   default
+      color quoted1     color3   default
+      color quoted2     color4   default
+      color signature   color8   default
+      color attachment  color6   default
+
+      color status      color0   color3
+
+      color body  color4  default  "(https?|ftp)://[^ >)]*"
     '';
   };
 
@@ -179,7 +249,7 @@ in {
 
     Sidebar
       J / K           next / previous folder
-      Ctrl+O          open sidebar-highlighted folder
+      o               open sidebar-highlighted folder
       b               toggle sidebar
 
     Account shortcuts
@@ -190,8 +260,13 @@ in {
       r               reply
       R               reply-all
       d               delete message
+      s               move message to folder
       u               toggle read / unread
       v               view attachments
+      A               add sender to address book
+
+    Compose
+      Tab             autocomplete address (from abook)
 
     Other
       ?               this page

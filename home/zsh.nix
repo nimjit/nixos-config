@@ -203,6 +203,22 @@ sys.exit(1)
 
       music() { rmpc; }
 
+      email() {
+        if kitten @ ls 2>/dev/null | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for w in d:
+    if w.get('is_focused'):
+        if any(t.get('title') == 'email' for t in w.get('tabs', [])):
+            sys.exit(0)
+sys.exit(1)
+" 2>/dev/null; then
+          kitten @ focus-tab --match "title:^email$" 2>/dev/null
+          return
+        fi
+        kitten @ launch --type=tab --tab-title email -- neomutt 2>/dev/null || neomutt
+      }
+
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
       if [[ -o interactive && -z "$NVIM" && $SHLVL -eq 1 ]]; then
 
@@ -369,6 +385,15 @@ sys.exit(1)
             done < "$daily"
           fi
 
+          # Unread mail count
+          local unread
+          unread=$(find "$HOME/Mail" -path "*/INBOX/new/*" -type f 2>/dev/null | wc -l)
+          if (( unread > 0 )); then
+            right_col+=("")
+            right_col+=("Mail")
+            right_col+=("  $unread unread")
+          fi
+
           # Render side by side
           local n_max=$(( ''${#left_col[@]} > ''${#right_col[@]} ? ''${#left_col[@]} : ''${#right_col[@]} ))
           for (( i=1; i<=n_max; i++ )); do
@@ -376,7 +401,7 @@ sys.exit(1)
           done
 
           echo ""
-          printf '  %stoday  vault-work  uni-work  messages  music  cal%s\n' "$DIM" "$RESET"
+          printf '  %stoday  vault-work  uni-work  messages  email  music  cal%s\n' "$DIM" "$RESET"
           echo ""
         }
         _greeting
