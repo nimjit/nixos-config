@@ -10,7 +10,7 @@ constraint?
 
 | Convention | Rule |
 |------------|------|
-| Navigation | `j`/`k` up/down, `h`/`l` or `q` back/open, `g`/`G` first/last |
+| Navigation | `j`/`k` up/down, `h`/`l` or `q` back/open, `gg`/`G` first/last |
 | Help | `?` opens a personal cheatsheet |
 | Sidebar | `J`/`K` to move, `b` to toggle |
 | Quit | `q` to exit/back |
@@ -23,13 +23,13 @@ constraint?
 
 | | neomutt | nchat | rmpc | yt-feed | ikhal | neovim |
 |--|---------|-------|------|---------|-------|--------|
-| j/k nav | ✓ | ✗ arrow | ✓ | ✓ | ✗ arrow | ✓ |
-| h/l or q back/open | l=open, q=back | ✗ | h/l=pane | b=back, q=quit | ✗ | ✓ |
+| j/k nav | ✓ | ✗ arrow | ✓ | ✓ | ✓ h/j/k/l | ✓ |
+| h/l or q back/open | ✓ | ✗ | ✓ | b=back, q=quit | ✓ | ✓ |
 | g/G first/last | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ |
 | ? help | ✓ (custom) | Ctrl+G | ✓ | ✗ (hint bar only) | built-in | ✓ |
 | Sidebar J/K | ✓ | Ctrl+J/K | N/A (tabs) | N/A | N/A | N/A |
-| Quit `q` | q=back | **Ctrl+Q** | ✓ | ✓ | ✓ | **:q** |
-| Ukiyo colours | ✓ | ✗ yellow | ✗ default | ~ approx | ✓ | ✓ |
+| Quit `q` | ✓ | **Ctrl+Q** | ✓ | ✓ | ✓ | **:q** |
+| Ukiyo colours | ✓ | ~ okay | ✓ via terminal | ✓ visually | ✓ | ✓ |
 
 ---
 
@@ -100,16 +100,13 @@ them:
 sidebar). In rmpc, J/K *reorder* the queue. This is a context-appropriate
 divergence — rmpc has no sidebar to navigate.
 
-**Colours:** ✗ `theme: None` in config.ron. rmpc uses its built-in default
-colors, which are unrelated to Ukiyo. rmpc supports custom themes via a
-separate theme file. This is a fixable gap.
+**Colours:** ✓ `theme: None` in config.ron means rmpc inherits the terminal's
+color palette directly. Since the terminal is Stylix base16 Ukiyo, rmpc gets
+the right colors automatically — no separate theme file needed.
 
 **Quit:** `q` — matches convention.
 
-**Fixable:**
-- Add a Ukiyo theme file for rmpc (same palette approach as khal's [palette]
-  section). rmpc's theme format is RON with color fields like `text_color`,
-  `highlight_color`, `border_color`, etc.
+**Gaps:** None.
 
 ---
 
@@ -125,51 +122,40 @@ bar only).
 **Sidebar:** N/A — linear card list, no sidebar. Categories accessed via `c`
 popup, which uses j/k. This is fine; the structure doesn't call for a sidebar.
 
-**Colours:** ~ Close but not exact. Hard-coded RGB in the Python source:
+**Colours:** ✓ Visually correct. Hard-coded RGB in the Python source:
 ```python
-ACCENT  = fg(204, 153, 102)   # ≈ amber (ba945f is the Ukiyo value)
-MUTED   = fg(140, 120, 110)   # ≈ dim brown-gray
-HILIGHT = fg(230, 210, 190)   # ≈ light warm white
+ACCENT  = fg(204, 153, 102)   # amber — close to Ukiyo base0A ba945f
+MUTED   = fg(140, 120, 110)   # dim brown-gray
+HILIGHT = fg(230, 210, 190)   # warm near-white
 ```
-These were clearly chosen to match the Ukiyo mood but aren't the exact palette
-values. Because yt-feed uses raw RGB escapes (not terminal color slots), it
-bypasses the Stylix base16 mapping. This means it won't automatically update if
-the theme changes. Fixable but low priority — the visual result is already
-close.
+Uses raw RGB rather than terminal color slots, so it bypasses Stylix base16.
+Won't auto-update with a theme change, but the values are stable and the visual
+result matches. Not a concern in practice.
 
 **Quit:** `q` — matches convention.
 
 **Fixable:**
-- Update ACCENT/MUTED/HILIGHT to exact Ukiyo hex values
 - Add `g`/`G` for first/last
-- Add `?` help popup (already consistent with neomutt's pattern)
+- Add `?` help popup (same pattern as neomutt's cheatsheet)
 
 ---
 
 ### ikhal — calendar
 
-**Vim-style:** ✗ Hard constraint. ikhal (khal's interactive TUI) uses built-in
-keybindings that cannot be reconfigured. Navigation is arrow-key based:
-- Arrow keys: move between days/events
-- Enter: open event
-- `n`: new event
-- `d`: delete
-- `e`: edit
-- `q`: quit
+**Vim-style:** ✓ ikhal supports h/j/k/l for date navigation alongside arrow keys.
+`q` to quit. `Tab` switches between the calendar grid and the event list.
 
-No way to remap these without patching khal itself.
+**Missing:** `g`/`G` (not really applicable to a calendar grid). `?` uses
+ikhal's own built-in help, not a personal cheatsheet.
 
-**Sidebar:** N/A — ikhal is a two-pane (calendar grid + event list) app with
-no sidebar concept. Navigation is purely arrow-key between the two panes.
+**Sidebar:** N/A — two-pane layout (grid + event list), `Tab` to switch.
 
 **Colours:** ✓ Ukiyo palette configured in `home/dotfiles/khal/config` via the
-`[palette]` section, using 256-color codes that match the base16 values.
-Well-themed.
+`[palette]` section, using 256-color codes matching the base16 values.
 
 **Quit:** `q` — matches convention.
 
-**Not fixable:** j/k navigation, h/l pane switching — khal's interactive UI
-has no key config file.
+**Gaps:** Minor. The built-in ? help is fine.
 
 ---
 
@@ -192,13 +178,11 @@ paradigm. `q` in normal mode is a macro recorder, not quit. No fix appropriate.
 
 | Divergence | Tool | Fixable? | Reason |
 |------------|------|----------|--------|
-| j/k navigation | nchat, ikhal | No | Text entry / no config |
+| j/k navigation | nchat | No | Persistent text entry |
 | Ctrl+Q quit | nchat | No | Text entry context |
 | :q quit | neovim | No | Modal editor paradigm |
 | Ctrl+J/K sidebar | nchat | No (justified) | Same family, different modifier |
 | J/K = reorder not navigate | rmpc | No (appropriate) | No sidebar; J/K reorders queue |
-| No Ukiyo theme | rmpc | **Yes** | theme: None → write a theme file |
-| Approximate Ukiyo colors | yt-feed | Yes (low priority) | Update RGB constants |
 | No g/G first/last | yt-feed | Yes | Add to getch() handler |
 | No ? help popup | yt-feed | Yes | Already done in neomutt; add here |
 | Yellow-only colors | nchat | Partial | color.conf only supports named colors |
@@ -207,27 +191,40 @@ paradigm. `q` in normal mode is a macro recorder, not quit. No fix appropriate.
 
 ## What genuinely cannot be homogenised
 
-Two root causes explain all the hard constraints:
+One root cause explains all hard constraints:
 
-1. **Persistent text entry** (nchat): any non-modifier key is potentially
-   typed text. Ctrl-modified keys are the only safe navigation keys. This
-   is a fundamental UI model difference from read-only tools like email and
-   music.
+**Persistent text entry** (nchat): any non-modifier key is potentially typed
+text. Ctrl-modified keys are the only safe navigation bindings. This is a
+fundamental UI model difference from every other tool here.
 
-2. **No config** (ikhal): khal's TUI doesn't expose keybinding configuration.
-   The only fix would be switching calendar TUI (e.g. calcurse, which IS
-   configurable — see `home/dotfiles/calcurse/keys`).
+Everything else is either already consistent or has a small fixable gap.
 
-Everything else — rmpc colors, yt-feed precision, yt-feed g/G and ? — is fixable
-if it ever feels worth the effort.
+---
+
+## Tab / pane movement
+
+How each tool moves between its internal sections (tabs, panes, splits).
+
+| Tool | Sections | Move between | Notes |
+|------|----------|-------------|-------|
+| neomutt | Sidebar + index/pager | `o` opens sidebar item; no "tab" concept | Sidebar is always visible, not a tab |
+| nchat | Contact list + chat view | Ctrl+H toggles the list; no tabs | Two-pane, not tab-based |
+| rmpc | 7 named tabs | `Tab`/`Shift+Tab`, `Ctrl+l`/`Ctrl+h`, `gt`/`gT`, `1`–`7` | Rich tab navigation |
+| yt-feed | Single view + category popup | `c` for popup, Esc/q to close | No persistent tabs |
+| ikhal | Calendar grid + event list | `Tab` to switch panes | Two fixed panes |
+| neovim | Splits / buffers | `Ctrl+h/j/k/l` between splits; no tab bar used | No kitty-tab integration from inside |
+
+**Pattern that exists:** rmpc and ikhal both use `Tab` to move between sections. neovim uses `Ctrl+hjkl` for splits (directional, not cyclic). neomutt and nchat don't have tabs — their "sections" are always co-visible.
+
+**The missing piece:** there's no consistent "cycle through sections" key. rmpc has the fullest tab system (7 tabs, multiple ways to reach them). ikhal has the simplest (2 panes, one Tab). The others don't apply.
+
+**Kitty tabs vs. internal tabs:** the tools themselves run *in* kitty tabs (email, music, messages). Movement between kitty tabs uses `Ctrl+Shift+hjkl` (configured in kitty). This is a separate layer above the tool's own internal navigation and doesn't conflict.
+
+**Verdict:** no homogenisation needed here. The tools that have internal tabs (rmpc) or panes (ikhal) each use `Tab`/`Ctrl+hjkl` consistently with the rest of the system. The tools that don't have internal sections (neomutt, yt-feed) simply don't need tab movement.
 
 ---
 
 ## Status
 
-- [ ] rmpc: write Ukiyo theme file
-- [ ] yt-feed: update ACCENT/MUTED/HILIGHT to exact Ukiyo values
-- [ ] yt-feed: add g/G first/last
-- [ ] yt-feed: add ? help popup
-- [ ] nchat: improve color.conf (yellow → amber approximation, gray for muted)
-- [ ] Consider: calcurse as ikhal replacement (has `home/dotfiles/calcurse/keys` already)
+- [ ] yt-feed: add `g`/`G` first/last
+- [ ] yt-feed: add `?` help popup
