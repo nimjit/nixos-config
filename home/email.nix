@@ -1,16 +1,20 @@
 { config, pkgs, ... }:
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Before rebuilding, create ~/.config/nixos-secrets.nix with your addresses:
+# ~/.config/nixos-secrets.nix must contain:
 #
 #   {
-#     gmailAddress = "you@gmail.com";    # ← FILL IN
-#     # add more addresses here as you add accounts
+#     gmailAddress            = "tidemanus@gmail.com";
+#     gmailProfAddress        = "thijmen.nouwens@gmail.com";
+#     nouwensLindemansAddress = "thijmen@nouwens-lindemans.nl";
 #   }
 #
-# Then follow the one-time setup steps in plans/Active/email.md.
-# Rebuild must use --impure (already set in the rebuild alias) because this
-# file lives outside the git repo.
+# One-time lpass setup per account:
+#   lpass add 'Gmail App Password neomutt'           ← tidemanus
+#   lpass add 'Gmail App Password neomutt thijmen.nouwens'
+#   lpass add 'Nouwens-Lindemans mail'
+#
+# Rebuild must use --impure (already set in the rebuild alias).
 # ─────────────────────────────────────────────────────────────────────────────
 
 let
@@ -27,13 +31,15 @@ in {
   accounts.email = {
     maildirBasePath = maildir;
 
+    # ── Gmail (tidemanus) ────────────────────────────────────────────────────
     accounts.Gmail = {
       address  = s.gmailAddress;
       userName = s.gmailAddress;
       realName = "Thijmen Nouwens";
       primary  = true;
 
-      # Gmail IMAP uses Dutch folder names (matches the account's UI language)
+      # Gmail IMAP uses Dutch folder names (matches the account's UI language).
+      # Verify with: mbsync -c /tmp/test.conf -l Gmail  (Patterns *)
       folders = {
         inbox  = "INBOX";
         sent   = "[Gmail]/Verzonden berichten";
@@ -41,35 +47,94 @@ in {
         trash  = "[Gmail]/Prullenbak";
       };
 
-      imap = {
-        host = "imap.gmail.com";
-        port = 993;
-        tls.enable = true;
-      };
+      imap = { host = "imap.gmail.com"; port = 993; tls.enable = true; };
+      smtp = { host = "smtp.gmail.com"; port = 465;
+               tls = { enable = true; useStartTls = false; }; };
 
-      smtp = {
-        host = "smtp.gmail.com";
-        port = 465;
-        tls = { enable = true; useStartTls = false; };
-      };
-
-      # One-time setup: lpass add 'Gmail App Password neomutt'
       passwordCommand = "lpass show --password 'Gmail App Password neomutt'";
 
       mbsync = {
         enable  = true;
         create  = "maildir";
         expunge = "both";
-        # Sync inbox + Gmail special folders only (skip All Mail — too large).
-        # Gmail uses the account's UI language for IMAP folder names (Dutch here).
         patterns = [ "INBOX" "[Gmail]/Verzonden berichten" "[Gmail]/Concepten" "[Gmail]/Prullenbak" ];
       };
 
       msmtp.enable = true;
-
       neomutt = {
         enable         = true;
         extraMailboxes = [ "[Gmail]/Verzonden berichten" "[Gmail]/Concepten" "[Gmail]/Prullenbak" ];
+      };
+    };
+
+    # ── Gmail Professional (thijmen.nouwens) ────────────────────────────────
+    accounts.GmailProf = {
+      address  = s.gmailProfAddress;
+      userName = s.gmailProfAddress;
+      realName = "Thijmen Nouwens";
+
+      # If this account's language is English the folder names differ:
+      # Sent Mail / Drafts / Trash instead of Dutch names.
+      # Verify with: mbsync -c /tmp/test.conf -l GmailProf  (Patterns *)
+      folders = {
+        inbox  = "INBOX";
+        sent   = "[Gmail]/Verzonden berichten";
+        drafts = "[Gmail]/Concepten";
+        trash  = "[Gmail]/Prullenbak";
+      };
+
+      imap = { host = "imap.gmail.com"; port = 993; tls.enable = true; };
+      smtp = { host = "smtp.gmail.com"; port = 465;
+               tls = { enable = true; useStartTls = false; }; };
+
+      passwordCommand = "lpass show --password 'Gmail App Password neomutt thijmen.nouwens'";
+
+      mbsync = {
+        enable  = true;
+        create  = "maildir";
+        expunge = "both";
+        patterns = [ "INBOX" "[Gmail]/Verzonden berichten" "[Gmail]/Concepten" "[Gmail]/Prullenbak" ];
+      };
+
+      msmtp.enable = true;
+      neomutt = {
+        enable         = true;
+        extraMailboxes = [ "[Gmail]/Verzonden berichten" "[Gmail]/Concepten" "[Gmail]/Prullenbak" ];
+      };
+    };
+
+    # ── Nouwens-Lindemans ────────────────────────────────────────────────────
+    accounts.NouwensLindemans = {
+      address  = s.nouwensLindemansAddress;
+      userName = s.nouwensLindemansAddress;
+      realName = "Thijmen Nouwens";
+
+      # VERIFY: check the correct mail server with your provider.
+      # Try: mbsync -c /tmp/test.conf -l NouwensLindemans  (Patterns *)
+      folders = {
+        inbox  = "INBOX";
+        sent   = "Sent";
+        drafts = "Drafts";
+        trash  = "Trash";
+      };
+
+      imap = { host = "mail.nouwens-lindemans.nl"; port = 993; tls.enable = true; };
+      smtp = { host = "mail.nouwens-lindemans.nl"; port = 465;
+               tls = { enable = true; useStartTls = false; }; };
+
+      passwordCommand = "lpass show --password 'Nouwens-Lindemans mail'";
+
+      mbsync = {
+        enable  = true;
+        create  = "maildir";
+        expunge = "both";
+        patterns = [ "INBOX" "Sent" "Drafts" "Trash" ];
+      };
+
+      msmtp.enable = true;
+      neomutt = {
+        enable         = true;
+        extraMailboxes = [ "Sent" "Drafts" "Trash" ];
       };
     };
   };
@@ -181,8 +246,13 @@ in {
       { map = [ "index" "pager" ]; key = "b";
         action = "<enter-command>toggle sidebar_visible<enter>"; }
 
+      # Account inbox shortcuts
       { map = [ "index" "pager" ]; key = "gi";
         action = "<change-folder>${maildir}/Gmail/INBOX<enter>"; }
+      { map = [ "index" "pager" ]; key = "gp";
+        action = "<change-folder>${maildir}/GmailProf/INBOX<enter>"; }
+      { map = [ "index" "pager" ]; key = "gn";
+        action = "<change-folder>${maildir}/NouwensLindemans/INBOX<enter>"; }
 
       { map = [ "index" "pager" ]; key = "A";
         action = "<pipe-message>abook --add-email-quiet<enter>"; }
@@ -192,7 +262,9 @@ in {
     ];
 
     extraConfig = ''
-      folder-hook '${maildir}/Gmail/' 'set from="${s.gmailAddress}"'
+      folder-hook '${maildir}/Gmail/'             'set from="${s.gmailAddress}"'
+      folder-hook '${maildir}/GmailProf/'         'set from="${s.gmailProfAddress}"'
+      folder-hook '${maildir}/NouwensLindemans/'  'set from="${s.nouwensLindemansAddress}"'
 
       set query_command = "abook --mutt-query '%s'"
 
@@ -253,7 +325,9 @@ in {
       b               toggle sidebar
 
     Account shortcuts
-      gi              go to Gmail inbox
+      gi              Gmail (tidemanus)
+      gp              Gmail Professional (thijmen.nouwens)
+      gn              Nouwens-Lindemans
 
     Actions
       m               compose new message

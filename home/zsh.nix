@@ -179,7 +179,7 @@ sys.exit(1)
           return
         fi
         # No messages tab in current window: attach to the service's dtach session
-        kitten @ launch --type=tab --tab-title messages -- dtach -a /tmp/nchat-dtach 2>/dev/null || \
+        kitten @ launch --type=tab --tab-title messages -- dtach -a /tmp/nchat-dtach &>/dev/null || \
           dtach -a /tmp/nchat-dtach
       }
 
@@ -216,7 +216,7 @@ sys.exit(1)
           kitten @ focus-tab --match "title:^email$" 2>/dev/null
           return
         fi
-        kitten @ launch --type=tab --tab-title email -- neomutt 2>/dev/null || neomutt
+        kitten @ launch --type=tab --tab-title email -- neomutt &>/dev/null || neomutt
       }
 
       # Greeting: only in interactive top-level shells, never inside neovim :terminal
