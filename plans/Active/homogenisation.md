@@ -1,43 +1,92 @@
 # UI Homogenisation
 
 Maps the current state of each terminal tool against the intended UI conventions.
-Central principle: **modal vs non-modal** determines which key layer applies.
+Central principle: **modifier weight maps to scope distance from the cursor.**
+
+## Key hierarchy
 
 ```
-ctrl+hjkl   tab / pane / persistent panel movement  (works in any context)
-hjkl        movement in modal areas                 (read-only, no text entry)
-fn+hjkl     movement in non-modal areas             (= arrow keys on this keyboard)
-gg / G      first / last in modal areas
-q / :q      quit in modal areas
-ctrl+q      quit in non-modal areas
-?           help in modal areas
+Thumb row:  [Super] [Alt] [Ctrl/Space]       [Shift/Enter] [Fn] [Super]
+               │      │        │                               │
+               │      │        └─ ctrl+hjkl  pane/tab/panel   │
+               │      │           ctrl+q     quit (non-modal)  │
+               │      │           tap        space             │
+               │      └─ alt+hjkl  switch to app in direction  │
+               └─ super+…  WM: desktops, windows               └─ fn+hjkl = ↑↓←→
+                                                                   (hardware layer)
+
+  Scope       Modifier     hjkl meaning          When it applies
+  ──────────────────────────────────────────────────────────────────
+  WM          Super        desktop / window       always
+  App         Alt          switch application     always (KDE app switcher)
+  Structure   Ctrl         tab / pane / panel     always
+  ──────────  ───────────  ────────────────────   ──────────────────────────
+  Cursor      bare         navigate items         modal apps only
+  Cursor      fn (= ↑↓←→)  navigate items         non-modal apps
+  ──────────  ───────────  ────────────────────   ──────────────────────────
 ```
 
-**Why ctrl as the non-modal leader:** ctrl lives on the spacebar (thumb hold), so
-it is ergonomically close to hjkl. Non-modal apps have a persistent text entry
-box — any bare key press types. Ctrl is always safe there. This also keeps
-ctrl+hjkl consistent across layers: window movement (Super already handles
-desktops/windows), split movement, tab movement, and panel movement all use the
-same modifier.
+fn is hardware-level: the OS sees arrow keycodes, not "fn+j". It cannot carry
+additional software bindings — its only role is arrows.
 
-**Why fn+hjkl = arrows:** the physical arrow keys on this keyboard are fn+hjkl.
-Non-modal apps (nchat, ikhal) use arrows by default. This reframes that as "fn
-layer" rather than "broken convention" — it's the same key family, different
-modifier.
+The one inversion: in non-modal apps (nchat), ctrl drops to cursor level because
+bare keys are unsafe. Safety overrides scope there, but the key family is the same.
 
 ---
 
-## Intended conventions (from CLAUDE.md)
+## Verb vocabulary
 
-| Convention | Rule |
-|------------|------|
-| Navigation | `j`/`k`/`h`/`l` directions, `b`/`q` back/quit, `gg`/`G` first/last |
-| Help       | `?` opens a personal cheatsheet                    |
-| Sidebar    | `crtl`+`j`/`k` to move, `ctrl+h` to toggle               |
-| Quit       | `q` to exit/back                                   |
-| Entry alias| Opens in a kitty tab                             |
-| Notify     | `notify-send` → mako on relevant events            |
-| Tabs/buffer| `ctrl+hjkl`                                        |
+All interaction types and their intended bindings. Modal = no persistent text
+entry (neomutt, rmpc, yt-feed, ikhal). Non-modal = persistent text box (nchat).
+
+### Movement
+
+| Action           | Modal      | Non-modal   | Notes |
+|------------------|------------|-------------|-------|
+| Navigate items   | hjkl       | fn+hjkl     | arrows on this keyboard |
+| First / last     | gg / G     | —           | no non-modal equivalent |
+| Next / prev      | n / p      | n / p       | different modality: next result, next unread, next occurrence |
+| Pane / tab       | Ctrl+hjkl  | Ctrl+hjkl   | always safe; same binding regardless of modal state |
+| Half-page scroll | Ctrl+u/d   | —           | useful where lists are long (rmpc has this) |
+
+### Open / confirm
+
+| Action           | Key   | Notes |
+|------------------|-------|-------|
+| Enter context    | l     | drill down, open in place; reverse with h or q |
+| Execute on item  | \<CR\>  | play, launch, run — not a navigation move |
+| Open externally  | o     | xdg-open, browser, player |
+| Open in new tab  | O     | same but in new context (qutebrowser `O`) |
+
+The distinction: if you can go back with `h` or `q`, use `l`. If it launches
+something external or irreversible, use `<CR>`. Both can exist in the same app.
+
+### Edit / modify
+
+| Action           | Modal      | Non-modal    | Notes |
+|------------------|------------|--------------|-------|
+| Select           | v / V      | mouse        | v = item, V = block/range |
+| Yank / copy      | y / yy     | Ctrl+y / Ctrl+c | yy = whole item without prior selection (like qutebrowser `yy` for URL, neovim `yy` for line) |
+| Delete           | d / dd     | —            | d = mark for deletion where possible; dd = confirm/immediate |
+| Fold / collapse  | J          | —            | also: reorder/restructure (rmpc queue) |
+| Sort             | s          | —            | rarely used; reserve the key |
+| Mark / flag      | Space?     | —            | undecided — some apps use Space, no convention yet |
+
+### Actions
+
+| Action           | Key   | Notes |
+|------------------|-------|-------|
+| Lookup           | K     | get more context from external source (LSP hover, Wikipedia, web search) |
+| Refresh          | r     | reload data from source, where applicable |
+| Compose / create | m / n | m = mail (neomutt); n = new item (app-dependent) |
+
+### Meta
+
+| Action          | Modal  | Non-modal |
+|-----------------|--------|-----------|
+| Help            | ?      | —         |
+| Quit / back     | q / :q | Ctrl+q    |
+| Search / filter | /      | —         |
 
 ---
 
@@ -228,7 +277,7 @@ How each tool moves between its internal sections (tabs, panes, splits).
 
 | Tool | Sections | Move between | Notes |
 |------|----------|-------------|-------|
-| neomutt | Sidebar + index/pager | `o` opens sidebar item; no "tab" concept | Sidebar is always visible, not a tab |
+| neomutt | Sidebar + index/pager | Ctrl+L opens sidebar item; no "tab" concept | Sidebar is always visible, not a tab |
 | nchat | Contact list + chat view | Ctrl+H toggles the list; no tabs | Two-pane, not tab-based |
 | rmpc | 7 named tabs | `Tab`/`Shift+Tab`, `Ctrl+l`/`Ctrl+h`, `gt`/`gT`, `1`–`7` | Rich tab navigation |
 | yt-feed | Single view + category popup | `c` for popup, Esc/q to close | No persistent tabs |
