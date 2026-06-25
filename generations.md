@@ -165,3 +165,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 158 | 2026-06-24  19:00 | 2d0a2ad | homogenisation: Ctrl+J/K sidebar, yt-feed gg/G |
 | 159 | 2026-06-25  21:26 | 423883e | greeting: persistent ToDo, project rotation, email senders, nchat count |
 | 160 | 2026-06-26  00:12 | 7ea81fb | emacs: literate config.org, editable without rebuild |
+| 161 | 2026-06-26  01:14 | ead8468 | emacs: pre-declare all packages from old config |
