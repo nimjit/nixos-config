@@ -114,6 +114,46 @@ Do not byte-compile this config — =general-create-definer= resolves at runtime
   "q q" '(save-buffers-kill-emacs :wk "quit"))
 #+end_src
 
+* Google Calendar Sync
+
+=org-gcal= uses the same client credentials as vdirsyncer — same Google Cloud project,
+own OAuth tokens stored in =~/.emacs.d/org-gcal/=. Credentials are in =~/.authinfo=.
+
+First run: =M-x org-gcal-fetch= opens a browser for one-time OAuth authorization.
+After that, syncs happen automatically when =org-agenda= opens.
+
+#+begin_src emacs-lisp
+(use-package org-gcal
+  :config
+  (let ((id     (auth-source-pick-first-password :host "org-gcal" :user "client-id"))
+        (secret (auth-source-pick-first-password :host "org-gcal" :user "client-secret")))
+    (when (and id secret)
+      (setq org-gcal-client-id     id
+            org-gcal-client-secret secret)
+      (setq org-gcal-fetch-file-alist
+            '(("tidemanus@gmail.com"
+               . "~/org/calendars/work.org")
+              ("3cglgpg5e90ir3hkb1pm7an6o8@group.calendar.google.com"
+               . "~/org/calendars/sport.org")
+              ("3euvi10lkmt4fqpirpgvl2nk6c@group.calendar.google.com"
+               . "~/org/calendars/fun.org")
+              ("516f52eeb9795de1f8a777b7a7cf97bb56def544a631c67dd1dbf5dd6a206636@group.calendar.google.com"
+               . "~/org/calendars/lisan-shared-2.org")
+              ("592v7scul1nlh8gesk9hjo0il8@group.calendar.google.com"
+               . "~/org/calendars/mindfulness.org")
+              ("79b383593b28fd5fc18cebda7dbf7045b0c73e2d018e82dd7d428b46cc18b6e0@group.calendar.google.com"
+               . "~/org/calendars/dnd-in-space.org")
+              ("f870c42940632a3a054e14173f526476294fc75bebbbebfb1199f3a70d3b80c5@group.calendar.google.com"
+               . "~/org/calendars/lisan-thijmen.org")
+              ("k7jruoo49099vv4cn451cukijba6pftr@import.calendar.google.com"
+               . "~/org/calendars/tudelft.org")
+              ("tt610g1de7jm8in8j9jo7hvga4@group.calendar.google.com"
+               . "~/org/calendars/semi-productive.org")
+              ("cp7ljbsac30lakkm39rsdht0m0@group.calendar.google.com"
+               . "~/org/calendars/misc.org")))
+      (add-hook 'org-agenda-mode-hook #'org-gcal-fetch))))
+#+end_src
+
 * Misc
 
 #+begin_src emacs-lisp
