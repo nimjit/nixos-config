@@ -1,0 +1,122 @@
+#+title: Emacs Configuration
+#+author: Thijmen
+#+startup: fold
+#+options: toc:nil num:nil
+
+Literate config — each =#+begin_src emacs-lisp= block is tangled to =config.el= and
+loaded by =init.el= at startup. Edit this file directly; changes take effect on next
+Emacs restart. No Nix rebuild needed.
+
+Compare with =home/dotfiles/emacs-old/config.org= to see what the fuller config had.
+
+* Bootstrap
+
+=use-package= is built into Emacs 29+. Packages come from Nix — disable ELPA downloading.
+Auto-generated custom settings go to a separate file so this config stays clean.
+
+#+begin_src emacs-lisp
+(require 'use-package)
+(setq use-package-always-ensure nil)
+
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+(when (file-exists-p custom-file) (load custom-file))
+#+end_src
+
+* Theme
+
+Ukiyo — warm amber/brown palette matching the system Stylix theme.
+The theme file is Nix-managed at =~/.config/emacs/themes/ukiyo-theme.el=.
+
+#+begin_src emacs-lisp
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes" user-emacs-directory))
+(load-theme 'ukiyo t)
+#+end_src
+
+* Evil Mode
+
+Vim keybindings throughout Emacs. Load-order is critical:
+- =evil-want-keybinding nil= must be set in =:init=, before evil-collection loads
+- Unbind SPC in =:config=, after =(evil-mode 1)=
+
+#+begin_src emacs-lisp
+(use-package evil
+  :init
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+  (setq evil-undo-system 'undo-redo)
+  (setq evil-want-C-u-scroll t)
+  :config
+  (evil-mode 1)
+  (define-key evil-motion-state-map (kbd "SPC") nil)
+  (define-key evil-normal-state-map (kbd "SPC") nil))
+
+(use-package evil-collection
+  :after evil
+  :config (evil-collection-init))
+#+end_src
+
+* which-key
+
+Shows available keybindings after a prefix. Idle delay keeps it from flickering on fast
+sequences.
+
+#+begin_src emacs-lisp
+(use-package which-key
+  :config
+  (which-key-mode)
+  (setq which-key-idle-delay 0.4))
+#+end_src
+
+* Leader Keybindings
+
+=general.el= provides the SPC leader in normal and visual state.
+Do not byte-compile this config — =general-create-definer= resolves at runtime.
+
+#+begin_src emacs-lisp
+(use-package general
+  :after evil
+  :config
+  (general-create-definer spc!
+    :keymaps '(normal visual motion)
+    :prefix "SPC"
+    :global-prefix "C-SPC"))
+
+(spc!
+  ;; Files
+  "f f" '(find-file            :wk "find file")
+  "f r" '(recentf-open-files   :wk "recent files")
+  "f s" '(save-buffer          :wk "save")
+
+  ;; Buffers
+  "b b" '(switch-to-buffer     :wk "switch buffer")
+  "b k" '(kill-current-buffer  :wk "kill buffer")
+  "b n" '(next-buffer          :wk "next buffer")
+  "b p" '(previous-buffer      :wk "prev buffer")
+
+  ;; Windows
+  "w v" '(split-window-right   :wk "split right")
+  "w s" '(split-window-below   :wk "split below")
+  "w d" '(delete-window        :wk "close window")
+  "w o" '(delete-other-windows :wk "only this")
+  "w h" '(windmove-left        :wk "← left")
+  "w j" '(windmove-down        :wk "↓ down")
+  "w k" '(windmove-up          :wk "↑ up")
+  "w l" '(windmove-right       :wk "→ right")
+
+  ;; Help
+  "h f" '(describe-function    :wk "describe function")
+  "h k" '(describe-key         :wk "describe key")
+  "h v" '(describe-variable    :wk "describe variable")
+  "h m" '(describe-mode        :wk "describe mode")
+
+  ;; Quit
+  "q q" '(save-buffers-kill-emacs :wk "quit"))
+#+end_src
+
+* Misc
+
+#+begin_src emacs-lisp
+(recentf-mode 1)
+(add-hook 'prog-mode-hook 'display-line-numbers-mode)
+#+end_src
