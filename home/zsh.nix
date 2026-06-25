@@ -164,6 +164,7 @@
       # dtach -A: attach if session exists, create+attach if not.
       # Closing the kitty tab detaches; calling again re-attaches.
       messages() {
+        printf '0' > /tmp/nchat-unread
         # Only focus an existing messages tab if it is in the current kitty OS window.
         # focus-tab alone returns 0 even for background windows (Wayland can't raise those).
         if kitten @ ls 2>/dev/null | python3 -c "
@@ -181,6 +182,30 @@ sys.exit(1)
         # No messages tab in current window: attach to the service's dtach session
         kitten @ launch --type=tab --tab-title messages -- dtach -a /tmp/nchat-dtach &>/dev/null || \
           dtach -a /tmp/nchat-dtach
+      }
+
+      projects() {
+        local persist_todo="$HOME/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Misc/ToDo.md"
+        [[ -f "$persist_todo" ]] || { echo "No projects file found."; return; }
+        local in_proj=0
+        typeset -a proj_list=()
+        while IFS= read -r line; do
+          [[ "$line" == "## Projects" ]] && { in_proj=1; continue; }
+          [[ "$line" =~ ^## ]] && (( in_proj )) && break
+          if (( in_proj )) && [[ "$line" =~ ^[[:space:]]*-[[:space:]] ]]; then
+            proj_list+=("''${line#*- }")
+          fi
+        done < "$persist_todo"
+        (( ''${#proj_list[@]} == 0 )) && { echo "No projects."; return; }
+        local today_idx=$(( ($(date +%j) - 1) % ''${#proj_list[@]} ))
+        echo "Projects"
+        for (( i=1; i<=''${#proj_list[@]}; i++ )); do
+          if (( i - 1 == today_idx )); then
+            printf "  %d  %s  ← today\n" "$i" "''${proj_list[$i]}"
+          else
+            printf "  %d  %s\n" "$i" "''${proj_list[$i]}"
+          fi
+        done
       }
 
       # Append a quick thought to today's personal vault daily note without opening an editor.
@@ -372,9 +397,10 @@ sys.exit(1)
           while IFS= read -r line; do
             [[ -n "$line" ]] && right_col+=("  $line")
           done < <(_deadlines)
-          # ToDo from ## ToDo section in daily note
+          # ToDo: daily note + persistent file, shown under one header
+          local found_any=0
           if [[ -f "$daily" ]]; then
-            local in_todo=0 found_any=0
+            local in_todo=0
             while IFS= read -r line; do
               [[ "$line" == "## ToDo" ]] && { in_todo=1; continue; }
               [[ "$line" =~ ^## ]] && (( in_todo )) && break
@@ -384,14 +410,85 @@ sys.exit(1)
               fi
             done < "$daily"
           fi
+          local persist_todo="$HOME/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Misc/ToDo.md"
+          if [[ -f "$persist_todo" ]]; then
+            local in_ptodo=0
+            while IFS= read -r line; do
+              [[ "$line" == "## ToDo" ]] && { in_ptodo=1; continue; }
+              [[ "$line" =~ ^## ]] && (( in_ptodo )) && break
+              if (( in_ptodo )) && [[ "$line" =~ ^[[:space:]]*-[[:space:]] ]]; then
+                (( found_any == 0 )) && { right_col+=(""); right_col+=("ToDo"); found_any=1; }
+                right_col+=("  · ''${line#*- }")
+              fi
+            done < "$persist_todo"
+          fi
 
-          # Unread mail count
-          local unread
-          unread=$(find "$HOME/Mail" -path "*/INBOX/new/*" -type f 2>/dev/null | wc -l)
-          if (( unread > 0 )); then
+          # Project rotation: one project per day from ## Projects in ToDo.md
+          if [[ -f "$persist_todo" ]]; then
+            local in_proj=0
+            typeset -a proj_rot=()
+            while IFS= read -r line; do
+              [[ "$line" == "## Projects" ]] && { in_proj=1; continue; }
+              [[ "$line" =~ ^## ]] && (( in_proj )) && break
+              if (( in_proj )) && [[ "$line" =~ ^[[:space:]]*-[[:space:]] ]]; then
+                proj_rot+=("''${line#*- }")
+              fi
+            done < "$persist_todo"
+            if (( ''${#proj_rot[@]} > 0 )); then
+              local proj_idx=$(( ($(date +%j) - 1) % ''${#proj_rot[@]} ))
+              right_col+=("")
+              right_col+=("Project today")
+              right_col+=("  · ''${proj_rot[$(( proj_idx + 1 ))]}")
+            fi
+          fi
+
+          # Mail: sender names from From: headers
+          local mail_senders
+          mail_senders=$(python3 - <<'PYEOF'
+import os, glob
+from email.header import decode_header
+
+def decode_from(raw):
+    parts = decode_header(raw)
+    name = ""
+    for b, enc in parts:
+        if isinstance(b, bytes):
+            name += b.decode(enc or "utf-8", errors="replace")
+        else:
+            name += b
+    name = name.split("<")[0].strip().strip('"')
+    return name or raw.split("<")[0].strip()
+
+files = glob.glob(os.path.expanduser("~/Mail/*/INBOX/new/*"))
+senders = []
+for f in sorted(files, key=os.path.getmtime, reverse=True)[:4]:
+    try:
+        for line in open(f, errors="replace"):
+            if line.startswith("From:"):
+                senders.append(decode_from(line[5:].strip()))
+                break
+    except Exception:
+        pass
+for s in senders:
+    print(s)
+PYEOF
+)
+          if [[ -n $mail_senders ]]; then
+            local mail_count
+            mail_count=$(find "$HOME/Mail" -path "*/INBOX/new/*" -type f 2>/dev/null | wc -l)
             right_col+=("")
-            right_col+=("Mail")
-            right_col+=("  $unread unread")
+            right_col+=("Mail  ($mail_count)")
+            while IFS= read -r sender; do
+              right_col+=("  $sender")
+            done <<< "$mail_senders"
+          fi
+
+          # nchat unread count
+          local nchat_unread
+          nchat_unread=$(cat /tmp/nchat-unread 2>/dev/null | tr -d '[:space:]')
+          if [[ -n $nchat_unread && $nchat_unread -gt 0 ]]; then
+            right_col+=("")
+            right_col+=("Messages  ($nchat_unread)")
           fi
 
           # Render side by side

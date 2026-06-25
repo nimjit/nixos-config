@@ -527,6 +527,31 @@ function M.open_vault()
         proj_lines[#proj_lines + 1] = { text = text, path = p.path }
     end
 
+    -- Summer projects rotation from Misc/ToDo.md
+    local todo_path = VAULT .. "/Misc/ToDo.md"
+    local projects_list = {}
+    local fp = io.open(todo_path, "r")
+    if fp then
+        local in_proj = false
+        for line in fp:lines() do
+            if line == "## Projects" then in_proj = true
+            elseif line:match("^## ") and in_proj then break
+            elseif in_proj and line:match("^%s*%-%s") then
+                projects_list[#projects_list + 1] = line:match("^%s*%-%s+(.*)")
+            end
+        end
+        fp:close()
+    end
+    local projects_lines = {}
+    if #projects_list > 0 then
+        local doy = tonumber(os.date("%j"))
+        local today_idx = (doy - 1) % #projects_list
+        for i, proj in ipairs(projects_list) do
+            local marker = (i - 1 == today_idx) and "  ← today" or ""
+            projects_lines[#projects_lines + 1] = { text = string.format("%d  %s%s", i, proj, marker) }
+        end
+    end
+
     -- Recent dailies
     local daily_dir = VAULT .. "/Dailies"
     local handle = io.popen('find ' .. vim.fn.shellescape(daily_dir) ..
@@ -567,6 +592,7 @@ function M.open_vault()
     local sections = {
         { header = "BIRTHDAYS THIS MONTH", lines = bday_lines },
         { header = "CONTINUE",             lines = proj_lines },
+        { header = "PROJECTS",             lines = projects_lines },
         { header = "RECENT DAILY NOTES",   lines = daily_lines },
         { header = "KNOWLEDGE",            lines = know_lines },
     }

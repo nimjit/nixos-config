@@ -19,6 +19,7 @@
     ./kwin.nix
     ./git.nix
     ./email.nix
+    ./services.nix
   ];
 
   # ── Home basics ───────────────────────────────────────────────────────────
