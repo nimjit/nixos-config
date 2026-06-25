@@ -3,11 +3,71 @@
     enable  = true;
     package = pkgs.emacs-pgtk;
     extraPackages = epkgs: with epkgs; [
+      # ── Evil ──────────────────────────────────────────────────────────────
       evil
       evil-collection
+      evil-surround        # cs, ds, ys surround operations
+      evil-commentary      # gc to comment lines
+      evil-goggles         # visual flash on evil operations
+
+      # ── Leader / keybindings ──────────────────────────────────────────────
       general
       which-key
+
+      # ── Completion stack ──────────────────────────────────────────────────
+      vertico              # vertical minibuffer
+      orderless            # fuzzy space-separated matching
+      marginalia           # annotations in minibuffer
+      consult              # enhanced find-file, grep, buffer switch
+      embark               # act on minibuffer candidates
+      embark-consult
+
+      # ── Navigation ────────────────────────────────────────────────────────
+      avy                  # on-screen jump by character
+      projectile           # project-aware operations
+
+      # ── Git ───────────────────────────────────────────────────────────────
+      magit
+      diff-hl              # gutter change indicators
+
+      # ── Files ─────────────────────────────────────────────────────────────
+      dired-sidebar        # persistent left file tree
+
+      # ── Appearance ────────────────────────────────────────────────────────
+      mixed-pitch          # variable pitch in prose, mono in code
+      olivetti             # centered writing mode
+      org-superstar        # prettier org heading bullets
+      org-modern           # modern org rendering (tables, tags, todos)
+
+      # ── Org ───────────────────────────────────────────────────────────────
+      org-roam
+      org-roam-ui          # interactive graph browser
+      org-ql               # query language for org files (replaces Dataview)
+      org-transclusion     # embed sections from other org files live
+      org-gcal             # Google Calendar sync (needs ~/.authinfo.gpg)
+      citar                # citation management against .bib files
+      org-roam-bibtex      # link .bib entries to org-roam nodes
+
+      # ── Spell check ───────────────────────────────────────────────────────
+      jinx                 # fast spell check via enchant2 (en + nl)
+
+      # ── PDF ───────────────────────────────────────────────────────────────
+      pdf-tools            # view PDFs inside Emacs
+
+      # ── RSS / YouTube ─────────────────────────────────────────────────────
+      elfeed               # RSS reader
+      elfeed-org           # manage feed list in an org file
+      elfeed-tube          # YouTube metadata + mpv playback
+
+      # ── Music ─────────────────────────────────────────────────────────────
+      emms                 # in-Emacs music player backed by mpv
+
+      # ── Workspaces ────────────────────────────────────────────────────────
+      perspective          # named workspaces with separate buffer lists
+
+      # ── Markup / writing ──────────────────────────────────────────────────
       markdown-mode
+      typst-ts-mode        # .typ files with tree-sitter + tinymist LSP
     ];
   };
 
@@ -16,8 +76,8 @@
   xdg.configFile."emacs/themes/ukiyo-theme.el".source = ./dotfiles/emacs/ukiyo-theme.el;
 
   # config.org is deployed as a mutable copy on first install so it can be edited
-  # without a Nix rebuild. To update the Nix source after editing the live file,
-  # copy ~/.config/emacs/config.org back to home/dotfiles/emacs/config.org and commit.
+  # without a Nix rebuild. To persist changes back to git, copy
+  # ~/.config/emacs/config.org back to home/dotfiles/emacs/config.org and commit.
   home.activation.emacsConfigOrg = lib.hm.dag.entryAfter ["writeBoundary"] ''
     dest="${config.xdg.configHome}/emacs/config.org"
     if [ ! -f "$dest" ]; then
