@@ -8,7 +8,7 @@ Central principle: **modifier weight maps to scope distance from the cursor.**
 ```
 Thumb row:  [Super] [Alt] [Ctrl/Space]       [Shift/Enter] [Fn] [Super]
                │      │        │                               │
-               │      │        └─ ctrl+hjkl  pane/tab/panel   │
+               │      │        └─ ctrl+hjkl  pane/tab/panel    │
                │      │           ctrl+q     quit (non-modal)  │
                │      │           tap        space             │
                │      └─ alt+hjkl  switch to app in direction  │
