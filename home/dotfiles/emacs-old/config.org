@@ -631,8 +631,8 @@ View PDFs inside Emacs. Evil keybindings added so =hjkl= works throughout.
   (evil-define-key 'normal pdf-view-mode-map
     "j"  #'pdf-view-scroll-up-or-next-page
     "k"  #'pdf-view-scroll-down-or-previous-page
-    "J"  #'pdf-view-next-page
-    "K"  #'pdf-view-previous-page
+    "l"  #'pdf-view-next-page
+    "h"  #'pdf-view-previous-page
     "H"  #'pdf-view-fit-height-to-window
     "W"  #'pdf-view-fit-width-to-window
     "gg" #'pdf-view-first-page
@@ -777,7 +777,7 @@ Fast spell checking via enchant2 (supports multiple dictionaries simultaneously)
   :hook (emacs-startup . global-jinx-mode)
   :bind ([remap ispell-word] . jinx-correct)
   :custom
-  (jinx-languages "en_US nl_NL"))
+  (jinx-languages "en_UK nl_NL"))
 #+end_src
 
 * Music Player (EMMS)
