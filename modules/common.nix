@@ -278,9 +278,10 @@ in
     after       = [ "network.target" ];
     wantedBy    = [ "multi-user.target" ];
     serviceConfig = {
-      ExecStart    = "${wuzapi}/bin/wuzapi -port 8089 -datadir /var/lib/wuzapi";
+      ExecStart       = "${wuzapi}/bin/wuzapi -port 8089 -datadir /var/lib/wuzapi";
       WorkingDirectory = "/var/lib/wuzapi";
       StateDirectory   = "wuzapi";
+      EnvironmentFile  = "/var/lib/wuzapi/.env";
       DynamicUser      = false;
       User             = username;
       Restart          = "on-failure";

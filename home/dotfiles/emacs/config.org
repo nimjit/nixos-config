@@ -1103,9 +1103,15 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
         buf))))
 
 (defun my/dash-messages ()
-  "Open WhatsApp (Wasabi — not yet configured)."
+  "Open WhatsApp via nchat in a vterm. Reuses existing *nchat* buffer."
   (interactive)
-  (message "Wasabi not yet configured. Use 'messages' shell alias."))
+  (let ((bufname "*nchat*"))
+    (if (get-buffer bufname)
+        (switch-to-buffer bufname)
+      (let ((default-directory "~"))
+        (vterm bufname))
+      (with-current-buffer bufname
+        (vterm-send-string "nchat\n")))))
 
 (defun my/dash-email ()
   "Open mu4e."
@@ -1370,7 +1376,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                          (insert-image
                           (create-image "/tmp/weight-plot.png" 'png nil
                                         :max-width (- w 6)))
-                         (insert "\n"))))))))
+                         (insert "\n")))))))))
 
 (defun my/dash-log-weight (weight)
   "Append WEIGHT (kg) as a new row to the weights markdown table."
@@ -1653,6 +1659,8 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
       (let ((inhibit-read-only t))
         (erase-buffer)
         (setq-local cursor-type nil)
+        (olivetti-mode 1)
+        (setq-local olivetti-body-width 140)
 
         ;; ── Header ────────────────────────────────────────────────────────
         (insert "\n")
@@ -1779,37 +1787,23 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
       (read-only-mode 1)
       (goto-char (point-min))
 
-      ;; Local keybindings — single keys for every launcher
+      ;; Local keybindings — evil-local-set-key overrides evil's own M, u, etc.
       (use-local-map (make-sparse-keymap))
-      (local-set-key (kbd "q") #'bury-buffer)
-      (local-set-key (kbd "g") #'my/dashboard)
-      (local-set-key (kbd "t") #'my/dash-today)
-      (local-set-key (kbd "v") #'my/dash-vault-work)
-      (local-set-key (kbd "u") #'my/dash-uni-work)
-      (local-set-key (kbd "m") #'my/dash-messages)
-      (local-set-key (kbd "e") #'my/dash-email)
-      (local-set-key (kbd "M") #'my/dash-music)
-      (local-set-key (kbd "c") #'my/dash-cal)
-      (local-set-key (kbd "Y") #'my/dash-youtube)
-      (local-set-key (kbd "w") #'my/dash-log-weight)
-      (local-set-key (kbd "n") #'my/news-view)
-      (when (fboundp 'evil-define-key*)
-        (dolist (binding '(("q" . bury-buffer)
-                           ("g" . my/dashboard)
-                           ("t" . my/dash-today)
-                           ("v" . my/dash-vault-work)
-                           ("u" . my/dash-uni-work)
-                           ("m" . my/dash-messages)
-                           ("e" . my/dash-email)
-                           ("M" . my/dash-music)
-                           ("c" . my/dash-cal)
-                           ("Y" . my/dash-youtube)
-                           ("w" . my/dash-log-weight)
-                           ("n" . my/news-view)))
-          (evil-define-key* 'normal (current-local-map)
-                            (car binding) (cdr binding))
-          (evil-define-key* 'motion (current-local-map)
-                            (car binding) (cdr binding)))))
+      (dolist (b '(("q" . bury-buffer)
+                   ("g" . my/dashboard)
+                   ("t" . my/dash-today)
+                   ("v" . my/dash-vault-work)
+                   ("u" . my/dash-uni-work)
+                   ("m" . my/dash-messages)
+                   ("e" . my/dash-email)
+                   ("M" . my/dash-music)
+                   ("c" . my/dash-cal)
+                   ("Y" . my/dash-youtube)
+                   ("w" . my/dash-log-weight)
+                   ("n" . my/news-view)))
+        (local-set-key (kbd (car b)) (cdr b))
+        (evil-local-set-key 'normal (kbd (car b)) (cdr b))
+        (evil-local-set-key 'motion (kbd (car b)) (cdr b))))
 
     (switch-to-buffer buf)
     (my/dash--insert-weight-chart)
@@ -2227,9 +2221,8 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (insert "\n")
 
         (insert "** Planning  (from Uni MOC)\n\n")
-        (if planning
-            (dolist (l planning) (insert l "\n"))
-          (insert "/none/\n"))
+        (insert (format "   [[file:%s][Open Uni MOC — full planning table]]\n\n"
+                        (expand-file-name "Uni MOC.md" my/dash-uni)))
         (insert "\n")
 
         (insert "-----\n")
@@ -2372,10 +2365,8 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
          (buf (get-buffer-create "*World News*"))
          (all-entries
           (let (es)
-            (maphash (lambda (_url feed)
-                       (maphash (lambda (_id entry) (push entry es))
-                                (elfeed-feed-entries feed)))
-                     elfeed-db-feeds)
+            (maphash (lambda (_id entry) (push entry es))
+                     (elfeed-db-entries elfeed-db))
             es)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -2409,7 +2400,12 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
       (goto-char (point-min))
       (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
       (evil-local-set-key 'normal (kbd "g") #'my/news-view)
-      (evil-local-set-key 'normal (kbd "u") #'elfeed-update))
+      (evil-local-set-key 'normal (kbd "u")
+                          (lambda ()
+                            (interactive)
+                            (message "Fetching news feeds…")
+                            (elfeed-update)
+                            (run-with-timer 5 nil #'my/news-view))))
     (switch-to-buffer buf)))
 
 (spc! "N" '(my/news-view :wk "world news"))
