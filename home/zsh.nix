@@ -36,8 +36,8 @@
       # Kitten shortcuts
       ssh = "kitten ssh";
 
-      # Emacs client — opens a frame in the running daemon (instant startup)
-      e   = "emacsclient -c";
+      # Emacs client — opens a frame in the running daemon; falls back to plain emacs if daemon is down
+      e   = "emacsclient -c --alternate-editor=emacs";
 
       # YouTube TUI
       yt  = "~/.local/bin/yt-feed";

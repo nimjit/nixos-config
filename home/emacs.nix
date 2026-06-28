@@ -79,13 +79,21 @@
     enable = true;
   };
 
+  # Restart daemon always (not just on crash) so closing a frame doesn't kill it permanently
+  systemd.user.services.emacs = {
+    Service.Restart = lib.mkForce "always";
+    Service.RestartSec = "2s";
+  };
+
   # Override the system emacs.desktop so rofi launches via the daemon
+  # --no-wait: don't block the launcher process waiting for the frame to close
+  # --alternate-editor=emacs: fall back to plain emacs if daemon isn't up yet
   home.file.".local/share/applications/emacs.desktop".text = ''
     [Desktop Entry]
     Name=Emacs
     GenericName=Text Editor
     Comment=Edit text
-    Exec=emacsclient -c %F
+    Exec=emacsclient --no-wait --alternate-editor=emacs %F
     Icon=emacs
     Type=Application
     Terminal=false
