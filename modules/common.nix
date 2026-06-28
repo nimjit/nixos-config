@@ -11,9 +11,9 @@ let
       owner = "asternic";
       repo  = "wuzapi";
       rev   = "main";
-      hash  = lib.fakeHash;
+      hash  = "sha256-OsLl8WOuCqPJ+C+YdXRqTTScopvD1M1VY4uMPYLzsFo=";
     };
-    vendorHash = lib.fakeHash;
+    vendorHash = "sha256-nR7MwvGIJl1MGIZDGxE9vCoeUxzKpDGZn3fUEXECZ7I=";
     meta.mainProgram = "wuzapi";
   };
 
@@ -278,7 +278,7 @@ in
     after       = [ "network.target" ];
     wantedBy    = [ "multi-user.target" ];
     serviceConfig = {
-      ExecStart    = "${wuzapi}/bin/wuzapi -l :8089 -logtype console";
+      ExecStart    = "${wuzapi}/bin/wuzapi -port 8089 -datadir /var/lib/wuzapi";
       WorkingDirectory = "/var/lib/wuzapi";
       StateDirectory   = "wuzapi";
       DynamicUser      = false;

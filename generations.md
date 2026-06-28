@@ -171,3 +171,5 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 164 | 2026-06-28  13:21 | 21145ad | emacs: services.emacs daemon service (failed: wrong package)            |
 | 165 | 2026-06-28  13:25 | 21145ad | emacs: services.emacs without package override (mu4e still missing)     |
 | 166 | 2026-06-28  13:31 | 21145ad | emacs: mu4e in extraPackages, daemon stable, auto-revert, birthday fix  |
+| 169 | 2026-06-29  00:53 | 433b457 | emacs: mpdel fixes, elfeed UULF→UC, perspectives, news view, wuzapi    |
+| 171 | 2026-06-29  00:53 | (wuzapi flags fix) | wuzapi service flags corrected (-port 8089 -datadir) |
