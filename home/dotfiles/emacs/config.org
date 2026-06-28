@@ -58,6 +58,27 @@ Some basic settings I found, the one I actually care about is `scroll-margin 8`.
 (blink-cursor-mode      -1)  ; no blink = no timer-driven redraws (helps at 4K)
 #+end_src
 
+** Auto-revert
+
+Keep buffers in sync with changes made outside Emacs (mbsync, git, etc.).
+inotify means no polling — changes appear instantly at no CPU cost.
+
+#+begin_src emacs-lisp
+(global-auto-revert-mode 1)
+(setq global-auto-revert-non-file-buffers t
+      auto-revert-verbose nil
+      auto-revert-use-notify t)
+#+end_src
+
+** Server
+
+Start the Emacs server so ~emacsclient -c~ can open frames without startup cost.
+When running as a daemon (systemd), the server is already started — skip to avoid conflict.
+
+#+begin_src emacs-lisp
+(unless (daemonp) (server-start))
+#+end_src
+
 -By Patric Thomson
 #+begin_src emacs-lisp
   (setq
@@ -987,19 +1008,8 @@ on port 6600 (rmpc is the primary TUI; mpdel is the Emacs interface).
 Save windows when restarting emacs, but not when closing and opening emacs.
 
 #+begin_src emacs-lisp
-  ;; 1. Automatically save windows in the background
-  (desktop-save-mode 1)
-  (setq desktop-save t)
-
-  ;; 2. Read the layout ONLY during a restart
-  (unless (member "--no-desktop" command-line-args)
-    (desktop-read))
-
-  ;; 3. Make restart-emacs explicitly preserve the layout
-  (advice-add 'restart-emacs :around
-              (lambda (orig-fun &rest args)
-                (setq restart-emacs-args (delete "--no-desktop" restart-emacs-args))
-                (apply orig-fun args)))
+(desktop-save-mode 1)
+(setq desktop-save t)
 #+end_src
 
 * Dashboard
@@ -1277,13 +1287,17 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                                   (string-trim (match-string 1 fm)))))
                   (when (and bday (not (string-empty-p bday)))
                     (let* ((parts (split-string bday "-"))
-                           (year  (if (= (length (nth 0 parts)) 4)
+                           (year  (if (and (>= (length parts) 3)
+                                          (= (length (nth 0 parts)) 4))
                                       (string-to-number (nth 0 parts))
-                                    (string-to-number (nth 2 parts))))
-                           (month (string-to-number (nth 1 parts)))
-                           (day   (if (= (length (nth 0 parts)) 4)
+                                    (if (>= (length parts) 3)
+                                        (string-to-number (nth 2 parts))
+                                      cur-year)))
+                           (month (string-to-number (or (nth 1 parts) "0")))
+                           (day   (if (and (>= (length parts) 3)
+                                          (= (length (nth 0 parts)) 4))
                                       (string-to-number (nth 2 parts))
-                                    (string-to-number (nth 0 parts)))))
+                                    (string-to-number (or (nth 0 parts) "0")))))
                       (when (= month cur-month)
                         (let* ((age      (- cur-year year))
                                (bday-ts  (float-time
@@ -1769,8 +1783,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
     (my/dash--insert-weight-chart)
     buf))
 
-;; Show on startup (only when Emacs opens without a file argument)
-(setq initial-buffer-choice #'my/dashboard)
+;; Show dashboard on startup, but not when running as daemon (no frame yet)
+(unless (daemonp)
+  (setq initial-buffer-choice #'my/dashboard))
 
 ;; Leader binding
 (spc! "d" '(my/dashboard :wk "dashboard"))

@@ -66,15 +66,17 @@
       # ── Workspaces ────────────────────────────────────────────────────────
       perspective          # named workspaces with separate buffer lists
 
+      # ── Email ─────────────────────────────────────────────────────────────
+      mu4e                 # Email client (pairs with system mu maildir indexer)
+
       # ── Markup / writing ──────────────────────────────────────────────────
       markdown-mode
       typst-ts-mode        # .typ files with tree-sitter + tinymist LSP
     ];
+  };
 
-    extraConfig = ''
-      (add-to-list 'load-path
-        "${pkgs.mu}/share/emacs/site-lisp/mu4e")
-    '';
+  services.emacs = {
+    enable = true;
   };
 
   xdg.configFile."emacs/early-init.el".source         = ./dotfiles/emacs/early-init.el;
