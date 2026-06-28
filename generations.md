@@ -168,3 +168,6 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 161 | 2026-06-26  01:14 | ead8468 | emacs: pre-declare all packages from old config |
 | 162 | 2026-06-28  03:23 | 2686d18 | worked on emacs config |
 | 163 | 2026-06-28  12:52 | 5cb6e0c | emacs: mpdel, mu4e, vault/uni dashboards, weight chart, perspective wiring |
+| 164 | 2026-06-28  13:21 | 21145ad | emacs: services.emacs daemon service (failed: wrong package)            |
+| 165 | 2026-06-28  13:25 | 21145ad | emacs: services.emacs without package override (mu4e still missing)     |
+| 166 | 2026-06-28  13:31 | 21145ad | emacs: mu4e in extraPackages, daemon stable, auto-revert, birthday fix  |
