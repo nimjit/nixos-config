@@ -59,6 +59,9 @@
       elfeed-org           # manage feed list in an org file
       elfeed-tube          # YouTube metadata + mpv playback
 
+      # ── Terminal ──────────────────────────────────────────────────────────
+      vterm                # full VTE terminal emulator inside Emacs
+
       # ── Music ─────────────────────────────────────────────────────────────
       libmpdel             # MPD protocol library
       mpdel                # Emacs MPD client (hierarchical browser)

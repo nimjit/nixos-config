@@ -1,6 +1,22 @@
-{ pkgs, username, ... }:
+{ pkgs, username, lib, ... }:
 
 let
+  # WhatsApp REST bridge — talks to WhatsApp via the unofficial whatsmeow protocol.
+  # First build: replace both hashes with lib.fakeHash, run 'sudo nixos-rebuild switch',
+  # copy the correct sha256 from the error output, and fill them in here.
+  wuzapi = pkgs.buildGoModule {
+    pname   = "wuzapi";
+    version = "unstable-2025";
+    src = pkgs.fetchFromGitHub {
+      owner = "asternic";
+      repo  = "wuzapi";
+      rev   = "main";
+      hash  = lib.fakeHash;
+    };
+    vendorHash = lib.fakeHash;
+    meta.mainProgram = "wuzapi";
+  };
+
   # Packaged as a system derivation so KWin discovers it at startup the same
   # way it discovers Krohnkite — via the system XDG data path.
   kwinFocusByPosition = pkgs.runCommand "kwin-focus-by-position" {} ''
@@ -250,6 +266,25 @@ in
   };
 
   # ── Shell ─────────────────────────────────────────────────────────────────
-programs.zsh.enable = true;
-users.users.${username}.shell = pkgs.zsh;
+  programs.zsh.enable = true;
+  users.users.${username}.shell = pkgs.zsh;
+
+  # ── wuzapi (WhatsApp bridge) ───────────────────────────────────────────────
+  # Listens on :8089 (8080 is taken by the newtab HTTP server).
+  # After first deploy: scan the QR code once with 'journalctl -fu wuzapi'.
+  # API token is set via WUZAPI_TOKEN env; store securely if needed.
+  systemd.services.wuzapi = {
+    description = "wuzapi WhatsApp REST bridge";
+    after       = [ "network.target" ];
+    wantedBy    = [ "multi-user.target" ];
+    serviceConfig = {
+      ExecStart    = "${wuzapi}/bin/wuzapi -l :8089 -logtype console";
+      WorkingDirectory = "/var/lib/wuzapi";
+      StateDirectory   = "wuzapi";
+      DynamicUser      = false;
+      User             = username;
+      Restart          = "on-failure";
+      RestartSec       = "5s";
+    };
+  };
 }
