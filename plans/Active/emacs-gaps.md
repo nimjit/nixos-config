@@ -1,137 +1,166 @@
-# Emacs gaps — Dashboards, YouTube, Email, Music, Messages
+# Emacs gaps — complete setup plan
 
-Messages (Wasabi) has its own detailed plan at `plans/Active/wasabi.md`; it's
-included here for ordering and cross-reference.
-
-## Priority order (suggested)
-
-1. **YouTube** — small, self-contained fix; quick win
-2. **Music** — replace EMMS with mpdel; cleaner architecture
-3. **Dashboards** — vault dashboard + uni dashboard; the greeting is mostly done
-4. **Email** — mu4e; the maildir already exists so it's less work than it looks
-5. **Messages** — Wasabi + wuzapi; most research needed, do last
+One rebuild, then config.org changes, then first-time terminal commands. No
+second rebuild needed unless Wasabi/wuzapi packaging requires one (that part is
+gated on research — see §5).
 
 ---
 
-## 1. YouTube — fix elfeed-tube
+## Port inventory (do not conflict)
 
-### What's broken
+| Port | Service | Config |
+|------|---------|--------|
+| 6600 | MPD | `home/dotfiles/rmpc/config.ron` |
+| 8080 | New tab page (python3 http.server) | `home/default.nix` |
+| 8384 | Syncthing web UI | `modules/syncthing.nix` |
+| 22000 | Syncthing file sync | `modules/syncthing.nix` |
+| 21027 | Syncthing discovery | `modules/syncthing.nix` |
+| 41641 | Tailscale | `modules/tailscale.nix` |
 
-elfeed and elfeed-org appear to load. elfeed-tube is configured but not rendering
-correctly. "Not working" likely means one of:
+**wuzapi must NOT use 8080.** Use **8090** instead (set via flag or env var).
 
-- Feeds haven't been fetched yet (first run requires `M-x elfeed-update`)
-- elfeed-tube needs `yt-dlp` available on PATH and it isn't
-- The `elfeed-tube-setup` hook isn't firing because elfeed-tube loads after elfeed
+---
 
-### Debug steps (do these first)
+## Package management
 
-1. Open elfeed: `M-x elfeed`
-2. Run `M-x elfeed-update` and wait. Do entries appear?
-   - If no entries: the org file isn't being read. Check `rmh-elfeed-org-files` points
-     to the right path (`C-h v rmh-elfeed-org-files`).
-   - If entries appear but YouTube ones are missing: check the elfeed.org UULF URLs
-     are syntactically correct.
-3. Open a YouTube entry. Press `F` (`elfeed-tube-fetch`). Does it fetch a description?
-   - If error about yt-dlp: see fix below.
-   - If it fetches: the issue is display, not fetch.
+Stay Nix throughout. All changes go to `home/emacs.nix` (Emacs packages) or
+`modules/common.nix` (system tools). Follow the existing pattern exactly:
 
-### Fix A — add yt-dlp to packages
+- **System tools** (`mu`, `yt-dlp`, `wuzapi`): go in `environment.systemPackages`
+  in `modules/common.nix`, in the same alphabetical group as similar tools.
+- **Emacs packages** (`mpdel`, `libmpdel`, `mu4e`, `wasabi`): go in
+  `extraPackages = epkgs: with epkgs; [...]` in `home/emacs.nix`.
 
-elfeed-tube uses yt-dlp to fetch video metadata. Add it to `home/default.nix` or
-`modules/common.nix` (it may already be present for mpv):
+---
 
-```nix
-home.packages = with pkgs; [
-  yt-dlp
-  # ...existing packages...
-];
+## Execution order
+
+**Step 1 — Make all Nix changes** (all listed below under each section)
+**Step 2 — Rebuild once**: `sudo nixos-rebuild switch --flake /etc/nixos#desktop`
+**Step 3 — First-time terminal commands** (mu init, wuzapi QR scan — listed per section)
+**Step 4 — Config.org changes** (no rebuild needed; restart Emacs to load)
+
+---
+
+## 1. YouTube — fix elfeed
+
+### What's wrong
+
+`M-x elfeed-update` runs but the list stays empty. This means elfeed-org is not
+reading the org file — either `rmh-elfeed-org-files` points to a wrong path, or
+`(elfeed-org)` never ran (use-package load order issue).
+
+### Debug first (before touching anything)
+
+Open Emacs and run these in order:
+
+```
+M-x elfeed                          ; open elfeed
+C-h v rmh-elfeed-org-files RET     ; check what path it has
 ```
 
-Then rebuild.
+Expected value: `("/home/thijmen/.config/emacs/elfeed.org")`
 
-### Fix B — load order in config.org
+If it's nil or wrong, elfeed-org's use-package block either didn't load or ran
+before `rmh-elfeed-org-files` was set.
 
-If elfeed-tube's hooks aren't attaching, it may be loading before elfeed is ready.
-The `:after elfeed` in the use-package form should handle this, but double-check
-the elfeed-tube block is actually `:after elfeed` and not `:after elfeed-org`.
+Also check `*Messages*` for any `use-package` errors after startup.
 
-Current block (verify this is in config.org):
+### Fix A — load order (most likely cause)
+
+The elfeed-org block needs `(elfeed-org)` to be called in `:config`, and it must
+load after `elfeed`. In config.org, verify the block reads exactly:
+
 ```elisp
-(use-package elfeed-tube
+(use-package elfeed-org
   :after elfeed
   :config
-  (elfeed-tube-setup)
-  (setq elfeed-tube-mpv-options '("--no-terminal")))
+  (setq rmh-elfeed-org-files
+        (list (expand-file-name "elfeed.org" user-emacs-directory)))
+  (elfeed-org))
 ```
 
-### Fix C — keybindings
+The `(elfeed-org)` call is what registers the hooks. Without it, nothing is read.
 
-Once fetching works, add these to the elfeed-tube config block:
+### Fix B — add yt-dlp to system packages
+
+elfeed-tube uses yt-dlp for video metadata fetch. Add to `modules/common.nix`
+in the same group as `yt-dlp` (check if already present — it may be there for mpv):
+
+```nix
+yt-dlp   # YouTube downloader; used by mpv and elfeed-tube
+```
+
+### Fix C — elfeed-tube keybindings
+
+Once entries appear, add to the elfeed-tube use-package `:config` block:
 
 ```elisp
 (evil-define-key 'normal elfeed-show-mode-map
-  "F"  #'elfeed-tube-fetch          ; fetch description for current entry
-  "C-m" #'elfeed-tube-mpv-play)     ; open in mpv (C-m = Enter)
+  "F"   #'elfeed-tube-fetch       ; fetch description + metadata inline
+  "C-m" #'elfeed-tube-mpv-play)   ; open video in mpv (C-m = Enter)
+(evil-define-key 'normal elfeed-search-mode-map
+  "F"   #'elfeed-tube-fetch)
 ```
 
-### What to expect when working
+### What to expect
 
-- elfeed shows a text list of entries (no thumbnails, no card layout)
-- `F` on a YouTube entry fetches the description inline
-- `Enter` (or the bound key) opens the video in mpv
-- Filter by tag: `s` in elfeed then type `+youtube` or `+physics` etc.
-
-This is a text experience, not yt-feed's card layout. Whether it's good enough
-for daily use is an open question — if not, keep yt-feed running alongside.
+Text list of entries, no thumbnails. `s` to filter (`+youtube`, `+physics`,
+`+unread`). `F` fetches description inline. Enter plays in mpv. yt-feed remains
+a better visual experience; keep it running alongside if the text view isn't
+enough for daily use.
 
 ---
 
-## 2. Music — switch to mpdel
+## 2. Music — mpdel
 
-### Why mpdel instead of fixing EMMS
+### Honest comparison with MusicBee
 
-MPD is already running, managed by Home Manager, pointed at `~/Music/`. EMMS
-reimplements playback from scratch and its browser interface doesn't match the
-rmpc mental model. `mpdel` is an Emacs client for the MPD protocol — it talks to
-the running MPD daemon directly, exactly like rmpc does, but from inside Emacs.
-Lighter, more familiar concept.
+mpdel is a hierarchical MPD browser: Artists → Albums → Tracks. You navigate
+with hjkl, add to queue, play. It is the closest Emacs equivalent to MusicBee's
+three-pane library view — same concept, text-only. No album art, no waveform,
+no drag-and-drop. If the keyboard-driven hierarchy is what you liked about
+MusicBee, mpdel will feel familiar. If it was the visual design, nothing in
+Emacs will replicate that.
 
-### Packages — home/emacs.nix
+EMMS is worse: it's a flat list and its browser is disorienting. mpdel is the
+right call.
 
-Add `mpdel` and its dependency `libmpdel` to extraPackages:
+### Nix change — home/emacs.nix
+
+Add to `extraPackages`:
 
 ```nix
-libmpdel    # MPD protocol library (mpdel depends on this)
-mpdel       # Emacs MPD client
+# ── Music ─────────────────────────────────────────────────────────────────────
+libmpdel    # MPD protocol library
+mpdel       # Emacs MPD client (browser + queue)
 ```
 
-Remove or keep `emms` (can coexist, but no longer the primary interface).
+Remove or keep `emms` — it can coexist but won't be the primary interface.
 
-### Configuration — config.org
+### Config.org — replace the EMMS section
 
-Add a `* Music (mpdel)` section (replace or supplement the EMMS block):
+Replace the existing `* Music Player (EMMS)` section with `* Music (mpdel)`:
 
 ```elisp
 (use-package libmpdel
   :config
-  ;; MPD is on localhost:6600 by default — matches home/mpd.nix
   (setq libmpdel-hostname "localhost"
-        libmpdel-port 6600))
+        libmpdel-port 6600))   ; matches home/mpd.nix + rmpc config
 
 (use-package mpdel
   :after libmpdel
   :config
-  (mpdel-mode)   ; global minor mode; adds keybindings to mpdel buffers
+  (mpdel-mode)
 
   (evil-define-key 'normal mpdel-browser-mode-map
     "j"   #'mpdel-browser-next-line
     "k"   #'mpdel-browser-previous-line
-    "l"   #'mpdel-browser-open-entry     ; enter artist/album/track
+    "l"   #'mpdel-browser-open-entry
     "h"   #'mpdel-browser-back
     "g"   (lambda () (interactive) (goto-char (point-min)))
     "G"   (lambda () (interactive) (goto-char (point-max)))
-    "a"   #'mpdel-browser-add            ; add to queue
+    "a"   #'mpdel-browser-add
     "q"   #'bury-buffer
     "SPC" #'mpdel-core-toggle-play-pause)
 
@@ -142,120 +171,121 @@ Add a `* Music (mpdel)` section (replace or supplement the EMMS block):
     "SPC" #'mpdel-core-toggle-play-pause
     "q"   #'bury-buffer))
 
-;; Leader bindings (replace existing EMMS bindings)
-(spc! "m m" '(mpdel-browser-open-artists :wk "music browser")
-      "m SPC" '(mpdel-core-toggle-play-pause :wk "pause / play")
-      "m n" '(mpdel-core-next :wk "next track")
-      "m p" '(mpdel-core-previous :wk "prev track")
-      "m q" '(mpdel-browser-open-current-playlist :wk "queue"))
+;; Verify these function names with C-h f mpdel- after loading
+(spc! "m m" '(mpdel-browser-open-artists  :wk "music browser")
+      "m SPC" '(mpdel-core-toggle-play-pause :wk "play / pause")
+      "m n"   '(mpdel-core-next            :wk "next")
+      "m p"   '(mpdel-core-previous        :wk "prev")
+      "m q"   '(mpdel-browser-open-current-playlist :wk "queue"))
 ```
 
-**Note**: mpdel function names may differ slightly — check with `C-h f mpdel-`
-after loading the package and adjust the key bindings above.
+### Dashboard update
 
-### Dashboard button
-
-Update `my/dash-music` in the Dashboard section of config.org:
+In the Dashboard section, update `my/dash-music`:
 
 ```elisp
 (defun my/dash-music ()
   (interactive)
-  (mpdel-browser-open-artists))   ; or mpdel-browser-open — verify name
+  (mpdel-browser-open-artists))
 ```
 
 ---
 
 ## 3. Email — mu4e
 
-### Why this is easier than it looks
+### Which accounts will work
 
-The full maildir sync infrastructure is **already running**:
-- `mbsync` syncs Gmail → `~/Mail/Gmail/` every 5 minutes
-- `msmtp` handles outgoing mail
-- App passwords are in lpass
+mu4e reads maildirs that mbsync syncs. mbsync is already running:
 
-mu4e just needs `mu` (the indexer) and Emacs config that points at `~/Mail/`.
-No new sync setup needed.
+| Account | IMAP server | Status |
+|---------|------------|--------|
+| tidemanus@gmail.com | imap.gmail.com | ✅ already syncing to ~/Mail/Gmail/ |
+| thijmen.nouwens@gmail.com | imap.gmail.com | ✅ declared in email.nix; confirm syncing |
+| nouwens-lindemans.nl | vserver04.een2drie.nl | ✅ declared in email.nix; works once syncing |
+| TU Delft | Office 365 | ❌ Exchange OAuth2 — skip for now, use browser |
 
-### Packages — home/emacs.nix and common.nix
+### Nix changes
 
-Add `mu` to system packages (it includes mu4e):
-
-```nix
-# in modules/common.nix or home/default.nix:
-environment.systemPackages = with pkgs; [
-  mu
-  # ...existing...
-];
-```
-
-`mu4e` ships inside the `mu` package as an Emacs package. In `home/emacs.nix`,
-add it to extraPackages:
+**`modules/common.nix`** — add `mu` in `environment.systemPackages`, near the
+other mail tools (mbsync, msmtp, neomutt):
 
 ```nix
-mu4e   # or: (pkgs.mu.override { emacs = pkgs.emacs-pgtk; })
-# Check: nix-env -qaP | grep '^nixpkgs\.mu4e'
-# If not a standalone package, mu4e comes bundled with mu — load it via :load-path
+mu              # maildir indexer; includes mu4e elisp
 ```
 
-**Alternative**: if mu4e isn't a standalone nixpkgs emacs package, add the load
-path manually in config.org:
-```elisp
-(add-to-list 'load-path (concat (string-trim (shell-command-to-string "mu4e-meta")) "/share/emacs/site-lisp/mu4e"))
-```
-Or use `(require 'mu4e)` after adding `${pkgs.mu}/share/emacs/site-lisp/mu4e` to
-`home.sessionVariables` or the emacs `load-path` via `extraConfig` in emacs.nix.
+**`home/emacs.nix`** — mu4e ships inside the `mu` system package, not as a
+standalone nixpkgs emacs package. Add it via a load-path hook in `extraConfig`:
 
-### First-time setup (run once in terminal)
+```nix
+# in programs.emacs block, after extraPackages:
+extraConfig = ''
+  (add-to-list 'load-path
+    "${pkgs.mu}/share/emacs/site-lisp/mu4e")
+'';
+```
+
+Alternatively, check first: `nix-env -qaP 2>/dev/null | grep mu4e` — if a
+standalone `mu4e` package exists in nixpkgs, just add it to `extraPackages`
+like any other package and skip the `extraConfig` approach.
+
+### First-time terminal commands (after rebuild)
 
 ```bash
-mu init --maildir=~/Mail --my-address=tidemanus@gmail.com --my-address=thijmen.nouwens@gmail.com
+mu init --maildir=~/Mail \
+        --my-address=tidemanus@gmail.com \
+        --my-address=thijmen.nouwens@gmail.com
 mu index
 ```
 
-After the initial index, mu updates automatically when mbsync syncs.
+Run `mu index` once; after that mu updates automatically when mbsync syncs
+(mbsync is on a 5-minute timer already).
 
-### Configuration — config.org
-
-Add a `* Email (mu4e)` section:
+### Config.org — add `* Email (mu4e)` section
 
 ```elisp
 (use-package mu4e
-  :ensure nil   ; comes with the mu system package, not from ELPA
+  :ensure nil   ; loaded from mu system package load-path, not ELPA
 
   :init
-  (setq mu4e-maildir       "~/Mail"
-        mu4e-get-mail-command "mbsync -a"   ; mu4e can trigger a sync
-        mu4e-update-interval 300            ; sync every 5 min (matches mbsync timer)
+  (setq mu4e-maildir              (expand-file-name "~/Mail")
+        mu4e-get-mail-command     "mbsync -a"
+        mu4e-update-interval      300
+        mu4e-sent-messages-behavior 'delete   ; Gmail saves server-side
+        mu4e-user-mail-address-list
+          '("tidemanus@gmail.com" "thijmen.nouwens@gmail.com")
         mu4e-compose-reply-to-address "tidemanus@gmail.com"
-        mu4e-user-mail-address-list '("tidemanus@gmail.com" "thijmen.nouwens@gmail.com"))
-
-  ;; Folder mapping for Gmail (Dutch folder names — see email.md)
-  (setq mu4e-drafts-folder  "/Gmail/[Gmail]/Concepten"
-        mu4e-sent-folder    "/Gmail/[Gmail]/Verzonden berichten"
-        mu4e-trash-folder   "/Gmail/[Gmail]/Prullenbak"
-        mu4e-refile-folder  "/Gmail/[Gmail]/Alle e-mail")
-
-  ;; Don't save sent mail locally — Gmail already does it server-side
-  (setq mu4e-sent-messages-behavior 'delete)
+        ;; Dutch folder names (from email.nix)
+        mu4e-drafts-folder "/Gmail/[Gmail]/Concepten"
+        mu4e-sent-folder   "/Gmail/[Gmail]/Verzonden berichten"
+        mu4e-trash-folder  "/Gmail/[Gmail]/Prullenbak"
+        mu4e-refile-folder "/Gmail/[Gmail]/Alle e-mail")
 
   :config
-  ;; Sending via msmtp (already configured)
-  (setq message-send-mail-function #'message-send-mail-with-sendmail
-        sendmail-program (executable-find "msmtp")
+  ;; Send via msmtp (already configured in email.nix)
+  (setq message-send-mail-function       #'message-send-mail-with-sendmail
+        sendmail-program                 (executable-find "msmtp")
         message-sendmail-extra-arguments '("--read-envelope-from")
-        message-sendmail-f-is-evil t)
+        message-sendmail-f-is-evil       t)
 
-  ;; Evil keybindings for the headers view
+  (setq mu4e-bookmarks
+        '((:name "Inbox"   :query "maildir:/Gmail/INBOX"            :key ?i)
+          (:name "Unread"  :query "flag:unread AND NOT flag:trashed" :key ?u)
+          (:name "Today"   :query "date:today..now"                  :key ?t)))
+
+  (setq mu4e-view-prefer-html    nil
+        mu4e-html2text-command   "w3m -T text/html")
+
   (evil-define-key 'normal mu4e-headers-mode-map
     "j"   #'mu4e-headers-next
     "k"   #'mu4e-headers-prev
     "l"   #'mu4e-headers-view-message
+    "h"   #'mu4e-headers-prev-unread   ; or bury — check what feels right
     "d"   #'mu4e-headers-mark-for-delete
     "u"   #'mu4e-headers-mark-for-unmark
     "r"   #'mu4e-compose-reply
+    "R"   #'mu4e-compose-wide-reply
     "m"   #'mu4e-compose-new
-    "g"   #'mu4e-headers-first
+    "gg"  (lambda () (interactive) (mu4e-headers-first))
     "G"   #'mu4e-headers-last
     "q"   #'mu4e-quit
     "?"   #'mu4e-display-manual)
@@ -265,26 +295,13 @@ Add a `* Email (mu4e)` section:
     "k"   #'mu4e-view-headers-prev
     "h"   #'mu4e-view-quit-message
     "r"   #'mu4e-compose-reply
-    "R"   #'mu4e-compose-reply-all   ; check exact function name
-    "q"   #'mu4e-view-quit-message)
+    "R"   #'mu4e-compose-wide-reply
+    "q"   #'mu4e-view-quit-message))
 
-  ;; Bookmarks
-  (setq mu4e-bookmarks
-        '((:name "Inbox"    :query "maildir:/Gmail/INBOX"       :key ?i)
-          (:name "Unread"   :query "flag:unread AND NOT flag:trashed" :key ?u)
-          (:name "Today"    :query "date:today..now"            :key ?t)))
-
-  ;; Don't HTML-render by default — prefer plain text
-  (setq mu4e-view-prefer-html nil
-        mu4e-html2text-command "w3m -T text/html"))  ; w3m already available
-
-;; Leader binding
 (spc! "e" '(mu4e :wk "email"))
 ```
 
-### Dashboard button
-
-Update `my/dash-email` in the Dashboard section:
+### Dashboard update
 
 ```elisp
 (defun my/dash-email ()
@@ -292,105 +309,291 @@ Update `my/dash-email` in the Dashboard section:
   (mu4e))
 ```
 
-### Mail count in dashboard header
-
-The dashboard currently reads unread count from Maildir directly via shell command.
-This still works with mu4e since mbsync still writes to `~/Mail/`. No change needed.
-
 ---
 
-## 4. Messages — Wasabi
+## 4. Messages — Wasabi + wuzapi
 
-See `plans/Active/wasabi.md` for the full plan. Summary:
+### Architecture
 
-- **wuzapi**: Go daemon (build with `pkgs.buildGoModule`), run as systemd user service
-- **Wasabi**: Emacs package (check MELPA first, otherwise `trivialBuild`)
-- Evil keybindings: add after loading; check evil-collection for existing entry
-- Theme: override hardcoded faces if needed after first load
+```
+WhatsApp ↔ wuzapi (Go daemon, port 8090) ↔ Wasabi (Emacs package)
+```
 
-Do this last — needs the most research (repo coordinates, port, QR pairing flow).
+wuzapi is a JSON-RPC HTTP bridge to WhatsApp via the whatsmeow library — same
+underlying library as nchat. Wasabi is a native Emacs UI on top of it.
+
+### Step 0 — Research required before any Nix work
+
+Neither wuzapi nor Wasabi is in nixpkgs yet. Before writing derivations:
+
+1. Find the wuzapi GitHub repo (search "wuzapi whatsmeow github"). Note the
+   exact `owner/repo`, latest commit or tag, and whether it has a `go.sum`
+   (needed for `vendorHash`).
+
+2. Find the Wasabi GitHub repo (search "wasabi emacs whatsapp github"). Check
+   if it's also on MELPA (`melpa.org/#/wasabi`) — if yes, it may already be in
+   nixpkgs as `epkgs.wasabi` which would skip the `trivialBuild`.
+
+3. Check nixpkgs: `nix-env -qaP 2>/dev/null | grep -i "wasabi\|wuzapi"`
+
+Document coords here before proceeding:
+```
+wuzapi: github.com/OWNER/wuzapi  rev: COMMIT  hash: sha256-...  vendorHash: sha256-...
+wasabi: github.com/OWNER/wasabi  rev: COMMIT  hash: sha256-...  (or: epkgs.wasabi)
+```
+
+### Step 1 — Package wuzapi (modules/common.nix or a new home/wuzapi.nix)
+
+Create `home/wuzapi.nix` and import it in `home/default.nix`:
+
+```nix
+{ pkgs, config, ... }:
+let
+  wuzapi = pkgs.buildGoModule {
+    pname   = "wuzapi";
+    version = "0.x.x";           # fill from Step 0
+    src = pkgs.fetchFromGitHub {
+      owner = "OWNER";           # fill from Step 0
+      repo  = "wuzapi";
+      rev   = "COMMIT";
+      hash  = "sha256-...";
+    };
+    vendorHash = "sha256-...";   # run build once to get this from the error
+  };
+in {
+  home.packages = [ wuzapi ];
+
+  # Stable data directory for WhatsApp session
+  home.file.".local/share/wuzapi/.keep".text = "";
+
+  systemd.user.services.wuzapi = {
+    Unit = {
+      Description = "wuzapi WhatsApp JSON-RPC bridge";
+      After       = [ "network-online.target" ];
+    };
+    Service = {
+      ExecStart       = "${wuzapi}/bin/wuzapi --port 8090";
+      WorkingDirectory = "%h/.local/share/wuzapi";
+      Restart         = "on-failure";
+      RestartSec      = "10s";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+}
+```
+
+Port **8090** — avoids conflict with 8080 (new tab page).
+
+### Step 2 — Package Wasabi (home/emacs.nix)
+
+**If `epkgs.wasabi` exists in nixpkgs**: just add `wasabi` to `extraPackages`.
+
+**If not in nixpkgs**, use `trivialBuild`:
+
+```nix
+(epkgs.trivialBuild {
+  pname   = "wasabi";
+  version = "0.x.x";
+  src = pkgs.fetchFromGitHub {
+    owner = "OWNER";    # fill from Step 0
+    repo  = "wasabi";
+    rev   = "COMMIT";
+    hash  = "sha256-...";
+  };
+  # Check wasabi's Package-Requires header in wasabi.el for dependencies:
+  packageRequires = with epkgs; [ websocket ];   # adjust as needed
+})
+```
+
+### Step 3 — First-time setup (after rebuild + wuzapi starts)
+
+```bash
+# Start the service
+systemctl --user start wuzapi
+
+# Trigger QR code pairing — check wuzapi README for exact command.
+# Usually something like:
+curl -s http://localhost:8090/api/login | jq '.qrcode' | qrencode -t ANSI
+# or wuzapi exposes a web UI at http://localhost:8090 — check docs
+```
+
+Scan the QR code with WhatsApp on your phone (Settings → Linked Devices).
+Session is stored in `~/.local/share/wuzapi/` and persists across reboots.
+
+### Step 4 — Config.org — add `* Messages (Wasabi)` section
+
+```elisp
+(use-package wasabi
+  :ensure nil   ; loaded from Nix
+
+  :init
+  (setq wasabi-wuzapi-url "http://localhost:8090")
+
+  :config
+  ;; Check evil-collection first: M-x evil-collection-init after loading
+  ;; If evil-collection has a wasabi entry, these may not be needed.
+  ;; If not, define manually based on wasabi's actual mode maps.
+  ;; Discover mode map names with: C-h v wasabi- TAB
+  (with-eval-after-load 'wasabi
+    (evil-define-key 'normal wasabi-mode-map   ; verify map name
+      "j"   #'wasabi-next-chat
+      "k"   #'wasabi-prev-chat
+      "l"   #'wasabi-open-chat
+      "h"   #'wasabi-back
+      "g"   (lambda () (interactive) (goto-char (point-min)))
+      "G"   (lambda () (interactive) (goto-char (point-max)))
+      "q"   #'bury-buffer
+      "?"   #'describe-mode))
+
+  ;; Theme: check what faces wasabi defines after loading:
+  ;; M-x customize-group RET wasabi RET
+  ;; Override any hardcoded colours here:
+  ;; (set-face-attribute 'wasabi-MESSAGE-FACE nil :foreground "#c4a882")
+  )
+
+(spc! "W" '(wasabi :wk "whatsapp"))   ; capital W — lowercase w is log-weight
+```
+
+All function names are placeholders — verify with `C-h f wasabi-` after loading.
+
+### Dashboard update
+
+```elisp
+(defun my/dash-messages ()
+  (interactive)
+  (wasabi))   ; verify entry-point command name from wasabi README
+```
 
 ---
 
 ## 5. Dashboards
 
-### Context — three dashboards, not one
+### What perspective does
 
-There are three distinct dashboards in the neovim setup:
+`perspective.el` creates named workspaces inside Emacs. Each perspective has its
+own buffer list — buffers opened in "personal" don't appear in "uni" and vice
+versa. Switching perspectives feels like switching KDE virtual desktops, but for
+Emacs buffers.
 
-1. **Greeting** (`my/dashboard`) — already implemented in Emacs. Shows date, weather,
-   fortune, timetable (khal + daily Schedule section), dailies checklist, deadlines,
-   todos, project rotation, mail, messages. Missing: birthdays, weight chart.
+Currently configured in config.org:
+- `TAB p` → `perspective-personal` → switches to "personal" workspace
+- `TAB u` → `perspective-uni` → switches to "uni" workspace
+- `TAB TAB` → `persp-switch` (pick any workspace by name)
+- Initial perspective on startup: "personal"
 
-2. **Vault dashboard** (`my/dash-vault-work`) — currently just opens dired on the vault.
-   In neovim this is a full dashboard. Needs to be built.
+Currently `perspective-personal` calls `(find-file "~/org/personal/dashboard.org")`
+and `perspective-uni` calls `(find-file "~/org/uni/dashboard.org")` — neither file
+exists. These need to be replaced with dashboard function calls.
 
-3. **Uni dashboard** (`my/dash-uni-work`) — currently just opens dired on uni.
-   In neovim this is a full dashboard. Needs to be built.
+**Bidirectional wiring**: every dashboard function also switches to its perspective,
+so calling `my/vault-dashboard` from anywhere always lands you in "personal", and
+`my/uni-dashboard` always lands you in "uni". This means the perspective you're in
+is always meaningful.
 
 ---
 
-### 5a. Greeting dashboard — missing pieces
+### 5a. Perspective wiring (update config.org)
+
+Replace the `perspective-personal` and `perspective-uni` function bodies. In the
+`* Workspaces (perspective)` section:
+
+```elisp
+(defun perspective-personal ()
+  "Switch to personal perspective and open vault dashboard."
+  (interactive)
+  (persp-switch "personal")
+  (my/vault-dashboard))
+
+(defun perspective-uni ()
+  "Switch to uni perspective and open uni dashboard."
+  (interactive)
+  (persp-switch "uni")
+  (my/uni-dashboard))
+```
+
+And wrap the vault/uni dashboard functions to also switch perspective when called
+directly (the bidirectional part):
+
+```elisp
+(defun my/vault-dashboard ()
+  "Open vault dashboard in the personal perspective."
+  (interactive)
+  (persp-switch "personal")
+  ;; ... rest of function body ...
+  )
+
+(defun my/uni-dashboard ()
+  "Open uni dashboard in the uni perspective."
+  (interactive)
+  (persp-switch "uni")
+  ;; ... rest of function body ...
+  )
+```
+
+---
+
+### 5b. Greeting dashboard — additions to my/dashboard
 
 #### Birthdays
 
-The neovim vault dashboard reads every `.md` file in `VAULT/People/`, parses YAML
-frontmatter for a `birthday:` field (format: `YYYY-MM-DD` or `DD-MM-YYYY`), and
-shows all people whose birthday falls this month.
-
-Add to `my/dashboard` in config.org, in the right column, before Deadlines:
+Add `my/dash--birthdays` as a shared helper (used by both greeting and vault
+dashboard). Reads every `.md` in `VAULT/People/`, parses `birthday: YYYY-MM-DD`
+or `birthday: DD-MM-YYYY` from YAML frontmatter, returns this month's entries.
 
 ```elisp
 (defun my/dash--birthdays ()
-  "Return list of strings for people with birthdays this month."
+  "List of formatted strings for people with birthdays this month."
   (let* ((people-dir (expand-file-name "People" my/dash-vault))
-         (now (decode-time))
-         (cur-month (nth 4 now))
-         (cur-year  (nth 5 now))
+         (now        (decode-time))
+         (cur-month  (nth 4 now))
+         (cur-year   (nth 5 now))
+         (months     '("Jan" "Feb" "Mar" "Apr" "May" "Jun"
+                        "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
          results)
-    (dolist (file (directory-files people-dir t "\\.md$"))
-      (with-temp-buffer
-        (insert-file-contents file nil 0 1000)  ; read only first 1000 bytes
-        (goto-char (point-min))
-        (when (looking-at "---")
-          (let ((fm-end (save-excursion
+    (when (file-directory-p people-dir)
+      (dolist (file (directory-files people-dir t "\\.md$"))
+        (with-temp-buffer
+          (insert-file-contents file nil 0 2000)
+          (goto-char (point-min))
+          (when (looking-at "---")
+            (let ((end (save-excursion
                           (forward-line)
-                          (and (re-search-forward "^---$" nil t) (point)))))
-            (when fm-end
-              (let* ((fm-str (buffer-substring-no-properties (point-min) fm-end))
-                     (bday   (and (string-match "^birthday:[[:space:]]*\\(.*\\)$" fm-str)
-                                  (string-trim (match-string 1 fm-str))))
-                     (name   (and (string-match "^name:[[:space:]]*\\(.*\\)$" fm-str)
-                                  (string-trim (match-string 1 fm-str)))))
-                (when (and bday (not (string-empty-p bday)))
-                  (let* ((parts (split-string bday "-"))
-                         (y (string-to-number (nth 0 parts)))
-                         (m (string-to-number (nth 1 parts)))
-                         (d (string-to-number (nth 2 parts)))
-                         ;; handle DD-MM-YYYY vs YYYY-MM-DD
-                         (year  (if (> y 31) y d))
-                         (month (nth 1 parts))
-                         (day   (if (> y 31) d y)))
-                    (setq month (string-to-number month))
-                    (when (= month cur-month)
-                      (let* ((age  (- cur-year year))
-                             (bday-ts (encode-time 0 0 12 day month cur-year))
-                             (diff (/ (- (float-time bday-ts) (float-time)) 86400))
-                             (when-str (cond ((and (>= diff 0) (< diff 1)) "today!")
-                                            ((> diff 0) (format "in %d days" (ceiling diff)))
-                                            (t (format "%d days ago" (floor (- diff)))))))
-                        (push (format "%-28s  %s %2d   (%s, turning %d)"
-                                      (or name (file-name-base file))
-                                      (nth (1- month) '("Jan" "Feb" "Mar" "Apr" "May" "Jun"
-                                                         "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
-                                      day when-str age)
-                              results)))))))))
-    (sort results (lambda (a b)
-                    (< (string-to-number (substring a 30 32))
-                       (string-to-number (substring b 30 32)))))))
+                          (re-search-forward "^---$" nil t))))
+              (when end
+                (let* ((fm   (buffer-substring-no-properties (point-min) end))
+                       (bday (and (string-match
+                                   "^birthday:[[:space:]]*\\([^\n]+\\)" fm)
+                                  (string-trim (match-string 1 fm))))
+                       (name (and (string-match
+                                   "^name:[[:space:]]*\\([^\n]+\\)" fm)
+                                  (string-trim (match-string 1 fm)))))
+                  (when (and bday (not (string-empty-p bday)))
+                    (let* ((parts (split-string bday "-"))
+                           ;; Detect YYYY-MM-DD vs DD-MM-YYYY
+                           (year  (if (= (length (nth 0 parts)) 4)
+                                      (string-to-number (nth 0 parts))
+                                    (string-to-number (nth 2 parts))))
+                           (month (string-to-number (nth 1 parts)))
+                           (day   (if (= (length (nth 0 parts)) 4)
+                                      (string-to-number (nth 2 parts))
+                                    (string-to-number (nth 0 parts)))))
+                      (when (= month cur-month)
+                        (let* ((age      (- cur-year year))
+                               (bday-ts  (float-time
+                                          (encode-time 0 0 12 day month cur-year)))
+                               (diff     (/ (- bday-ts (float-time)) 86400))
+                               (when-str (cond ((and (>= diff 0) (< diff 1)) "today!")
+                                               ((> diff 0) (format "in %d days" (ceiling diff)))
+                                               (t (format "%d days ago" (floor (abs diff)))))))
+                          (push (format "%-28s  %s %2d   (%s, turning %d)"
+                                        (or name (file-name-base file))
+                                        (nth (1- month) months)
+                                        day when-str age)
+                                results))))))))))
+    (sort results #'string<)))
 ```
 
-Insert in the right column of `my/dashboard`, after the Dailies checklist:
+Insert in the right column of `my/dashboard`, **before Deadlines**:
 
 ```elisp
 (let ((bdays (my/dash--birthdays)))
@@ -400,270 +603,244 @@ Insert in the right column of `my/dashboard`, after the Dailies checklist:
     (dolist (b bdays) (push (concat "  " b) right))))
 ```
 
-#### Weight chart
-
-The neovim dashboard calls `plot-weights` (at `~/.local/bin/plot-weights`) which
-generates `/tmp/weight-plot.png` and prints the path. Emacs can do the same:
+#### Weight chart (async PNG)
 
 ```elisp
 (defun my/dash--insert-weight-chart ()
-  "Run plot-weights async; insert PNG into current buffer when done."
+  "Run plot-weights async and insert the PNG at the end of the current buffer."
   (let ((buf (current-buffer)))
     (make-process
-     :name "plot-weights"
-     :command (list (expand-file-name "~/.local/bin/plot-weights")
-                    "--cols" (number-to-string (- (window-width) 6)))
-     :filter  #'ignore
+     :name     "plot-weights"
+     :command  (list (expand-file-name "~/.local/bin/plot-weights")
+                     "--cols" (number-to-string (- (window-width) 6)))
+     :filter   #'ignore
      :sentinel (lambda (_proc _event)
                  (when (file-exists-p "/tmp/weight-plot.png")
                    (with-current-buffer buf
-                     (let ((inhibit-read-only t))
-                       (save-excursion
-                         (goto-char (point-max))
-                         (insert "\n")
-                         (insert-image (create-image "/tmp/weight-plot.png" 'png nil
-                                                     :max-width (- (window-width) 6)))
-                         (insert "\n")))))))))
+                     (when (buffer-live-p buf)
+                       (let ((inhibit-read-only t))
+                         (save-excursion
+                           (goto-char (point-max))
+                           (insert "\n")
+                           (insert-image
+                            (create-image "/tmp/weight-plot.png" 'png nil
+                                          :max-width (- (window-width) 6)))
+                           (insert "\n"))))))))))
 ```
+
+#### Weight logging
+
+```elisp
+(defun my/dash-log-weight (weight)
+  "Append WEIGHT (kg) as a new row to the weights markdown table."
+  (interactive "nWeight (kg): ")
+  (let* ((file  (expand-file-name
+                  "Knowledge/Body & Movement/Bodybuilding/Stats/Weights list.md"
+                  my/dash-vault))
+         (today (format-time-string "%Y-%m-%d"))
+         entries)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "| *\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\) *| *\\([0-9.]+\\)" nil t)
+        (push (cons (float-time (date-to-time (match-string 1)))
+                    (string-to-number (match-string 2)))
+              entries)))
+    (let* ((now     (float-time))
+           (ma (lambda (days)
+                 (let* ((cut  (- now (* days 86400)))
+                        (rel  (seq-filter (lambda (e) (>= (car e) cut)) entries))
+                        (all  (mapcar #'cdr (append rel (list (cons now weight)))))
+                        (n    (length all)))
+                   (/ (apply #'+ all) n)))))
+      (with-current-buffer (find-file-noselect file)
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n"))
+        (insert (format "| %s | %.1f | %.2f | %.2f | %.2f |\n"
+                        today weight
+                        (funcall ma 7)
+                        (funcall ma 21)
+                        (funcall ma 30)))
+        (save-buffer)))
+    (message "Logged %.1f kg  (%s)" weight today)
+    (my/dash--insert-weight-chart)))
+```
+
+Add to `my/dashboard` local map and evil bindings:
+
+```elisp
+(local-set-key (kbd "w") #'my/dash-log-weight)
+;; in the evil-define-key* loop:
+("w" . my/dash-log-weight)
+```
+
+Add `"w"` to the footer `(dolist (item '(...)))` list.
 
 Call `(my/dash--insert-weight-chart)` at the end of `my/dashboard`, after
 `(switch-to-buffer buf)`.
 
-Add a weight logging command, bound to `w` in the dashboard:
-
-```elisp
-(defun my/dash-log-weight ()
-  "Prompt for today's weight, append row to weights file."
-  (interactive)
-  (let* ((w (read-number "Weight (kg): "))
-         (weights-file (expand-file-name
-                        "Knowledge/Body & Movement/Bodybuilding/Stats/Weights list.md"
-                        my/dash-vault))
-         ;; Read existing entries to compute moving averages
-         (entries '())
-         (today (format-time-string "%Y-%m-%d")))
-    (with-temp-buffer
-      (insert-file-contents weights-file)
-      (goto-char (point-min))
-      (while (re-search-forward
-              "| *\\([0-9-]+\\) *| *\\([0-9.]+\\) *|" nil t)
-        (push (cons (match-string 1) (string-to-number (match-string 2))) entries)))
-    (let* ((all (reverse entries))
-           (now-ts (float-time))
-           (ma (lambda (days)
-                 (let* ((cutoff (- now-ts (* days 86400)))
-                        (relevant (seq-filter
-                                   (lambda (e)
-                                     (>= (float-time (date-to-time (car e))) cutoff))
-                                   all))
-                        (all-w (mapcar #'cdr (append relevant (list (cons today w)))))
-                        (sum (apply #'+ all-w)))
-                   (/ sum (length all-w)))))
-           (ma7  (funcall ma 7))
-           (ma21 (funcall ma 21))
-           (ma30 (funcall ma 30))
-           (row  (format "| %s | %.1f | %.2f | %.2f | %.2f |"
-                         today w ma7 ma21 ma30)))
-      (with-current-buffer (find-file-noselect weights-file)
-        (goto-char (point-max))
-        (unless (bolp) (insert "\n"))
-        (insert row "\n")
-        (save-buffer)))
-    (message "Logged %.1f kg on %s" w today)
-    (my/dash--insert-weight-chart)))
-```
-
-Add `w` key to the dashboard local map (same location as the other `local-set-key` calls):
-
-```elisp
-(local-set-key (kbd "w") #'my/dash-log-weight)
-;; and in the evil-define-key* loop:
-("w" . my/dash-log-weight)
-```
-
-Also add `"w"` to the footer shortcuts list.
-
 ---
 
-### 5b. Vault dashboard — new: `my/vault-dashboard`
+### 5c. Vault dashboard — markdown (`my/vault-dashboard`)
 
-This replaces `my/dash-vault-work` (currently just opens dired). It is a full
-Emacs equivalent of `M.open_vault` in `dashboard.lua`.
+Reads the markdown vault directly. Replaces the current dired call in
+`my/dash-vault-work`. Always opens in the "personal" perspective.
 
-Add a new `** Vault dashboard` sub-section in the `* Dashboard` block in config.org.
-
-**Data sources (all elisp, reading the markdown vault directly):**
-
-| Section | Source | What to parse |
-|---------|--------|---------------|
-| BIRTHDAYS THIS MONTH | `VAULT/People/*.md` | `birthday:` YAML frontmatter (same as greeting addition above) |
-| CONTINUE | `find VAULT -name "*.md"` sorted by mtime, grouped by top-level folder | 3 most recently modified folders + most recent file in each |
-| PROJECTS | `VAULT/Misc/ToDo.md` `## Projects` bullet list | Full list with today's index highlighted (same rotation formula as greeting) |
-| RECENT DAILY NOTES | `VAULT/Dailies/` sorted by mtime | 5 most recent `.md` files, clickable |
-| KNOWLEDGE | `VAULT/Knowledge/` subdirectories | Name + note count per subdir |
-| WEIGHT CHART | `~/.local/bin/plot-weights` | Run as async process, render PNG inline |
-
-**Helper — CONTINUE section:**
+**Add these shared helpers** (used by vault dashboard, and also by the greeting):
 
 ```elisp
 (defun my/dash--recent-vault-folders (n)
-  "Return N most recently modified top-level vault folders."
-  (let* ((cmd (format "find %s -name '*.md' -not -path '*/.obsidian/*' \
--not -path '*/Templates/*' -not -path '*/Attachments/*' \
--printf '%%T@ %%p\\n' 2>/dev/null | sort -rn | head -60"
-                      (shell-quote-argument my/dash-vault)))
-         (output (shell-command-to-string cmd))
-         (by-folder (make-hash-table :test 'equal))
+  "Return N plists (:folder :name :path :age) for most recently modified vault folders."
+  (let* ((out      (shell-command-to-string
+                    (format "find %s -name '*.md' \
+-not -path '*/.obsidian/*' -not -path '*/Templates/*' \
+-not -path '*/Attachments/*' \
+-printf '%%T@ %%p\\n' 2>/dev/null | sort -rn | head -80"
+                            (shell-quote-argument my/dash-vault))))
+         (by-folder   (make-hash-table :test 'equal))
          (folder-mtime (make-hash-table :test 'equal)))
-    (dolist (line (split-string output "\n" t))
+    (dolist (line (split-string out "\n" t))
       (when (string-match "^\\([0-9.]+\\) \\(.+\\)$" line)
         (let* ((mt   (string-to-number (match-string 1 line)))
                (path (match-string 2 line))
                (rel  (file-relative-name path my/dash-vault))
                (folder (car (split-string rel "/"))))
-          (when (and folder (not (string-prefix-p "." folder)))
-            (when (or (not (gethash folder folder-mtime))
-                      (> mt (gethash folder folder-mtime)))
-              (puthash folder mt folder-mtime)
-              (puthash folder (cons path mt) by-folder))))))
-    (let* ((folders (hash-table-keys folder-mtime))
-           (sorted  (sort folders (lambda (a b)
-                                    (> (gethash a folder-mtime)
-                                       (gethash b folder-mtime))))))
-      (seq-take
-       (mapcar (lambda (f)
-                 (let* ((entry (gethash f by-folder))
-                        (path  (car entry))
-                        (mt    (cdr entry))
-                        (diff  (/ (- (float-time) mt) 86400))
-                        (age   (cond ((< diff 1)  "today")
-                                     ((< diff 2)  "yesterday")
-                                     ((< diff 7)  (format "%d days ago" (floor diff)))
-                                     ((< diff 14) "1 week ago")
-                                     (t           (format "%d weeks ago"
-                                                          (floor (/ diff 7)))))))
-                   (list :folder f
-                         :path   path
-                         :name   (file-name-base path)
-                         :age    age)))
-               sorted)
-       n))))
-```
+          (when (and folder
+                     (not (string-prefix-p "." folder))
+                     (or (not (gethash folder folder-mtime))
+                         (> mt (gethash folder folder-mtime))))
+            (puthash folder mt folder-mtime)
+            (puthash folder (cons path mt) by-folder)))))
+    (seq-take
+     (mapcar (lambda (f)
+               (let* ((e    (gethash f by-folder))
+                      (diff (/ (- (float-time) (cdr e)) 86400))
+                      (age  (cond ((< diff 1) "today")
+                                  ((< diff 2) "yesterday")
+                                  ((< diff 7) (format "%d days ago" (floor diff)))
+                                  ((< diff 14) "1 week ago")
+                                  (t (format "%d weeks ago" (floor (/ diff 7)))))))
+                 (list :folder f :path (car e)
+                       :name (file-name-base (car e)) :age age)))
+             (sort (hash-table-keys folder-mtime)
+                   (lambda (a b) (> (gethash a folder-mtime)
+                                    (gethash b folder-mtime)))))
+     n)))
 
-**Helper — Knowledge navigator:**
-
-```elisp
 (defun my/dash--knowledge-dirs ()
-  "Return list of (name . count) for each Knowledge/ subdir."
+  "Return list of (name . count) for each Knowledge/ subdirectory."
   (let ((kdir (expand-file-name "Knowledge" my/dash-vault)))
-    (mapcar (lambda (d)
-              (let ((count (string-to-number
-                            (string-trim
-                             (shell-command-to-string
-                              (format "find %s -name '*.md' 2>/dev/null | wc -l"
-                                      (shell-quote-argument d)))))))
-                (cons (file-name-nondirectory d) count)))
-            (seq-filter #'file-directory-p
-                        (directory-files kdir t "^[^.]")))))
+    (when (file-directory-p kdir)
+      (mapcar (lambda (d)
+                (cons (file-name-nondirectory d)
+                      (string-to-number
+                       (string-trim
+                        (shell-command-to-string
+                         (format "find %s -name '*.md' 2>/dev/null | wc -l"
+                                 (shell-quote-argument d)))))))
+              (seq-filter #'file-directory-p
+                          (directory-files kdir t "^[^.]"))))))
 ```
 
-**Full vault dashboard function:**
+**The vault dashboard function** (add as `** Vault dashboard` in `* Dashboard`):
 
 ```elisp
 (defun my/vault-dashboard ()
-  "Open the personal vault dashboard."
+  "Open personal vault dashboard in the personal perspective."
   (interactive)
+  (persp-switch "personal")
   (let* ((buf      (get-buffer-create "*Vault*"))
+         (todo-f   (expand-file-name "Misc/ToDo.md" my/dash-vault))
          (bdays    (my/dash--birthdays))
          (recent   (my/dash--recent-vault-folders 3))
-         (todo-f   (expand-file-name "Misc/ToDo.md" my/dash-vault))
          (projects (my/dash--parse-section todo-f "Projects"))
          (proj-idx (when projects
                      (% (1- (string-to-number (format-time-string "%j")))
                         (length projects))))
-         (dailies  (let ((dir (expand-file-name "Dailies" my/dash-vault)))
-                     (seq-take
-                      (sort (directory-files dir t "\\.md$")
-                            (lambda (a b) (> (float-time (file-attribute-modification-time
-                                                           (file-attributes a)))
-                                            (float-time (file-attribute-modification-time
-                                                           (file-attributes b))))))
-                      5)))
+         (daily-dir (expand-file-name "Dailies" my/dash-vault))
+         (dailies  (seq-take
+                    (sort (directory-files daily-dir t "\\.md$")
+                          (lambda (a b)
+                            (> (float-time (file-attribute-modification-time
+                                            (file-attributes a)))
+                               (float-time (file-attribute-modification-time
+                                            (file-attributes b))))))
+                    5))
          (know     (my/dash--knowledge-dirs)))
+
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
         (setq-local cursor-type nil)
         (insert "\n")
-        (insert (propertize (concat "VAULT  ·  " (format-time-string "%A %-d %B %Y"))
-                            'face 'font-lock-keyword-face) "\n\n")
+        (insert (propertize
+                 (concat "VAULT  ·  " (format-time-string "%A %-d %B %Y"))
+                 'face 'font-lock-keyword-face) "\n\n")
 
-        ;; BIRTHDAYS
-        (insert (propertize "  BIRTHDAYS THIS MONTH\n" 'face 'font-lock-keyword-face))
-        (if bdays
-            (dolist (b bdays) (insert "    " b "\n"))
-          (insert (propertize "    — none —\n" 'face 'shadow)))
-        (insert "\n")
+        (cl-flet ((section (header) (insert (propertize (concat "  " header "\n")
+                                                         'face 'font-lock-keyword-face)))
+                  (empty   ()       (insert (propertize "    — none —\n" 'face 'shadow)))
+                  (link    (text path)
+                            (insert "    ")
+                            (insert-text-button text
+                              'action (lambda (_) (find-file path))
+                              'face 'default 'mouse-face 'highlight 'follow-link t)
+                            (insert "\n")))
 
-        ;; CONTINUE
-        (insert (propertize "  CONTINUE\n" 'face 'font-lock-keyword-face))
-        (if recent
-            (dolist (r recent)
-              (let ((text (format "  %-18s  %-32s  %s"
-                                  (plist-get r :folder)
-                                  (plist-get r :name)
-                                  (plist-get r :age)))
-                    (path (plist-get r :path)))
-                (insert-text-button text
-                  'action (lambda (_) (find-file path))
-                  'face 'default
-                  'mouse-face 'highlight
-                  'follow-link t)
-                (insert "\n")))
-          (insert (propertize "    — none —\n" 'face 'shadow)))
-        (insert "\n")
+          ;; BIRTHDAYS
+          (section "BIRTHDAYS THIS MONTH")
+          (if bdays (dolist (b bdays) (insert "    " b "\n")) (empty))
+          (insert "\n")
 
-        ;; PROJECTS
-        (when projects
-          (insert (propertize "  PROJECTS\n" 'face 'font-lock-keyword-face))
-          (let ((i 0))
-            (dolist (p projects)
-              (let ((marker (if (= i proj-idx)
-                                (propertize "  ← today" 'face 'font-lock-keyword-face)
-                              "")))
-                (insert (format "    %d  %s%s\n" (1+ i) p marker)))
-              (setq i (1+ i))))
-          (insert "\n"))
+          ;; CONTINUE
+          (section "CONTINUE")
+          (if recent
+              (dolist (r recent)
+                (link (format "%-18s  %-32s  %s"
+                              (plist-get r :folder)
+                              (plist-get r :name)
+                              (plist-get r :age))
+                      (plist-get r :path)))
+            (empty))
+          (insert "\n")
 
-        ;; RECENT DAILY NOTES
-        (insert (propertize "  RECENT DAILY NOTES\n" 'face 'font-lock-keyword-face))
-        (dolist (f dailies)
-          (let ((name (file-name-base f))
-                (path f))
-            (insert "    ")
-            (insert-text-button name
-              'action (lambda (_) (find-file path))
-              'face 'default
-              'mouse-face 'highlight
-              'follow-link t)
-            (insert "\n")))
-        (insert "\n")
+          ;; PROJECTS
+          (when projects
+            (section "PROJECTS")
+            (let ((i 0))
+              (dolist (p projects)
+                (insert (format "    %d  %s%s\n" (1+ i) p
+                                (if (= i proj-idx)
+                                    (propertize "  ← today"
+                                                'face 'font-lock-keyword-face)
+                                  "")))
+                (setq i (1+ i))))
+            (insert "\n"))
 
-        ;; KNOWLEDGE
-        (insert (propertize "  KNOWLEDGE\n" 'face 'font-lock-keyword-face))
-        (let ((row "") (max-w 68))
-          (dolist (kd know)
-            (let ((entry (format "%s (%d)" (car kd) (cdr kd))))
-              (if (> (+ (length row) (length entry) 3) max-w)
-                  (progn (insert "    " row "\n") (setq row entry))
-                (setq row (if (string-empty-p row) entry
-                            (concat row "  " entry))))))
-          (unless (string-empty-p row) (insert "    " row "\n")))
-        (insert "\n"))
+          ;; RECENT DAILY NOTES
+          (section "RECENT DAILY NOTES")
+          (if dailies
+              (dolist (f dailies)
+                (link (file-name-base f) f))
+            (empty))
+          (insert "\n")
+
+          ;; KNOWLEDGE
+          (section "KNOWLEDGE")
+          (when know
+            (let ((row "") (max-w 68))
+              (dolist (kd know)
+                (let ((entry (format "%s (%d)" (car kd) (cdr kd))))
+                  (if (> (+ (length row) (length entry) 3) max-w)
+                      (progn (insert "    " row "\n") (setq row entry))
+                    (setq row (if (string-empty-p row) entry
+                                (concat row "  " entry))))))
+              (unless (string-empty-p row) (insert "    " row "\n"))))
+          (insert "\n")))
 
       (read-only-mode 1)
       (goto-char (point-min))
-
       (use-local-map (make-sparse-keymap))
       (local-set-key (kbd "q") #'bury-buffer)
       (local-set-key (kbd "g") #'my/vault-dashboard)
@@ -678,13 +855,12 @@ Add a new `** Vault dashboard` sub-section in the `* Dashboard` block in config.
           (evil-define-key* 'normal (current-local-map) (car b) (cdr b))
           (evil-define-key* 'motion (current-local-map) (car b) (cdr b)))))
 
-    ;; Render weight chart async after buffer is visible
     (switch-to-buffer buf)
-    (my/dash--insert-weight-chart))  ; defined in §5a above
+    (my/dash--insert-weight-chart))
   buf)
 ```
 
-**Update `my/dash-vault-work`** (replace `dired` call):
+**Update `my/dash-vault-work`**:
 
 ```elisp
 (defun my/dash-vault-work ()
@@ -692,42 +868,87 @@ Add a new `** Vault dashboard` sub-section in the `* Dashboard` block in config.
   (my/vault-dashboard))
 ```
 
-**Keybindings inside vault dashboard:**
-
-| Key | Action |
-|-----|--------|
-| `q` | bury buffer |
-| `g` | refresh |
-| `f` | dired on vault root |
-| `d` | today's daily note |
-| `w` | log weight (prompts, re-renders chart) |
-| `RET` | follow link (clickable items) |
-
 ---
 
-### 5c. Uni dashboard — new: `my/uni-dashboard`
+### 5d. Vault dashboard — org (`my/vault-dashboard-org`)
 
-Emacs equivalent of `M.open_uni` in `dashboard.lua`. Replaces `my/dash-uni-work`
-(currently just opens dired on uni vault).
+Same structure and keybindings as the markdown version. Reads `~/org/` instead
+of the markdown vault. Uses `org-ql` for queries and org properties for metadata.
+
+This function is the future replacement for `my/vault-dashboard`. When you
+migrate to org, change `perspective-personal` to call this instead.
 
 **Data sources:**
 
-| Section | Source | What to parse |
-|---------|--------|---------------|
-| UPCOMING DEADLINES | `UNI/Deadines/*.md` | `date:`, `completed:`, `title:`, `class:`, `startTime:` YAML frontmatter; show only where `completed` is falsy and date ≥ today |
-| ACTIVE ASSIGNMENTS | `UNI/Assignments/*.md` | `deadline:`, `grade:`, `class:`, `type:` YAML frontmatter; show only where `grade` is empty |
-| COURSES | `UNI/Classes/*.md` | `year:`, `Q:`, `code:`, `shorthand:` YAML frontmatter; list all; each is clickable → course view |
-| PLANNING | `UNI/Uni MOC.md` | Read `## Planning` section; render markdown pipe table as unicode box-drawing |
+| Section | org equivalent |
+|---------|---------------|
+| BIRTHDAYS | org files in `~/org/personal/people/` with `:BIRTHDAY:` property |
+| CONTINUE | same `find` + mtime approach, just on `~/org/personal/` |
+| PROJECTS | `* Projects` heading in `~/org/personal/todo.org` |
+| RECENT DAILY NOTES | `~/org/daily/YYYY-MM-DD.org` sorted by mtime |
+| KNOWLEDGE | `~/org/personal/` subdirs with note count |
+| WEIGHT CHART | same `my/dash--insert-weight-chart` call |
 
-Note: the Deadlines folder in neovim is `UNI/Deadines/` (typo in original, one 'l').
-Check whether this is actually the folder name: `ls "$UNI/Dead*"` first.
+```elisp
+(defvar my/dash-vault-org (expand-file-name "~/org/personal/")
+  "Root directory of the org personal vault.")
 
-**`my/dash-uni` path** is already defined as a `defvar` in config.org — all paths below
-use it.
+(defun my/dash--birthdays-org ()
+  "Birthdays from org People files (:BIRTHDAY: property)."
+  (let* ((people-dir (expand-file-name "people" my/dash-vault-org))
+         (now (decode-time))
+         (cur-month (nth 4 now)) (cur-year (nth 5 now))
+         (months '("Jan" "Feb" "Mar" "Apr" "May" "Jun"
+                   "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
+         results)
+    (when (file-directory-p people-dir)
+      (dolist (file (directory-files people-dir t "\\.org$"))
+        (with-temp-buffer
+          (insert-file-contents file nil 0 3000)
+          (org-mode)
+          (let ((bday (org-entry-get (point-min) "BIRTHDAY" t))
+                (name (org-entry-get (point-min) "ITEM" t)))
+            (when bday
+              ;; same date parsing / birthday logic as my/dash--birthdays
+              ;; (copy the inner let* from §5b, swap variable names as needed)
+              )))))
+    results))
 
-**Helper — parse frontmatter from a markdown file:**
-`my/dash--frontmatter` already exists in config.org but reads the *current* buffer.
-For scanning directories, a version that takes a file path is needed:
+(defun my/vault-dashboard-org ()
+  "Open personal vault dashboard (org version) in the personal perspective."
+  (interactive)
+  (persp-switch "personal")
+  ;; Same render logic as my/vault-dashboard but:
+  ;; - Replace (my/dash--birthdays) with (my/dash--birthdays-org)
+  ;; - Replace (my/dash--recent-vault-folders 3) with org version
+  ;; - Replace (my/dash--parse-section todo-f "Projects")
+  ;;   with (org-ql-query :from "~/org/personal/todo.org" :where '(heading "Projects"))
+  ;; - Replace Dailies dir with "~/org/daily/"
+  ;; - Replace (my/dash--knowledge-dirs) with org subdir version
+  ;;
+  ;; Stub: implement incrementally as ~/org/ content grows
+  (message "org vault dashboard: implement as org migration proceeds"))
+```
+
+Wire into perspective when ready:
+
+```elisp
+;; In perspective-personal, swap when migrating:
+;; (my/vault-dashboard)      ← current (markdown)
+;; (my/vault-dashboard-org)  ← future (org)
+```
+
+---
+
+### 5e. Uni dashboard — markdown (`my/uni-dashboard`)
+
+Check the actual deadlines folder name first:
+```bash
+ls ~/Documents/BACKUP/Uni/Obsidian/Uni/Dead*
+```
+The neovim source has `Deadines/` (one 'l') — confirm before writing paths.
+
+**Shared helper — frontmatter from file** (needed for directory scanning):
 
 ```elisp
 (defun my/dash--fm-from-file (file key)
@@ -736,64 +957,22 @@ For scanning directories, a version that takes a file path is needed:
     (insert-file-contents file nil 0 2000)
     (goto-char (point-min))
     (when (looking-at "---")
-      (let ((end (save-excursion (forward-line)
-                                 (and (re-search-forward "^---$" nil t) (point)))))
+      (let ((end (save-excursion
+                   (forward-line)
+                   (re-search-forward "^---$" nil t))))
         (when end
           (let ((fm (buffer-substring-no-properties (point-min) end)))
             (and (string-match (concat "^" (regexp-quote key)
-                                       ":[[:space:]]*\\(.*\\)$")
-                               fm)
+                                       ":[[:space:]]*\\([^\n]*\\)") fm)
                  (string-trim (match-string 1 fm)))))))))
 ```
 
-**Helper — planning table (markdown → unicode box-drawing):**
-
-```elisp
-(defun my/dash--uni-planning ()
-  "Read ## Planning section from Uni MOC.md; return list of rendered strings."
-  (let* ((moc (expand-file-name "Uni MOC.md" my/dash-uni))
-         lines in-section result)
-    (when (file-exists-p moc)
-      (with-temp-buffer
-        (insert-file-contents moc)
-        (goto-char (point-min))
-        (while (not (eobp))
-          (let ((line (buffer-substring-no-properties
-                       (line-beginning-position) (line-end-position))))
-            (cond
-             ((string-match "^# Planning" line) (setq in-section t))
-             ((and in-section (string-match "^# " line)) (setq in-section nil))
-             (in-section (push line lines))))
-          (forward-line))))
-    (setq lines (nreverse lines))
-    ;; Strip leading/trailing blank lines
-    (while (and lines (string-blank-p (car lines))) (setq lines (cdr lines)))
-    (while (and lines (string-blank-p (car (last lines)))) (setq lines (butlast lines)))
-    ;; Render markdown pipe table as unicode
-    (dolist (line lines)
-      (cond
-       ;; separator row: |---|---|  →  ├───┼───┤
-       ((string-match "^|[[:space:]]*[-:]" line)
-        (let* ((cells (split-string (string-trim line "|" "|") "|"))
-               (parts (mapcar (lambda (c)
-                                (make-string (+ (length (string-trim c)) 2) ?─))
-                              cells)))
-          (push (concat "├" (string-join parts "┼") "┤") result)))
-       ;; data row
-       ((string-match "^|" line)
-        (let* ((cells (split-string (string-trim line "|" "|") "|"))
-               (parts (mapcar (lambda (c) (concat " " (string-trim c) " ")) cells)))
-          (push (concat "│" (string-join parts "│") "│") result)))
-       (t (push line result))))
-    (nreverse result)))
-```
-
-**Helper — upcoming deadlines:**
+**Upcoming deadlines helper:**
 
 ```elisp
 (defun my/dash--uni-deadlines ()
-  "Return sorted list of strings for upcoming uni deadlines."
-  (let* ((dir (expand-file-name "Deadines" my/dash-uni))  ; note: one 'l' in source
+  "Upcoming deadlines from UNI/Deadines/ (sorted, incomplete only)."
+  (let* ((dir (expand-file-name "Deadines" my/dash-uni))  ; verify spelling
          results)
     (when (file-directory-p dir)
       (dolist (file (directory-files dir t "\\.md$"))
@@ -802,34 +981,32 @@ For scanning directories, a version that takes a file path is needed:
                (title     (my/dash--fm-from-file file "title"))
                (class     (my/dash--fm-from-file file "class"))
                (time-str  (my/dash--fm-from-file file "startTime")))
-          (unless (or (string= completed "true")
-                      (string= completed "yes")
-                      (not date-str))
-            (let* ((ts   (float-time (date-to-time
-                                      (concat (my/dash--normalize-date date-str)
-                                              " 12:00:00"))))
+          (when (and date-str
+                     (not (member completed '("true" "yes" "True" "Yes"))))
+            (let* ((ts   (float-time
+                          (date-to-time
+                           (concat (my/dash--normalize-date date-str) " 12:00:00"))))
                    (diff (/ (- ts (float-time)) 86400)))
               (when (>= diff 0)
-                (let* ((when-str (if (< diff 1) "TODAY"
-                                   (format "in %d days" (ceiling diff))))
-                       (label (if (and class title)
-                                  (concat class " — " title)
-                                (or title (file-name-base file))))
-                       (time-part (if (and time-str (not (string-empty-p time-str)))
-                                      (concat "  " time-str) "")))
-                  (push (list :text  (format "%-44s  %s%s   (%s)"
-                                             label date-str time-part when-str)
-                              :diff  diff
-                              :path  file)
-                        results))))))))
+                (push (list :text (format "%-44s  %s%s   (%s)"
+                                          (if (and class title)
+                                              (concat class " — " title)
+                                            (or title (file-name-base file)))
+                                          date-str
+                                          (if (and time-str (not (string-empty-p time-str)))
+                                              (concat "  " time-str) "")
+                                          (if (< diff 1) "TODAY"
+                                            (format "in %d days" (ceiling diff))))
+                            :diff diff :path file)
+                      results))))))
     (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
 ```
 
-**Helper — active assignments:**
+**Active assignments helper:**
 
 ```elisp
 (defun my/dash--uni-assignments ()
-  "Return sorted list of ungraded assignments."
+  "Ungraded assignments from UNI/Assignments/ (sorted by deadline)."
   (let* ((dir (expand-file-name "Assignments" my/dash-uni))
          results)
     (when (file-directory-p dir)
@@ -846,26 +1023,23 @@ For scanning directories, a version that takes a file path is needed:
                                                " 12:00:00")))
                                      (float-time))
                                   86400)))
-                   (when-str (cond ((null diff)   "?")
-                                   ((< diff 1)    "TODAY")
-                                   ((> diff 0)    (format "in %d days" (ceiling diff)))
-                                   (t             (format "%dd ago" (floor (- diff)))))))
+                   (when-str (cond ((null diff) "?")
+                                   ((< diff 1) "TODAY")
+                                   ((>= diff 1) (format "in %d days" (ceiling diff)))
+                                   (t (format "%dd ago" (floor (abs diff)))))))
               (push (list :text  (format "%-35s  %-14s  %s   (%s)"
                                          (file-name-base file)
-                                         (or atype "")
-                                         (or deadline "")
-                                         when-str)
-                          :diff  (or diff 9999)
-                          :path  file)
+                                         (or atype "") (or deadline "") when-str)
+                          :diff  (or diff 9999) :path file)
                     results))))))
     (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
 ```
 
-**Helper — all courses:**
+**Courses helper:**
 
 ```elisp
 (defun my/dash--uni-courses ()
-  "Return list of course plists from UNI/Classes/."
+  "All courses from UNI/Classes/, sorted by Q."
   (let ((dir (expand-file-name "Classes" my/dash-uni)))
     (when (file-directory-p dir)
       (sort
@@ -880,75 +1054,120 @@ For scanning directories, a version that takes a file path is needed:
        (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
 ```
 
-**Full uni dashboard function:**
+**Planning table helper** (reads `## Planning` from Uni MOC.md, renders markdown
+pipe table as unicode — org tables render automatically so this helper is only
+needed for the markdown dashboard version):
+
+```elisp
+(defun my/dash--uni-planning ()
+  "Read ## Planning from Uni MOC.md; render markdown table as unicode strings."
+  (let ((moc (expand-file-name "Uni MOC.md" my/dash-uni))
+        lines in-section result)
+    (when (file-exists-p moc)
+      (with-temp-buffer
+        (insert-file-contents moc)
+        (goto-char (point-min))
+        (while (not (eobp))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position))))
+            (cond
+             ((string-match "^# Planning" line) (setq in-section t))
+             ((and in-section (string-match "^# " line)) (setq in-section nil))
+             (in-section (push line lines))))
+          (forward-line))))
+    (setq lines (nreverse lines))
+    (while (and lines (string-blank-p (car lines))) (setq lines (cdr lines)))
+    (while (and lines (string-blank-p (car (last lines)))) (setq lines (butlast lines)))
+    (dolist (line lines)
+      (cond
+       ;; separator |---|---| → ├───┼───┤
+       ((string-match "^|[[:space:]]*[-:]" line)
+        (let* ((cells (split-string (string-trim line "|" "|") "|"))
+               (parts (mapcar (lambda (c)
+                                (make-string (+ (length (string-trim c)) 2) ?─))
+                              cells)))
+          (push (concat "├" (string-join parts "┼") "┤") result)))
+       ;; data row
+       ((string-match "^|" line)
+        (let* ((cells (split-string (string-trim line "|" "|") "|"))
+               (parts (mapcar (lambda (c) (concat " " (string-trim c) " ")) cells)))
+          (push (concat "│" (string-join parts "│") "│") result)))
+       (t (push line result))))
+    (nreverse result)))
+```
+
+**Full uni dashboard function** (add as `** Uni dashboard` in `* Dashboard`):
 
 ```elisp
 (defun my/uni-dashboard ()
-  "Open the uni dashboard."
+  "Open uni dashboard in the uni perspective."
   (interactive)
+  (persp-switch "uni")
   (let* ((buf         (get-buffer-create "*Uni*"))
          (deadlines   (my/dash--uni-deadlines))
          (assignments (my/dash--uni-assignments))
          (courses     (my/dash--uni-courses))
          (planning    (my/dash--uni-planning)))
+
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
         (setq-local cursor-type nil)
         (insert "\n")
-        (insert (propertize (concat "UNI  ·  " (format-time-string "%A %-d %B %Y"))
-                            'face 'font-lock-keyword-face) "\n\n")
+        (insert (propertize
+                 (concat "UNI  ·  " (format-time-string "%A %-d %B %Y"))
+                 'face 'font-lock-keyword-face) "\n\n")
 
-        ;; UPCOMING DEADLINES
-        (insert (propertize "  UPCOMING DEADLINES\n" 'face 'font-lock-keyword-face))
-        (if deadlines
-            (dolist (d deadlines)
-              (insert "    ")
-              (insert-text-button (plist-get d :text)
-                'action (lambda (_) (find-file (plist-get d :path)))
-                'face 'default 'mouse-face 'highlight 'follow-link t)
-              (insert "\n"))
-          (insert (propertize "    — none —\n" 'face 'shadow)))
-        (insert "\n")
+        (cl-flet ((section (h) (insert (propertize (concat "  " h "\n")
+                                                    'face 'font-lock-keyword-face)))
+                  (empty   ()  (insert (propertize "    — none —\n" 'face 'shadow)))
+                  (link    (text path)
+                            (insert "    ")
+                            (insert-text-button text
+                              'action (lambda (_) (find-file path))
+                              'face 'default 'mouse-face 'highlight 'follow-link t)
+                            (insert "\n")))
 
-        ;; ACTIVE ASSIGNMENTS
-        (insert (propertize "  ACTIVE ASSIGNMENTS\n" 'face 'font-lock-keyword-face))
-        (if assignments
-            (dolist (a assignments)
-              (insert "    ")
-              (insert-text-button (plist-get a :text)
-                'action (lambda (_) (find-file (plist-get a :path)))
-                'face 'default 'mouse-face 'highlight 'follow-link t)
-              (insert "\n"))
-          (insert (propertize "    — none —\n" 'face 'shadow)))
-        (insert "\n")
+          ;; UPCOMING DEADLINES
+          (section "UPCOMING DEADLINES")
+          (if deadlines
+              (dolist (d deadlines) (link (plist-get d :text) (plist-get d :path)))
+            (empty))
+          (insert "\n")
 
-        ;; COURSES
-        (insert (propertize "  COURSES\n" 'face 'font-lock-keyword-face))
-        (if courses
-            (dolist (c courses)
-              (let ((text (format "    %-40s  Q%-8s  %s"
-                                  (plist-get c :name)
-                                  (plist-get c :Q)
-                                  (plist-get c :code)))
-                    (course c))
-                (insert-text-button text
-                  'action (lambda (_) (my/uni-course-view course))
-                  'face 'default 'mouse-face 'highlight 'follow-link t)
-                (insert "\n")))
-          (insert (propertize "    — none —\n" 'face 'shadow)))
-        (insert "\n")
+          ;; ACTIVE ASSIGNMENTS
+          (section "ACTIVE ASSIGNMENTS")
+          (if assignments
+              (dolist (a assignments) (link (plist-get a :text) (plist-get a :path)))
+            (empty))
+          (insert "\n")
 
-        ;; PLANNING
-        (insert (propertize "  PLANNING  (from Uni MOC)\n" 'face 'font-lock-keyword-face))
-        (if planning
-            (dolist (l planning) (insert "    " l "\n"))
-          (insert (propertize "    — (no ## Planning section in Uni MOC.md) —\n" 'face 'shadow)))
-        (insert "\n"))
+          ;; COURSES (clickable → course view)
+          (section "COURSES")
+          (if courses
+              (dolist (c courses)
+                (let ((course c))
+                  (insert "    ")
+                  (insert-text-button
+                   (format "%-40s  Q%-8s  %s"
+                           (plist-get c :name)
+                           (plist-get c :Q)
+                           (plist-get c :code))
+                   'action (lambda (_) (my/uni-course-view course))
+                   'face 'default 'mouse-face 'highlight 'follow-link t)
+                  (insert "\n")))
+            (empty))
+          (insert "\n")
+
+          ;; PLANNING
+          (section "PLANNING  (from Uni MOC)")
+          (if planning
+              (dolist (l planning) (insert "    " l "\n"))
+            (empty))
+          (insert "\n")))
 
       (read-only-mode 1)
       (goto-char (point-min))
-
       (use-local-map (make-sparse-keymap))
       (local-set-key (kbd "q") #'bury-buffer)
       (local-set-key (kbd "g") #'my/uni-dashboard)
@@ -973,65 +1192,93 @@ For scanning directories, a version that takes a file path is needed:
   (my/uni-dashboard))
 ```
 
-**Keybindings inside uni dashboard:**
+---
 
-| Key | Action |
-|-----|--------|
-| `q` | bury buffer |
-| `g` | refresh |
-| `f` | dired on uni vault root |
-| `n` | new lecture note |
-| `RET` | follow link (deadlines, assignments, courses all clickable) |
+### 5f. Uni dashboard — org (`my/uni-dashboard-org`)
+
+Parallel org version. Uses org-ql and org properties instead of YAML frontmatter.
+
+```elisp
+(defvar my/dash-uni-org (expand-file-name "~/org/uni/")
+  "Root of the org uni vault.")
+
+(defun my/uni-dashboard-org ()
+  "Open uni dashboard (org version) in the uni perspective."
+  (interactive)
+  (persp-switch "uni")
+  ;; Same render structure as my/uni-dashboard but:
+  ;; - Deadlines: (org-ql-select "~/org/uni/deadlines.org"
+  ;;                '(and (todo) (deadline :from today :to +60)))
+  ;; - Assignments: org-ql query on assignments file, filter by :GRADE: property
+  ;; - Courses: org headings in "~/org/uni/courses.org"
+  ;; - Planning: org table in "~/org/uni/moc.org" under * Planning heading
+  ;;   (org tables render automatically — no unicode conversion needed)
+  ;;
+  ;; Stub: implement as ~/org/uni/ content is created
+  (message "org uni dashboard: implement as org migration proceeds"))
+```
+
+Wire into perspective when ready:
+
+```elisp
+;; In perspective-uni, swap when migrating:
+;; (my/uni-dashboard)      ← current (markdown)
+;; (my/uni-dashboard-org)  ← future (org)
+```
+
+**Note on org tables**: In org-mode, `|` tables render automatically with proper
+alignment — no unicode conversion helper is needed. The `my/dash--uni-planning`
+helper (§5e) is only for the markdown dashboard that reads the markdown MOC file.
 
 ---
 
-### 5d. Course view — `my/uni-course-view`
+### 5g. Course view (`my/uni-course-view`)
 
-Clicking a course in the uni dashboard calls this. Shows all lecture notes for
-that course, its ungraded assignments, and its summary file if one exists.
+Called when clicking a course in the uni dashboard. Shows lectures, assignments,
+and summary file for that course.
 
 ```elisp
 (defun my/uni-course-view (course)
-  "Open a buffer listing lecture notes and assignments for COURSE plist."
-  (let* ((shorthand  (plist-get course :shorthand))
-         (name       (plist-get course :name))
-         (code       (plist-get course :code))
-         (lec-dir    (expand-file-name "Lecture" my/dash-uni))
+  "Buffer listing lecture notes and assignments for COURSE plist."
+  (let* ((shorthand (plist-get course :shorthand))
+         (name      (plist-get course :name))
+         (code      (plist-get course :code))
+         (lec-dir   (expand-file-name "Lecture" my/dash-uni))
          lectures assignments summary-file)
 
-    ;; Find lectures matching this course
-    (dolist (file (directory-files lec-dir t "\\.md$"))
-      (let ((cls   (my/dash--fm-from-file file "class"))
-            (fname (file-name-base file)))
-        (when (or (string= cls shorthand)
-                  (string= cls name)
-                  (string= cls code)
-                  (string-prefix-p (downcase shorthand) (downcase fname)))
-          (let* ((date-str (or (my/dash--fm-from-file file "date")
-                               (and (string-match "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" fname)
-                                    (match-string 0 fname))
-                               ""))
-                 (title    (or (my/dash--fm-from-file file "title") fname)))
-            (push (list :name title :date date-str :path file) lectures)))))
-    (setq lectures (sort lectures (lambda (a b)
-                                    (string< (plist-get a :date)
-                                             (plist-get b :date)))))
+    ;; Lectures matching this course
+    (when (file-directory-p lec-dir)
+      (dolist (file (directory-files lec-dir t "\\.md$"))
+        (let* ((cls   (my/dash--fm-from-file file "class"))
+               (fname (file-name-base file)))
+          (when (or (string= cls shorthand)
+                    (string= cls name)
+                    (string= cls code)
+                    (string-prefix-p (downcase shorthand) (downcase fname)))
+            (let* ((ds   (or (my/dash--fm-from-file file "date")
+                             (and (string-match "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" fname)
+                                  (match-string 0 fname)) ""))
+                   (title (or (my/dash--fm-from-file file "title") fname)))
+              (push (list :name title :date ds :path file) lectures))))))
+    (setq lectures (sort lectures
+                          (lambda (a b) (string< (plist-get a :date)
+                                                  (plist-get b :date)))))
 
-    ;; Filter assignments for this course
+    ;; Assignments for this course
     (dolist (a (my/dash--uni-assignments))
-      (let ((file (plist-get a :path)))
-        (when (string= (my/dash--fm-from-file file "class") shorthand)
-          (push a assignments))))
+      (when (string= (my/dash--fm-from-file (plist-get a :path) "class") shorthand)
+        (push a assignments)))
 
-    ;; Summary file
-    (dolist (candidate (list (expand-file-name (concat name " Summary.md")
-                                               (expand-file-name "Summary" my/dash-uni))
-                             (expand-file-name (concat shorthand " Summary.md")
-                                               (expand-file-name "Summary" my/dash-uni))))
+    ;; Summary file (UNI/Summary/<name> Summary.md)
+    (dolist (candidate
+             (list (expand-file-name (concat name " Summary.md")
+                                     (expand-file-name "Summary" my/dash-uni))
+                   (expand-file-name (concat shorthand " Summary.md")
+                                     (expand-file-name "Summary" my/dash-uni))))
       (when (and (file-exists-p candidate) (null summary-file))
         (setq summary-file candidate)))
 
-    ;; Render buffer
+    ;; Render
     (let ((buf (get-buffer-create (format "*Course: %s*" name))))
       (with-current-buffer buf
         (let ((inhibit-read-only t))
@@ -1040,42 +1287,35 @@ that course, its ungraded assignments, and its summary file if one exists.
           (insert (propertize (format "%s  (%s)\n\n" name code)
                               'face 'font-lock-keyword-face))
 
-          (insert (propertize "  SUMMARY\n" 'face 'font-lock-keyword-face))
-          (if summary-file
-              (progn (insert "    ")
-                     (insert-text-button (file-name-base summary-file)
-                       'action (lambda (_) (find-file summary-file))
-                       'face 'default 'mouse-face 'highlight 'follow-link t)
-                     (insert "\n"))
-            (insert (propertize "    — not found —\n" 'face 'shadow)))
-          (insert "\n")
+          (cl-flet ((section (h) (insert (propertize (concat "  " h "\n")
+                                                      'face 'font-lock-keyword-face)))
+                    (empty   ()  (insert (propertize "    — none —\n" 'face 'shadow)))
+                    (link    (text path)
+                              (insert "    ")
+                              (insert-text-button text
+                                'action (lambda (_) (find-file path))
+                                'face 'default 'mouse-face 'highlight 'follow-link t)
+                              (insert "\n")))
 
-          (insert (propertize "  ASSIGNMENTS\n" 'face 'font-lock-keyword-face))
-          (if assignments
-              (dolist (a assignments)
-                (insert "    ")
-                (insert-text-button (plist-get a :text)
-                  'action (lambda (_) (find-file (plist-get a :path)))
-                  'face 'default 'mouse-face 'highlight 'follow-link t)
-                (insert "\n"))
-            (insert (propertize "    — none —\n" 'face 'shadow)))
-          (insert "\n")
+            (section "SUMMARY")
+            (if summary-file (link (file-name-base summary-file) summary-file) (empty))
+            (insert "\n")
 
-          (insert (propertize (format "  LECTURES  (%d)\n" (length lectures))
-                              'face 'font-lock-keyword-face))
-          (if lectures
-              (let ((i 1))
-                (dolist (l lectures)
-                  (let ((text (format "  %2d.  %-13s  %s"
-                                      i (plist-get l :date) (plist-get l :name)))
-                        (path (plist-get l :path)))
-                    (insert "    ")
-                    (insert-text-button text
-                      'action (lambda (_) (find-file path))
-                      'face 'default 'mouse-face 'highlight 'follow-link t)
-                    (insert "\n"))
-                  (setq i (1+ i))))
-            (insert (propertize "    — none —\n" 'face 'shadow))))
+            (section "ASSIGNMENTS")
+            (if assignments
+                (dolist (a assignments) (link (plist-get a :text) (plist-get a :path)))
+              (empty))
+            (insert "\n")
+
+            (section (format "LECTURES  (%d)" (length lectures)))
+            (if lectures
+                (let ((i 1))
+                  (dolist (l lectures)
+                    (link (format "%2d.  %-13s  %s" i
+                                  (plist-get l :date) (plist-get l :name))
+                          (plist-get l :path))
+                    (setq i (1+ i))))
+              (empty))))
 
         (read-only-mode 1)
         (goto-char (point-min))
@@ -1090,108 +1330,132 @@ that course, its ungraded assignments, and its summary file if one exists.
 
 ---
 
-### 5e. New lecture helper — `my/uni-new-lecture`
+### 5h. New lecture helper (`my/uni-new-lecture`)
 
 ```elisp
 (defun my/uni-new-lecture ()
-  "Create a new lecture note from template and open it."
+  "Create a lecture note from template and open it."
   (interactive)
-  (let* ((class    (read-string "Class shorthand: "))
-         (date     (format-time-string "%Y-%m-%d"))
-         (lec-dir  (expand-file-name "Lecture" my/dash-uni))
-         (template (expand-file-name "Templates/Lecture.md" my/dash-uni))
-         (target   (expand-file-name (concat class " " date ".md") lec-dir))
-         (content  (if (file-exists-p template)
-                       (with-temp-buffer
-                         (insert-file-contents template)
-                         (buffer-string))
-                     (format "---\nclass: %s\ndate: %s\n---\n\n# Lecture\n\n" class date))))
+  (let* ((class   (read-string "Class shorthand: "))
+         (date    (format-time-string "%Y-%m-%d"))
+         (lec-dir (expand-file-name "Lecture" my/dash-uni))
+         (tmpl    (expand-file-name "Templates/Lecture.md" my/dash-uni))
+         (target  (expand-file-name (concat class " " date ".md") lec-dir))
+         (content (if (file-exists-p tmpl)
+                      (with-temp-buffer (insert-file-contents tmpl) (buffer-string))
+                    (format "---\nclass: %s\ndate: %s\n---\n\n# Lecture\n\n"
+                            class date))))
     (with-temp-file target (insert content))
     (find-file target)))
 ```
 
 ---
 
-### 5f. Weight chart in org-babel (alternative approach)
+## Single rebuild — complete Nix change list
 
-The user noted that org files can run Python inline and display plots. This is
-an alternative to the elisp `create-image` approach above.
+All changes below happen in one editing session; one rebuild covers all of them.
 
-In a `dashboard.org` file (not the main elisp dashboard):
+### modules/common.nix
 
-```org
-* Weight
+In `environment.systemPackages`, add near the other mail/media tools:
 
-#+begin_src python :results file :file /tmp/weight-plot.png :exports results :eval yes
-import subprocess, sys
-result = subprocess.run(["/home/thijmen/.local/bin/plot-weights", "--cols", "80"],
-                       capture_output=True, text=True)
-print(result.stdout.strip())
-#+end_src
+```nix
+mu              # maildir indexer; mu4e ships inside it
+yt-dlp          # YouTube/video downloader (check if already present)
 ```
 
-When the block is evaluated (`C-c C-c`), org runs the script and displays the
-resulting PNG inline in the org buffer.
+### home/emacs.nix
 
-**Tradeoffs vs. the elisp approach:**
-- Pro: simpler code; org handles image display automatically
-- Pro: the existing `plot-weights` script works unchanged
-- Con: requires `C-c C-c` to refresh — doesn't render automatically on open
-- Con: `#+PROPERTY: header-args :eval yes` can auto-eval on file open, but this
-  is a security setting and Emacs will warn every time unless `org-confirm-babel-evaluate`
-  is set to nil (not recommended globally)
-- Con: lives in a separate org file, not integrated with the elisp `*Dashboard*` buffer
+In `extraPackages = epkgs: with epkgs; [...]`, add:
 
-**Recommendation:** use the `create-image` approach (§5a) for the main dashboard
-since it renders automatically. The org-babel approach is fine for a dedicated
-`weights.org` file if you want to keep a persistent weight-review page.
+```nix
+# ── Music ─────────────────────────────────────────────────────────────────────
+libmpdel
+mpdel
+
+# ── Email ─────────────────────────────────────────────────────────────────────
+# mu4e is loaded via load-path (see extraConfig below), not from epkgs
+# unless nix-env -qaP | grep mu4e shows a standalone package
+```
+
+In the `programs.emacs` block, add `extraConfig` if mu4e isn't a standalone
+nixpkgs package:
+
+```nix
+extraConfig = ''
+  (add-to-list 'load-path
+    "${pkgs.mu}/share/emacs/site-lisp/mu4e")
+'';
+```
+
+### home/default.nix
+
+Import the new wuzapi file (once repo coords are known):
+
+```nix
+imports = [
+  # ... existing ...
+  ./wuzapi.nix   # add when repo coords are confirmed
+];
+```
+
+### home/wuzapi.nix (new file — create after Step 0 research)
+
+Full file contents in §4 Step 1 above. Port 8090.
 
 ---
 
 ## Checklist
 
-### YouTube
-- [ ] Verify yt-dlp is in packages; rebuild if not
-- [ ] Open elfeed, run `M-x elfeed-update`, check entries appear
-- [ ] Test `elfeed-tube-fetch` on a YouTube entry
-- [ ] Add evil keybindings for elfeed-tube
-- [ ] Decide: is text-only good enough, or keep yt-feed running alongside?
+### Before rebuild
+- [ ] Verify yt-dlp not already in modules/common.nix (search before adding)
+- [ ] Confirm `nix-env -qaP 2>/dev/null | grep mu4e` result → choose epkgs or extraConfig
+- [ ] Research wuzapi + wasabi repo coords (§4 Step 0) — if found, create home/wuzapi.nix
 
-### Music
-- [ ] Add `libmpdel` and `mpdel` to `home/emacs.nix`; rebuild
-- [ ] Add mpdel use-package block to config.org
-- [ ] Test `M-x mpdel-browser-open-artists`; verify keybindings
-- [ ] Update `my/dash-music` to call mpdel
-- [ ] Decide fate of EMMS block (remove or keep as fallback)
+### Nix changes
+- [ ] `modules/common.nix`: add `mu`, `yt-dlp`
+- [ ] `home/emacs.nix`: add `libmpdel`, `mpdel`; add mu4e load-path via extraConfig (or epkgs)
+- [ ] `home/wuzapi.nix`: create (if coords found)
+- [ ] `home/default.nix`: import wuzapi.nix (if created)
 
-### Dashboards
-- [ ] Add `my/dash--birthdays` to config.org; wire into `my/dashboard` right column
-- [ ] Add `my/dash--insert-weight-chart` and `my/dash-log-weight` to config.org
-- [ ] Add `w` key to `my/dashboard` local map and evil bindings
-- [ ] Add `my/dash--recent-vault-folders` and `my/dash--knowledge-dirs` to config.org
-- [ ] Add `my/vault-dashboard` function to config.org
-- [ ] Update `my/dash-vault-work` to call `my/vault-dashboard` instead of dired
-- [ ] Add `my/dash--fm-from-file` to config.org (shared helper for all dir scans)
-- [ ] Add `my/dash--uni-deadlines`, `my/dash--uni-assignments`, `my/dash--uni-courses`,
-      `my/dash--uni-planning` to config.org
-- [ ] Check actual spelling of deadlines folder: `ls ~/Documents/BACKUP/Uni/Obsidian/Uni/Dead*`
-- [ ] Add `my/uni-dashboard` function to config.org
-- [ ] Update `my/dash-uni-work` to call `my/uni-dashboard` instead of dired
-- [ ] Add `my/uni-course-view` function to config.org
-- [ ] Add `my/uni-new-lecture` function to config.org
-- [ ] Test each dashboard section with real data; check date parsing handles both YYYY-MM-DD and DD-MM-YYYY
-- [ ] Update footer in `my/dashboard` to include `w` (weight)
+### Rebuild
+- [ ] `sudo nixos-rebuild switch --flake /etc/nixos#desktop`
 
-### Email
-- [ ] Add `mu` to system packages; rebuild
-- [ ] Wire mu4e load-path in emacs.nix (check if standalone package exists first)
-- [ ] Run `mu init` and `mu index` in terminal
-- [ ] Add mu4e use-package block to config.org
-- [ ] Test: open mu4e, check inbox, send a test reply
-- [ ] Update `my/dash-email` to call `(mu4e)`
-- [ ] Verify unread count in dashboard still works (it reads ~/Mail directly, should be fine)
+### After rebuild — terminal commands
+- [ ] `mu init --maildir=~/Mail --my-address=tidemanus@gmail.com --my-address=thijmen.nouwens@gmail.com`
+- [ ] `mu index`
+- [ ] `systemctl --user start wuzapi` (if wuzapi packaged)
+- [ ] Scan wuzapi QR code for WhatsApp link (if wuzapi running)
+- [ ] Verify `ls ~/Mail/Gmail/INBOX/` has messages
 
-### Messages
-- [ ] Find wuzapi and wasabi GitHub repo coordinates
-- [ ] Check if wasabi is on MELPA
-- [ ] Follow wasabi.md step by step
+### Config.org changes (no rebuild — restart Emacs to load)
+- [ ] elfeed-org block: ensure `(elfeed-org)` is called in `:config`; restart; test `M-x elfeed-update`
+- [ ] Add `yt-dlp` fix note if elfeed-tube still fails after `:config` fix
+- [ ] Replace EMMS section with mpdel section; update `my/dash-music`
+- [ ] Add mu4e use-package block; update `my/dash-email`
+- [ ] Update `perspective-personal` and `perspective-uni` to call dashboard functions
+- [ ] Add `my/dash--birthdays` helper
+- [ ] Add `my/dash--insert-weight-chart` and `my/dash-log-weight`
+- [ ] Wire birthdays + weight chart + `w` key into `my/dashboard`
+- [ ] Add `my/dash--recent-vault-folders` and `my/dash--knowledge-dirs`
+- [ ] Add `my/vault-dashboard` function; update `my/dash-vault-work`
+- [ ] Add `my/vault-dashboard-org` stub; update `perspective-personal`
+- [ ] Confirm deadlines folder spelling: `ls ~/Documents/BACKUP/Uni/Obsidian/Uni/Dead*`
+- [ ] Add `my/dash--fm-from-file` helper
+- [ ] Add `my/dash--uni-deadlines`, `my/dash--uni-assignments`, `my/dash--uni-courses`, `my/dash--uni-planning`
+- [ ] Add `my/uni-dashboard` function; update `my/dash-uni-work`
+- [ ] Add `my/uni-dashboard-org` stub
+- [ ] Add `my/uni-course-view` function
+- [ ] Add `my/uni-new-lecture` function
+- [ ] Add Wasabi use-package block (if packaged); update `my/dash-messages`
+
+### After config.org changes
+- [ ] Test `TAB p` → personal perspective + vault dashboard opens
+- [ ] Test `TAB u` → uni perspective + uni dashboard opens
+- [ ] Test weight chart renders in both greeting and vault dashboards
+- [ ] Test `w` logs a weight and re-renders chart
+- [ ] Test course view: click a course, see lectures
+- [ ] Test `M-x mu4e` → inbox appears
+- [ ] Test mpdel: `M-x mpdel-browser-open-artists` → artist list
+- [ ] Sync config.org back to /etc/nixos/home/dotfiles/emacs/config.org
+- [ ] Commit + update generations.md

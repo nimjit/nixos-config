@@ -1,0 +1,1849 @@
+(require 'use-package)
+(setq use-package-always-ensure nil)
+
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+(when (file-exists-p custom-file) (load custom-file))
+
+(setq auth-sources '("~/.authinfo" "~/.authinfo.gpg" "~/.netrc"))
+
+(setq gc-cons-threshold 100000000)
+(setq max-specpdl-size 5000)
+
+(setq-default
+  indent-tabs-mode nil
+  tab-width 4
+  )
+
+(setq
+  make-backup-files        nil
+  auto-save-default        nil
+  create-lockfiles         nil
+  scroll-conservatively    101
+  scroll-margin            8
+  recentf-max-saved-items  200)
+
+
+(electric-pair-mode      1)  ; auto-close brackets
+(blink-cursor-mode      -1)  ; no blink = no timer-driven redraws (helps at 4K)
+
+(setq
+ ;; No need to see GNU agitprop.
+ inhibit-startup-screen t
+ ;; No need to remind me what a scratch buffer is.
+ initial-scratch-message nil
+ ;; Double-spaces after periods is morally wrong.
+ sentence-end-double-space nil
+ ;; Never ding at me, ever.
+ ring-bell-function 'ignore
+ ;; Save existing clipboard text into the kill ring before replacing it.
+ save-interprogram-paste-before-kill t
+ ;; Prompts should go in the minibuffer, not in a GUI.
+ use-dialog-box nil
+ ;; Fix undo in commands affecting the mark.
+ mark-even-if-inactive nil
+ ;; Let C-k delete the whole line.
+ kill-whole-line t
+ ;; search should be case-sensitive by default
+ case-fold-search nil
+ ;; accept 'y' or 'n' instead of yes/no
+ ;; the documentation advises against setting this variable
+ ;; the documentation can get bent imo
+ use-short-answers t
+ ;; eke out a little more scrolling performance
+ fast-but-imprecise-scrolling t
+ ;; prefer newer elisp files
+ load-prefer-newer t
+ ;; when I say to quit, I mean quit
+ confirm-kill-processes nil
+ ;; if native-comp is having trouble, there's not very much I can do
+ native-comp-async-report-warnings-errors 'silent
+ ;; unicode ellipses are better
+ truncate-string-ellipsis "…"
+ ;; I want to close these fast, so switch to it so I can just hit 'q'
+ help-window-select t
+ ;; this certainly can't hurt anything
+ delete-by-moving-to-trash t
+ ;; keep the point in the same place while scrolling
+ scroll-preserve-screen-position t
+ ;; more info in completions
+ completions-detailed t
+ ;; highlight error messages more aggressively
+ next-error-message-highlight t
+ ;; don't let the minibuffer muck up my window tiling
+ read-minibuffer-restore-windows t
+ ;; scope save prompts to individual projects
+ save-some-buffers-default-predicate 'save-some-buffers-root
+ ;; don't keep duplicate entries in kill ring
+ kill-do-not-save-duplicates t
+ )
+
+(setq
+ ;; I use exa, which doesn't have a --dired flag
+ dired-use-ls-dired nil
+ ;; Why wouldn't you create destination directories when copying files, Emacs?
+ dired-create-destination-dirs 'ask
+ ;; Before the existence of this option, you had to either hack
+ ;; dired commands or use the dired+ library, the maintainer
+ ;; of which refuses to use a VCS. So fuck him.
+ dired-kill-when-opening-new-dired-buffer t
+ ;; Update directory listings automatically (again, why isn't this default?)
+ dired-do-revert-buffer t
+ ;; Sensible mark behavior
+ dired-mark-region t
+ )
+
+(use-package evil
+  :init
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+  (setq evil-undo-system 'undo-redo)
+  (setq evil-want-C-u-scroll t)
+  :config
+  (evil-mode 1)
+  (define-key evil-motion-state-map (kbd "SPC") nil)
+  (define-key evil-normal-state-map (kbd "SPC") nil))
+
+(use-package evil-collection
+  :after evil
+  :config (evil-collection-init))
+
+(use-package evil-goggles
+  :after evil
+  :config
+  (evil-goggles-mode)
+  (evil-goggles-use-diff-faces))
+
+(use-package general
+  :after evil
+  :config
+  (general-create-definer spc!
+    :keymaps '(normal visual motion)
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+  (general-create-definer local!
+    :keymaps '(normal visual)
+    :prefix ","))
+
+(spc!
+  ;; Help
+  "h"   '(:ignore t :wk "help")
+  "hf" '(describe-function    :wk "describe function")
+  "hk" '(describe-key         :wk "describe key")
+  "hv" '(describe-variable    :wk "describe variable")
+  "hm" '(describe-mode        :wk "describe mode")
+  )
+
+(spc!
+  ;; Files
+  "f"   '(:ignore t :wk "file")
+  "ff"  'find-file
+  "fr"  'consult-recent-file
+  "fs"  'save-buffer
+  "fS"  'save-some-buffers
+  "fR"  'rename-visited-file
+
+  ;; Buffers
+  "b"   '(:ignore t :wk "buffer")
+  "bb"  'consult-buffer
+  "bd"  'kill-current-buffer
+  "bR"  'revert-buffer
+  "bn"  'next-buffer
+  "bp"  'previous-buffer
+
+  ;; Search
+  "s"   '(:ignore t :wk "search")
+  "ss"  'consult-line
+  "sg"  'consult-grep
+  "sp"  'consult-ripgrep
+  "si"  'consult-imenu)
+
+(spc!
+  ;; Git
+  "g"   '(:ignore t :wk "git")
+  "gg"  'magit-status
+  "gb"  'magit-blame
+  "gl"  'magit-log-current
+  "gd"  'magit-diff
+
+  ;; Notes (org-roam)
+  "n"   '(:ignore t :wk "notes")
+  "nf"  'org-roam-node-find
+  "ni"  'org-roam-node-insert
+  "nb"  'org-roam-buffer-toggle
+  "ng"  'org-roam-ui-open
+  "nc"  'org-capture
+  "nd"  'org-roam-dailies-goto-today
+  "nD"  'org-roam-dailies-goto-date
+
+  ;; Agenda
+  "a"   'org-agenda
+
+  ;; RSS / elfeed
+  "r"   'elfeed)
+
+(spc!
+  ;; Open
+  "o"   '(:ignore t :wk "open")
+  "ot"  'vterm
+  "op"  'projectile-find-file
+  "ov"  'open-personal-snowflake
+  "ou"  'open-uni-snowflake
+  "on"  'open-nixos-snowflake
+  "oV"  'regenerate-snowflakes
+
+  ;; Window (mirrors Super+hjkl sway layout)
+  "w"   '(:ignore t :wk "window")
+  "wh"  'evil-window-left
+  "wj"  'evil-window-down
+  "wk"  'evil-window-up
+  "wl"  'evil-window-right
+  "ws"  'evil-window-split
+  "wv"  'evil-window-vsplit
+  "wd"  'evil-window-delete
+  "w="  'balance-windows
+  "wm"  'delete-other-windows  ; maximize current
+
+  ;; Toggles
+  "t"   '(:ignore t :wk "toggle")
+  "tp"  'org-typst-preview-mode
+  "tP"  'org-typst-preview-buffer
+  "te"  'dired-sidebar-toggle-sidebar
+  "tl"  'display-line-numbers-mode
+  "tw"  'olivetti-mode
+  "tt"  'org-transclusion-mode
+  ;; Music
+  "m"     '(:ignore t :wk "music")
+  "m m"   '(mpdel-browser-open-artists         :wk "music browser")
+  "m SPC" '(mpdel-core-toggle-play-pause        :wk "play / pause")
+  "m n"   '(mpdel-core-next                     :wk "next")
+  "m p"   '(mpdel-core-previous                 :wk "prev")
+  "m q"   '(mpdel-browser-open-current-playlist :wk "queue")
+
+  ;; Workspaces (perspective)
+  "TAB"    '(:ignore t :wk "workspace")
+  "TAB p"  'perspective-personal
+  "TAB u"  'perspective-uni
+  "TAB TAB" 'persp-switch
+  "TAB d"  'persp-kill
+  "TAB r"  'persp-rename
+
+  ;; Quit
+  "q"   '(:ignore t :wk "quit")
+  "qq"  'save-buffers-kill-emacs
+  "qf"  'delete-frame)
+
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes" user-emacs-directory))
+(load-theme 'ukiyo t)
+
+(set-face-attribute 'default nil :font "CMU Typewriter Text-14")
+
+(use-package org-modern
+  :hook ((org-mode          . org-modern-mode)
+         (org-agenda-finalize . org-modern-agenda)))
+
+;; Prettier org headings
+(use-package org-superstar
+  :hook (org-mode . org-superstar-mode)
+  :custom
+  (org-superstar-headline-bullets-list '("◈" "◆" "◇" "▸" "▹"))
+  (org-superstar-item-bullet-alist '((?- . ?•) (?* . ?◦))))
+
+(global-goto-address-mode)
+
+(defvar-local my/markdown-reading-active nil
+  "Tracks whether the markdown reading view layer is turned on.")
+
+(defun my/markdown-reading-toggle ()
+  "Toggle a clean visual reading view directly inside Markdown syntax buffers."
+  (interactive)
+  (if my/markdown-reading-active
+      ;; --- DEACTIVATE READING VIEW ---
+      (progn
+        (setq my/markdown-reading-active nil)
+        (read-only-mode -1)
+        ;; Reset variables and refresh the buffer faces
+        (setq markdown-hide-markup nil)
+        (markdown-remove-inline-images)
+        (font-lock-flush)
+        (font-lock-ensure)
+        (evil-normal-state)
+        ;; Clear the local 'q' binding so it returns to macro recording
+        (evil-local-set-key 'normal "q" nil)
+        (evil-local-set-key 'motion "q" nil)
+        (message "Returned to regular editing state."))
+    
+    ;; --- ACTIVATE READING VIEW ---
+    (progn
+      (setq my/markdown-reading-active t)
+      ;; Force code blocks to pull syntax highlighting directly from your active theme
+      (setq markdown-fontify-code-blocks-natively t) 
+      ;; Hide the markdown symbols directly via the backend variable
+      (setq markdown-hide-markup t)
+      (font-lock-flush)
+      (font-lock-ensure)
+      ;; Render embedded graphics safely
+      (when (fboundp 'markdown-display-inline-images)
+        (ignore-errors (markdown-display-inline-images)))
+      
+      (read-only-mode 1)                  ; Prevent accidental text modifications
+      (evil-motion-state)                 ; Safe scroll state (j/k, d/u work perfectly)
+      
+      ;; Force bind 'q' locally to override Vim's macro recording state safely
+      (evil-local-set-key 'motion "q" 'my/markdown-reading-toggle)
+      (evil-local-set-key 'normal "q" 'my/markdown-reading-toggle)
+      (message "Reading view active. Press 'q' to return to editing."))))
+
+;; --- Bind the 'SPC m r' sequence in Markdown Mode to activate ---
+(with-eval-after-load 'markdown-mode
+  (evil-define-key 'normal markdown-mode-map (kbd "SPC m r") #'my/markdown-reading-toggle))
+
+(defgroup org-typst-preview nil
+  "Preview Typst math fragments inline in org-mode."
+  :group 'org)
+
+(defcustom org-typst-preview-scale 0.9
+  "SVG scale factor for rendered math."
+  :type 'number :group 'org-typst-preview)
+
+;; Ukiyo base05 (main text color) — update if you change themes
+(defcustom org-typst-preview-text-color "#ccc2b7"
+  "Typst text color for rendered fragments; should match your theme."
+  :type 'string :group 'org-typst-preview)
+
+(defvar-local org-typst-preview--last-point nil)
+
+(defun org-typst-preview--find-fragment (pos)
+  "Return (beg . end) of the $...$ fragment containing POS, or nil.
+Only matches single-line fragments without nested dollar signs."
+  (save-excursion
+    (let ((line-beg (line-beginning-position))
+          (line-end (line-end-position))
+          result)
+      (goto-char line-beg)
+      (while (and (not result)
+                  (re-search-forward "\\$\\([^$\n]+\\)\\$" line-end t))
+        (when (and (>= pos (match-beginning 0))
+                   (<= pos (match-end 0)))
+          (setq result (cons (match-beginning 0) (match-end 0)))))
+      result)))
+
+(defun org-typst-preview--render (beg end)
+  "Compile the Typst fragment at BEG..END to SVG and display as an overlay."
+  ;; Clear any existing overlay at this location
+  (dolist (ov (overlays-in beg end))
+    (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))
+  (let* ((fragment (buffer-substring-no-properties beg end))
+         (tmp-dir  (make-temp-file "org-typst-" t))
+         (typ-file (expand-file-name "math.typ" tmp-dir))
+         (svg-file (expand-file-name "math.svg" tmp-dir)))
+    (with-temp-file typ-file
+      (insert "#set page(width: auto, height: auto, margin: (x: 2pt, y: 3pt), fill: none)\n")
+      (insert (format "#set text(size: 10.5pt, fill: rgb(\"%s\"))\n"
+                      org-typst-preview-text-color))
+      (insert fragment "\n"))
+    (when (zerop (call-process "typst" nil nil nil
+                               "compile" "--format" "svg" typ-file svg-file))
+      (let ((ov (make-overlay beg end)))
+        (overlay-put ov 'display
+                     (create-image svg-file 'svg nil
+                                   :scale org-typst-preview-scale))
+        (overlay-put ov 'org-typst-preview t)
+        (overlay-put ov 'evaporate t)))))
+
+(defun org-typst-preview-buffer ()
+  "Render all $...$ fragments in the current buffer."
+  (interactive)
+  (dolist (ov (overlays-in (point-min) (point-max)))
+    (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "\\$\\([^$\n]+\\)\\$" nil t)
+      (let ((beg (match-beginning 0)) (end (match-end 0)))
+        ;; Don't render the fragment the cursor is currently inside
+        (unless (and (>= (point) beg) (<= (point) end))
+          (org-typst-preview--render beg end))))))
+
+(defun org-typst-preview--post-command ()
+  "Auto-toggle preview when cursor moves in or out of a math fragment."
+  (when (and (eq major-mode 'org-mode) (not (minibufferp)))
+    (let ((prev org-typst-preview--last-point)
+          (curr (point)))
+      (setq org-typst-preview--last-point curr)
+      (when prev
+        (let ((prev-frag (org-typst-preview--find-fragment prev))
+              (curr-frag (org-typst-preview--find-fragment curr)))
+          ;; Moved OUT of a fragment → render it
+          (when (and prev-frag (not (equal prev-frag curr-frag)))
+            (unless (seq-find (lambda (o) (overlay-get o 'org-typst-preview))
+                              (overlays-in (car prev-frag) (cdr prev-frag)))
+              (org-typst-preview--render (car prev-frag) (cdr prev-frag))))
+          ;; Moved INTO a fragment → remove overlay to show source
+          (when (and curr-frag (not (equal curr-frag prev-frag)))
+            (dolist (ov (overlays-in (car curr-frag) (cdr curr-frag)))
+              (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))))))))
+
+(define-minor-mode org-typst-preview-mode
+  "Auto-preview Typst math $...$ fragments in org-mode buffers."
+  :lighter " TypPrev"
+  (if org-typst-preview-mode
+      (progn
+        (add-hook 'post-command-hook #'org-typst-preview--post-command nil t)
+        (org-typst-preview-buffer))
+    (remove-hook 'post-command-hook #'org-typst-preview--post-command t)
+    (dolist (ov (overlays-in (point-min) (point-max)))
+      (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))))
+
+(use-package pdf-tools
+  :config
+  (pdf-tools-install)
+  ;; Evil-compatible scroll and navigation
+  (evil-define-key 'normal pdf-view-mode-map
+    "j"  #'pdf-view-scroll-up-or-next-page
+    "k"  #'pdf-view-scroll-down-or-previous-page
+    "l"  #'pdf-view-next-page
+    "h"  #'pdf-view-previous-page
+    "H"  #'pdf-view-fit-height-to-window
+    "W"  #'pdf-view-fit-width-to-window
+    "gg" #'pdf-view-first-page
+    "G"  #'pdf-view-last-page
+    "+"  #'pdf-view-enlarge
+    "-"  #'pdf-view-shrink
+    "/"  #'pdf-occur))
+
+(use-package citar
+  :custom
+  (citar-bibliography '("~/org/library.bib"))
+  (citar-notes-paths  '("~/org/personal/sources/books/"
+                        "~/org/personal/sources/papers/"))
+  :bind ([remap org-cite-insert] . citar-insert-citation))
+
+(use-package org-roam-bibtex
+  :after (org-roam citar)
+  :config (org-roam-bibtex-mode))
+
+(use-package org-transclusion
+  :after org
+  :config
+  (setq org-transclusion-add-all-on-activate t))
+
+;; Activate transclusion in org-mode via comma leader
+(with-eval-after-load 'org
+  (local! :keymaps 'org-mode-map
+    "tt" 'org-transclusion-mode
+    "ta" 'org-transclusion-add
+    "td" 'org-transclusion-remove
+    "tr" 'org-transclusion-refresh))
+
+(use-package org
+  :ensure nil
+  :custom
+  (org-directory          "~/org")
+  (org-agenda-files       '("~/org/agenda.org" "~/org/inbox.org" "~/org/uni/"))
+  (org-default-notes-file "~/org/inbox.org")
+  (org-log-done           'time)
+  (org-return-follows-link t)
+  (org-hide-emphasis-markers t)
+  (org-pretty-entities    t)    ; render sub/superscripts visually
+  (org-startup-folded     'content)
+  (org-startup-indented   t)
+  (org-image-actual-width '(500))
+
+  ;; Agenda settings
+  (org-agenda-span              'week)
+  (org-agenda-start-on-weekday  1)    ; Monday
+  (org-agenda-time-grid
+   '((daily today require-timed)
+     (800 1000 1200 1400 1600 1800 2000)
+     "......"
+     "──────────────────────────"))
+
+  ;; TODO keywords
+  (org-todo-keywords
+   '((sequence "TODO(t)" "IN-PROGRESS(i)" "|" "DONE(d)" "CANCELLED(c)")))
+  (org-todo-keyword-faces
+   '(("TODO"        . (:foreground "#c72626" :weight bold))
+     ("IN-PROGRESS" . (:foreground "#e77a59" :weight bold))
+     ("DONE"        . (:foreground "#9aad6e"))
+     ("CANCELLED"   . (:foreground "#868074"))))
+
+  :config
+  ;; Active languages in org-babel
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (python     . t)
+     (shell      . t)))
+  (setq org-confirm-babel-evaluate nil))
+
+;; Must be set before org-roam loads (autoloads can trigger early)
+(setq org-roam-directory (expand-file-name "~/org"))
+
+(use-package org-roam
+  :custom
+  (org-roam-directory (expand-file-name "~/org"))
+  (org-roam-dailies-directory "daily/")
+  (org-roam-completion-everywhere t)
+  (org-roam-node-display-template
+   (concat "${title:60} " (propertize "${tags:30}" 'face 'org-tag)))
+  :config
+  (make-directory "~/org" t)
+  (org-roam-db-autosync-mode))
+
+(use-package org-roam-ui
+  :after org-roam
+  :custom
+  (org-roam-ui-sync-theme       t)
+  (org-roam-ui-follow           t)
+  (org-roam-ui-update-on-save   t)
+  (org-roam-ui-open-on-start    nil))
+
+(use-package org-ql
+  :after org)
+
+(use-package org-gcal
+  :init
+  ;; Set credentials before org-gcal loads so it doesn't emit the warning.
+  (let ((id     (auth-source-pick-first-password :host "org-gcal" :user "client-id"))
+        (secret (auth-source-pick-first-password :host "org-gcal" :user "client-secret")))
+    (when (and id secret)
+      (setq org-gcal-client-id     id
+            org-gcal-client-secret secret)))
+  :config
+  (setq org-gcal-fetch-file-alist
+        '(("tidemanus@gmail.com"
+           . "~/org/calendars/work.org")
+          ("3cglgpg5e90ir3hkb1pm7an6o8@group.calendar.google.com"
+           . "~/org/calendars/sport.org")
+          ("3euvi10lkmt4fqpirpgvl2nk6c@group.calendar.google.com"
+           . "~/org/calendars/fun.org")
+          ("516f52eeb9795de1f8a777b7a7cf97bb56def544a631c67dd1dbf5dd6a206636@group.calendar.google.com"
+           . "~/org/calendars/lisan-shared-2.org")
+          ("592v7scul1nlh8gesk9hjo0il8@group.calendar.google.com"
+           . "~/org/calendars/mindfulness.org")
+          ("79b383593b28fd5fc18cebda7dbf7045b0c73e2d018e82dd7d428b46cc18b6e0@group.calendar.google.com"
+           . "~/org/calendars/dnd-in-space.org")
+          ("f870c42940632a3a054e14173f526476294fc75bebbbebfb1199f3a70d3b80c5@group.calendar.google.com"
+           . "~/org/calendars/lisan-thijmen.org")
+          ("k7jruoo49099vv4cn451cukijba6pftr@import.calendar.google.com"
+           . "~/org/calendars/tudelft.org")
+          ("tt610g1de7jm8in8j9jo7hvga4@group.calendar.google.com"
+           . "~/org/calendars/semi-productive.org")
+          ("cp7ljbsac30lakkm39rsdht0m0@group.calendar.google.com"
+           . "~/org/calendars/misc.org")))
+  (run-with-idle-timer 600 t #'org-gcal-sync))
+
+(use-package org-roam
+  :ensure nil  ; already configured above; extend here
+  :config
+  (setq org-roam-capture-templates
+    '(;; ── Personal ───────────────────────────────────────────────────────
+
+      ("pc" "concept" plain
+       "#+filetags: :concept:\n\n%?"
+       :target (file+head "personal/concepts/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n")
+       :unnarrowed t)
+
+      ("pe" "essay" plain
+       "#+filetags: :essay:\n\n%?"
+       :target (file+head "personal/essays/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n")
+       :unnarrowed t)
+
+      ("pb" "book" plain
+       "#+filetags: :book:source:\n\n* About\n%?\n\n* Notes\n\n* Quotes\n"
+       :target (file+head "personal/sources/books/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+author:\n#+year:\n#+status: reading\n")
+       :unnarrowed t)
+
+      ("pp" "paper" plain
+       "#+filetags: :paper:source:\n\n* Abstract\n%?\n\n* Notes\n"
+       :target (file+head "personal/sources/papers/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+authors:\n#+year:\n")
+       :unnarrowed t)
+
+      ("pk" "known person" plain
+       "#+filetags: :person:known:\n\n* About\n%?\n\n* Context\n\n* Topics\n"
+       :target (file+head "personal/people/known/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n")
+       :unnarrowed t)
+
+      ("pf" "famous person" plain
+       "#+filetags: :person:famous:\n\n* Period and field\n%?\n\n* Major works\n\n* Key ideas\n\n* In my notes\n"
+       :target (file+head "personal/people/famous/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+period:\n#+field:\n")
+       :unnarrowed t)
+
+      ;; ── Uni ────────────────────────────────────────────────────────────
+
+      ("uc" "class" plain
+       "#+filetags: :class:\n\n* Overview\n%?\n\n* Lectures\n\n* Assignments\n"
+       :target (file+head "uni/classes/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+professor:\n#+year:\n#+Q:\n")
+       :unnarrowed t)
+
+      ("ul" "lecture" plain
+       "#+filetags: :lecture:\n\n%?"
+       :target (file+head "uni/lectures/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+class:\n#+date: %<%Y-%m-%d>\n#+number:\n")
+       :unnarrowed t)
+
+      ("ua" "assignment" plain
+       "#+filetags: :assignment:\n\n* Problem\n%?\n\n* Solution\n"
+       :target (file+head "uni/assignments/%<%Y%m%d%H%M%S>-${slug}.org"
+                          "#+title: ${title}\n#+created: %U\n#+class:\n#+deadline:\n#+grade:\n")
+       :unnarrowed t)
+
+      ;; ── Quick capture ──────────────────────────────────────────────────
+
+      ("i" "inbox" entry
+       "* %?\n%U\n"
+       :target (file "inbox.org")
+       :prepend t)))
+
+  ;; Daily note template
+  (setq org-roam-dailies-capture-templates
+    '(("d" "default" entry
+       "* %<%H:%M> %?"
+       :target (file+head "%<%Y-%m-%d>.org"
+                          "#+title: %<%Y-%m-%d>\n#+created: %U\n")))))
+
+(use-package magit
+  :custom
+  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+(use-package diff-hl
+  :hook (prog-mode . diff-hl-mode)
+  :config (global-diff-hl-mode))
+
+(use-package vertico
+  :init (vertico-mode))
+
+(use-package marginalia
+  :init (marginalia-mode))
+
+(use-package orderless
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles basic partial-completion)))))
+
+(use-package consult
+  :bind ([remap switch-to-buffer] . consult-buffer)
+  :custom
+  (consult-preview-key "M-.")
+  (xref-show-xrefs-function #'consult-xref))
+
+(use-package embark
+  :bind ("C-." . embark-act))
+
+(use-package embark-consult
+  :after (embark consult))
+
+(use-package which-key
+  :init (which-key-mode)
+  :custom (which-key-idle-delay 0.4))
+
+(use-package avy
+  :bind ("C-;" . avy-goto-char-2))
+
+(use-package projectile
+  :init (projectile-mode)
+  :custom (projectile-completion-system 'default))
+
+(use-package jinx
+  :hook (emacs-startup . global-jinx-mode)
+  :bind ([remap ispell-word] . jinx-correct)
+  :custom
+  (jinx-languages "en_UK nl_NL"))
+
+(recentf-mode 1)
+(add-hook 'prog-mode-hook 'display-line-numbers-mode)
+
+(use-package perspective
+  :custom
+  (persp-mode-prefix-key (kbd "C-c C-p"))
+  (persp-initial-frame-name "personal")
+  :init (persp-mode))
+
+(defun perspective-personal ()
+  "Switch to personal perspective and open vault dashboard."
+  (interactive)
+  (persp-switch "personal")
+  (my/vault-dashboard))
+
+(defun perspective-uni ()
+  "Switch to uni perspective and open uni dashboard."
+  (interactive)
+  (persp-switch "uni")
+  (my/uni-dashboard))
+
+(use-package elfeed
+  :custom
+  (elfeed-search-filter "@2-weeks-ago +unread")
+  :config
+  (evil-define-key 'normal elfeed-search-mode-map
+    "q" #'elfeed-kill-buffer
+    "r" #'elfeed-search-untag-all-unread
+    "u" #'elfeed-search-tag-all-unread
+    "R" #'elfeed-update
+    "b" #'elfeed-search-browse-url))
+
+(use-package elfeed-org
+  :after elfeed
+  :config
+  (setq rmh-elfeed-org-files
+        (list (expand-file-name "elfeed.org" user-emacs-directory)))
+  (elfeed-org))
+
+(use-package elfeed-tube
+  :after elfeed
+  :config
+  (elfeed-tube-setup)
+  (setq elfeed-tube-mpv-options '("--no-terminal"))
+  (evil-define-key 'normal elfeed-show-mode-map
+    "F"   #'elfeed-tube-fetch
+    "C-m" #'elfeed-tube-mpv-play)
+  (evil-define-key 'normal elfeed-search-mode-map
+    "F" #'elfeed-tube-fetch))
+
+(spc! "r" '(elfeed :wk "rss / youtube"))
+
+(use-package libmpdel
+  :config
+  (setq libmpdel-hostname "localhost"
+        libmpdel-port 6600))
+
+(use-package mpdel
+  :after libmpdel
+  :config
+  (mpdel-mode)
+
+  (evil-define-key 'normal mpdel-browser-mode-map
+    "j"   #'mpdel-browser-next-line
+    "k"   #'mpdel-browser-previous-line
+    "l"   #'mpdel-browser-open-entry
+    "h"   #'mpdel-browser-back
+    "g"   (lambda () (interactive) (goto-char (point-min)))
+    "G"   (lambda () (interactive) (goto-char (point-max)))
+    "a"   #'mpdel-browser-add
+    "q"   #'bury-buffer
+    "SPC" #'mpdel-core-toggle-play-pause)
+
+  (evil-define-key 'normal mpdel-playlist-mode-map
+    "j"   #'mpdel-playlist-next-line
+    "k"   #'mpdel-playlist-previous-line
+    "d"   #'mpdel-playlist-remove-from-queue
+    "SPC" #'mpdel-core-toggle-play-pause
+    "q"   #'bury-buffer))
+
+;; 1. Automatically save windows in the background
+(desktop-save-mode 1)
+(setq desktop-save t)
+
+;; 2. Read the layout ONLY during a restart
+(unless (member "--no-desktop" command-line-args)
+  (desktop-read))
+
+;; 3. Make restart-emacs explicitly preserve the layout
+(advice-add 'restart-emacs :around
+            (lambda (orig-fun &rest args)
+              (setq restart-emacs-args (delete "--no-desktop" restart-emacs-args))
+              (apply orig-fun args)))
+
+;; No custom faces: shadow = dim, font-lock-keyword-face = gold/bold.
+;; Both are set by the active theme, so the dashboard follows theme changes.
+
+(defvar my/dash-vault
+  (expand-file-name
+   "~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure")
+  "Personal vault root.")
+
+(defvar my/dash-uni
+  (expand-file-name "~/Documents/BACKUP/Uni/Obsidian/Uni")
+  "Uni vault root.")
+
+;; ── Launchers ─────────────────────────────────────────────────────────────
+;; Each one is the Emacs equivalent of the matching zsh shell function.
+
+(defun my/dash-today ()
+  "Open today's personal vault daily note."
+  (interactive)
+  (find-file (expand-file-name
+              (concat "Dailies/" (format-time-string "%Y-%m-%d") ".md")
+              my/dash-vault)))
+
+(defun my/dash-vault-work ()
+  "Open personal vault dashboard."
+  (interactive)
+  (my/vault-dashboard))
+
+(defun my/dash-uni-work ()
+  "Open uni dashboard."
+  (interactive)
+  (my/uni-dashboard))
+
+(defun my/dash--term (name cmd)
+  "Switch to *NAME* ansi-term if it exists, else open CMD in a new one."
+  (let ((bufname (format "*%s*" name)))
+    (if (get-buffer bufname)
+        (switch-to-buffer bufname)
+      (let ((buf (ansi-term "/bin/zsh" name)))
+        (term-send-string (get-buffer-process buf) (concat cmd "\n"))
+        buf))))
+
+(defun my/dash-messages ()
+  "Open WhatsApp (Wasabi — not yet configured)."
+  (interactive)
+  (message "Wasabi not yet configured. Use 'messages' shell alias."))
+
+(defun my/dash-email ()
+  "Open mu4e."
+  (interactive)
+  (mu4e))
+
+(defun my/dash-music ()
+  "Open mpdel MPD browser."
+  (interactive)
+  (mpdel-browser-open-artists))
+
+(defun my/dash-cal ()
+  "Open org-agenda week view (org-gcal keeps it in sync)."
+  (interactive)
+  (org-agenda nil "a"))
+
+(defun my/dash-youtube ()
+  "Open elfeed for YouTube subscriptions (elfeed-tube adds mpv playback)."
+  (interactive)
+  (elfeed))
+
+;; ── Data helpers ───────────────────────────────────────────────────────────
+
+(defun my/dash--frontmatter (key)
+  "Extract KEY value from YAML frontmatter in current buffer."
+  (save-excursion
+    (goto-char (point-min))
+    (if (re-search-forward
+         (concat "^" (regexp-quote key) ":[[:space:]]*\\(.*\\)$") nil t)
+        (string-trim (replace-regexp-in-string "\"" "" (match-string 1)))
+      "")))
+
+(defun my/dash--normalize-date (dt)
+  "Convert DD-MM-YYYY to YYYY-MM-DD; pass ISO dates through."
+  (if (string-match
+       "^\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{4\\}\\)$" dt)
+      (format "%s-%s-%s"
+              (match-string 3 dt) (match-string 2 dt) (match-string 1 dt))
+    dt))
+
+(defun my/dash--date-ts (dt)
+  "Float timestamp for DT string (ISO or DD-MM-YYYY), or nil on error."
+  (condition-case nil
+      (float-time
+       (date-to-time (concat (my/dash--normalize-date dt) " 12:00:00")))
+    (error nil)))
+
+(defun my/dash--parse-section (file section)
+  "List items from markdown ## SECTION in FILE."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let (results in-sec)
+        (dolist (line (split-string (buffer-string) "\n"))
+          (cond
+           ((string= line (concat "## " section)) (setq in-sec t))
+           ((and in-sec (string-prefix-p "## " line)) (setq in-sec nil))
+           ((and in-sec
+                 (string-match "^[[:space:]]*-[[:space:]]\\(.*\\)" line))
+            (push (match-string 1 line) results))))
+        (nreverse results)))))
+
+(defun my/dash--schedule-events (file)
+  "Return ((TIME . TITLE) ...) from ## Schedule in FILE."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let (results in-sec)
+        (dolist (line (split-string (buffer-string) "\n"))
+          (cond
+           ((string= line "## Schedule") (setq in-sec t))
+           ((and in-sec (string-prefix-p "## " line)) (setq in-sec nil))
+           ((and in-sec
+                 (string-match
+                  "^\\([0-9]\\{2\\}:[0-9]\\{2\\}\\)[[:space:]]+\\(.*\\)"
+                  line))
+            (push (cons (match-string 1 line) (match-string 2 line))
+                  results))))
+        (nreverse results)))))
+
+(defun my/dash--deadlines ()
+  "Deadline strings within 21 days, sorted by proximity."
+  (let* ((uni (expand-file-name "~/Documents/BACKUP/Uni/Obsidian/Uni"))
+         (now (float-time))
+         items)
+    (dolist (f (append
+                (file-expand-wildcards (concat uni "/Deadines/*.md"))
+                (file-expand-wildcards (concat uni "/Assignments/*.md"))))
+      (with-temp-buffer
+        (insert-file-contents f)
+        (let* ((assign (string-match "/Assignments/" f))
+               (done   (if assign
+                           (not (string= "" (my/dash--frontmatter "grade")))
+                         (let ((c (my/dash--frontmatter "completed")))
+                           (not (or (string= c "")
+                                    (string= (downcase c) "false"))))))
+               (dt     (my/dash--frontmatter (if assign "deadline" "date")))
+               (class  (my/dash--frontmatter "class"))
+               (title  (my/dash--frontmatter (if assign "type" "title"))))
+          (unless (or done (string= dt ""))
+            (let* ((ts   (my/dash--date-ts dt))
+                   (diff (when ts (floor (/ (- ts now) 86400)))))
+              (when (and diff (>= diff 0) (<= diff 21))
+                (push (list diff dt class title) items)))))))
+    (mapcar
+     (lambda (item)
+       (let* ((diff (nth 0 item)) (dt (nth 1 item))
+              (cls  (nth 2 item)) (ttl (nth 3 item))
+              (mon  (condition-case nil
+                        (format-time-string "%-d %b"
+                          (date-to-time
+                           (concat (my/dash--normalize-date dt) " 12:00:00")))
+                      (error dt))))
+         (format "in %2dd  (%s)  %s%s"
+                 diff mon
+                 (if (string-blank-p cls) "" (concat cls " — "))
+                 ttl)))
+     (sort items (lambda (a b) (< (car a) (car b)))))))
+
+(defun my/dash--weather ()
+  "Cached weather string from wttr.in (refreshed every 30 min)."
+  (let ((cache "/tmp/wttr_leiden_cache"))
+    (when (or (not (file-exists-p cache))
+              (> (float-time
+                  (time-subtract (current-time)
+                                 (nth 5 (file-attributes cache))))
+                 1800))
+      (call-process-shell-command
+       (format
+        "curl -s --max-time 2 'wttr.in/Leiden?format=%%c+%%t' >%s 2>/dev/null || printf '  ' >%s"
+        cache cache)))
+    (if (file-exists-p cache)
+        (string-trim
+         (with-temp-buffer (insert-file-contents cache) (buffer-string)))
+      "")))
+
+(defun my/dash--fortune ()
+  "Short fortune truncated to 55 chars."
+  (let* ((raw  (shell-command-to-string "fortune -s 2>/dev/null"))
+         (flat (string-trim (replace-regexp-in-string "[ \t\n]+" " " raw))))
+    (if (> (length flat) 55) (substring flat 0 55) flat)))
+
+(defun my/dash--khal (day)
+  "Khal events for DAY as a list of non-blank strings."
+  (seq-filter
+   (lambda (s) (not (string-blank-p s)))
+   (split-string
+    (shell-command-to-string
+     (format "khal list %s %s --format '{start-time} {title}' 2>/dev/null"
+             day day))
+    "\n")))
+
+(defun my/dash--mail-info ()
+  "Return (COUNT SENDER ...) for unread mail."
+  (let* ((files (sort
+                 (file-expand-wildcards
+                  (expand-file-name "~/Mail/*/INBOX/new/*"))
+                 (lambda (a b)
+                   (time-less-p (nth 5 (file-attributes b))
+                                (nth 5 (file-attributes a))))))
+         (count (length files))
+         senders)
+    (dolist (f (seq-take files 4))
+      (with-temp-buffer
+        (insert-file-contents f nil 0 4096)
+        (goto-char (point-min))
+        (when (re-search-forward "^From:[[:space:]]*\\(.*\\)$" nil t)
+          (let* ((raw  (match-string 1))
+                 (name (string-trim
+                        (replace-regexp-in-string "\"" ""
+                          (replace-regexp-in-string "<[^>]*>" "" raw)))))
+            (push (if (string-blank-p name) raw name) senders)))))
+    (cons count (nreverse senders))))
+
+(defun my/dash--nchat ()
+  "Nchat unread count from /tmp/nchat-unread."
+  (condition-case nil
+      (string-to-number
+       (string-trim
+        (with-temp-buffer
+          (insert-file-contents "/tmp/nchat-unread")
+          (buffer-string))))
+    (error 0)))
+
+;; ── Birthday / vault / uni helpers ─────────────────────────────────────
+
+(defun my/dash--birthdays ()
+  "List of formatted strings for people with birthdays this month."
+  (let* ((people-dir (expand-file-name "People" my/dash-vault))
+         (now        (decode-time))
+         (cur-month  (nth 4 now))
+         (cur-year   (nth 5 now))
+         (months     '("Jan" "Feb" "Mar" "Apr" "May" "Jun"
+                        "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
+         results)
+    (when (file-directory-p people-dir)
+      (dolist (file (directory-files people-dir t "\\.md$"))
+        (with-temp-buffer
+          (insert-file-contents file nil 0 2000)
+          (goto-char (point-min))
+          (when (looking-at "---")
+            (let ((end (save-excursion
+                          (forward-line)
+                          (re-search-forward "^---$" nil t))))
+              (when end
+                (let* ((fm   (buffer-substring-no-properties (point-min) end))
+                       (bday (and (string-match
+                                   "^birthday:[[:space:]]*\\([^\n]+\\)" fm)
+                                  (string-trim (match-string 1 fm))))
+                       (name (and (string-match
+                                   "^name:[[:space:]]*\\([^\n]+\\)" fm)
+                                  (string-trim (match-string 1 fm)))))
+                  (when (and bday (not (string-empty-p bday)))
+                    (let* ((parts (split-string bday "-"))
+                           (year  (if (= (length (nth 0 parts)) 4)
+                                      (string-to-number (nth 0 parts))
+                                    (string-to-number (nth 2 parts))))
+                           (month (string-to-number (nth 1 parts)))
+                           (day   (if (= (length (nth 0 parts)) 4)
+                                      (string-to-number (nth 2 parts))
+                                    (string-to-number (nth 0 parts)))))
+                      (when (= month cur-month)
+                        (let* ((age      (- cur-year year))
+                               (bday-ts  (float-time
+                                          (encode-time 0 0 12 day month cur-year)))
+                               (diff     (/ (- bday-ts (float-time)) 86400))
+                               (when-str (cond ((and (>= diff 0) (< diff 1)) "today!")
+                                               ((> diff 0) (format "in %d days" (ceiling diff)))
+                                               (t (format "%d days ago" (floor (abs diff)))))))
+                          (push (format "%-28s  %s %2d   (%s, turning %d)"
+                                        (or name (file-name-base file))
+                                        (nth (1- month) months)
+                                        day when-str age)
+                                results))))))))))
+      ))
+    (sort results #'string<)))
+
+(defun my/dash--insert-weight-chart ()
+  "Run plot-weights async and insert the PNG at end of current buffer."
+  (let ((buf (current-buffer)))
+    (make-process
+     :name     "plot-weights"
+     :command  (list (expand-file-name "~/.local/bin/plot-weights")
+                     "--cols" (number-to-string (- (window-width) 6)))
+     :filter   #'ignore
+     :sentinel (lambda (_proc _event)
+                 (when (file-exists-p "/tmp/weight-plot.png")
+                   (with-current-buffer buf
+                     (when (buffer-live-p buf)
+                       (let ((inhibit-read-only t))
+                         (save-excursion
+                           (goto-char (point-max))
+                           (insert "\n")
+                           (insert-image
+                            (create-image "/tmp/weight-plot.png" 'png nil
+                                          :max-width (- (window-width) 6)))
+                           (insert "\n"))))))))))
+
+(defun my/dash-log-weight (weight)
+  "Append WEIGHT (kg) as a new row to the weights markdown table."
+  (interactive "nWeight (kg): ")
+  (let* ((file  (expand-file-name
+                  "Knowledge/Body & Movement/Bodybuilding/Stats/Weights list.md"
+                  my/dash-vault))
+         (today (format-time-string "%Y-%m-%d"))
+         entries)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "| *\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\) *| *\\([0-9.]+\\)" nil t)
+        (push (cons (float-time (date-to-time (match-string 1)))
+                    (string-to-number (match-string 2)))
+              entries)))
+    (let* ((now (float-time))
+           (ma  (lambda (days)
+                  (let* ((cut  (- now (* days 86400)))
+                         (rel  (seq-filter (lambda (e) (>= (car e) cut)) entries))
+                         (all  (mapcar #'cdr (append rel (list (cons now weight)))))
+                         (n    (length all)))
+                    (/ (apply #'+ all) n)))))
+      (with-current-buffer (find-file-noselect file)
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n"))
+        (insert (format "| %s | %.1f | %.2f | %.2f | %.2f |\n"
+                        today weight
+                        (funcall ma 7)
+                        (funcall ma 21)
+                        (funcall ma 30)))
+        (save-buffer)))
+    (message "Logged %.1f kg  (%s)" weight today)
+    (my/dash--insert-weight-chart)))
+
+(defun my/dash--fm-from-file (file key)
+  "Return frontmatter value of KEY from FILE, or nil."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 2000)
+    (goto-char (point-min))
+    (when (looking-at "---")
+      (let ((end (save-excursion
+                   (forward-line)
+                   (re-search-forward "^---$" nil t))))
+        (when end
+          (let ((fm (buffer-substring-no-properties (point-min) end)))
+            (and (string-match (concat "^" (regexp-quote key)
+                                       ":[[:space:]]*\\([^\n]*\\)") fm)
+                 (string-trim (match-string 1 fm)))))))))
+
+(defun my/dash--recent-vault-folders (n)
+  "Return N plists (:folder :name :path :age) for most recently modified vault folders."
+  (let* ((out      (shell-command-to-string
+                    (format "find %s -name '*.md' \
+-not -path '*/.obsidian/*' -not -path '*/Templates/*' \
+-not -path '*/Attachments/*' \
+-printf '%%T@ %%p\\n' 2>/dev/null | sort -rn | head -80"
+                            (shell-quote-argument my/dash-vault))))
+         (by-folder    (make-hash-table :test 'equal))
+         (folder-mtime (make-hash-table :test 'equal)))
+    (dolist (line (split-string out "\n" t))
+      (when (string-match "^\\([0-9.]+\\) \\(.+\\)$" line)
+        (let* ((mt   (string-to-number (match-string 1 line)))
+               (path (match-string 2 line))
+               (rel  (file-relative-name path my/dash-vault))
+               (folder (car (split-string rel "/"))))
+          (when (and folder
+                     (not (string-prefix-p "." folder))
+                     (or (not (gethash folder folder-mtime))
+                         (> mt (gethash folder folder-mtime))))
+            (puthash folder mt folder-mtime)
+            (puthash folder (cons path mt) by-folder)))))
+    (seq-take
+     (mapcar (lambda (f)
+               (let* ((e    (gethash f by-folder))
+                      (diff (/ (- (float-time) (cdr e)) 86400))
+                      (age  (cond ((< diff 1) "today")
+                                  ((< diff 2) "yesterday")
+                                  ((< diff 7) (format "%d days ago" (floor diff)))
+                                  ((< diff 14) "1 week ago")
+                                  (t (format "%d weeks ago" (floor (/ diff 7)))))))
+                 (list :folder f :path (car e)
+                       :name (file-name-base (car e)) :age age)))
+             (sort (hash-table-keys folder-mtime)
+                   (lambda (a b) (> (gethash a folder-mtime)
+                                    (gethash b folder-mtime)))))
+     n)))
+
+(defun my/dash--knowledge-dirs ()
+  "Return list of (name . count) for each Knowledge/ subdirectory."
+  (let ((kdir (expand-file-name "Knowledge" my/dash-vault)))
+    (when (file-directory-p kdir)
+      (mapcar (lambda (d)
+                (cons (file-name-nondirectory d)
+                      (string-to-number
+                       (string-trim
+                        (shell-command-to-string
+                         (format "find %s -name '*.md' 2>/dev/null | wc -l"
+                                 (shell-quote-argument d)))))))
+              (seq-filter #'file-directory-p
+                          (directory-files kdir t "^[^.]"))))))
+
+(defun my/dash--uni-deadlines ()
+  "Upcoming deadlines from UNI/Deadines/ (sorted, incomplete only)."
+  (let* ((dir (expand-file-name "Deadines" my/dash-uni))
+         results)
+    (when (file-directory-p dir)
+      (dolist (file (directory-files dir t "\\.md$"))
+        (let* ((completed (my/dash--fm-from-file file "completed"))
+               (date-str  (my/dash--fm-from-file file "date"))
+               (title     (my/dash--fm-from-file file "title"))
+               (class     (my/dash--fm-from-file file "class"))
+               (time-str  (my/dash--fm-from-file file "startTime")))
+          (when (and date-str
+                     (not (member completed '("true" "yes" "True" "Yes"))))
+            (let* ((ts   (float-time
+                          (date-to-time
+                           (concat (my/dash--normalize-date date-str) " 12:00:00"))))
+                   (diff (/ (- ts (float-time)) 86400)))
+              (when (>= diff 0)
+                (push (list :text (format "%-44s  %s%s   (%s)"
+                                          (if (and class title)
+                                              (concat class " — " title)
+                                            (or title (file-name-base file)))
+                                          date-str
+                                          (if (and time-str (not (string-empty-p time-str)))
+                                              (concat "  " time-str) "")
+                                          (if (< diff 1) "TODAY"
+                                            (format "in %d days" (ceiling diff))))
+                            :diff diff :path file)
+                      results))))))
+    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff)))))))
+
+(defun my/dash--uni-assignments ()
+  "Ungraded assignments from UNI/Assignments/ (sorted by deadline)."
+  (let* ((dir (expand-file-name "Assignments" my/dash-uni))
+         results)
+    (when (file-directory-p dir)
+      (dolist (file (directory-files dir t "\\.md$"))
+        (let* ((grade    (my/dash--fm-from-file file "grade"))
+               (deadline (my/dash--fm-from-file file "deadline"))
+               (class    (my/dash--fm-from-file file "class"))
+               (atype    (my/dash--fm-from-file file "type")))
+          (when (or (null grade) (string-empty-p (or grade "")))
+            (let* ((diff (and deadline
+                               (/ (- (float-time
+                                      (date-to-time
+                                       (concat (my/dash--normalize-date deadline)
+                                               " 12:00:00")))
+                                     (float-time))
+                                  86400)))
+                   (when-str (cond ((null diff) "?")
+                                   ((< diff 1) "TODAY")
+                                   ((>= diff 1) (format "in %d days" (ceiling diff)))
+                                   (t (format "%dd ago" (floor (abs diff)))))))
+              (push (list :text  (format "%-35s  %-14s  %s   (%s)"
+                                         (file-name-base file)
+                                         (or atype "") (or deadline "") when-str)
+                          :diff  (or diff 9999) :path file)
+                    results))))))
+    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
+
+(defun my/dash--uni-courses ()
+  "All courses from UNI/Classes/, sorted by Q."
+  (let ((dir (expand-file-name "Classes" my/dash-uni)))
+    (when (file-directory-p dir)
+      (sort
+       (mapcar (lambda (file)
+                 (list :name      (file-name-base file)
+                       :Q         (or (my/dash--fm-from-file file "Q") "")
+                       :code      (or (my/dash--fm-from-file file "code") "")
+                       :shorthand (or (my/dash--fm-from-file file "shorthand")
+                                      (file-name-base file))
+                       :path      file))
+               (directory-files dir t "\\.md$"))
+       (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
+
+(defun my/dash--uni-planning ()
+  "Read ## Planning from Uni MOC.md; render markdown table as unicode strings."
+  (let ((moc (expand-file-name "Uni MOC.md" my/dash-uni))
+        lines in-section result)
+    (when (file-exists-p moc)
+      (with-temp-buffer
+        (insert-file-contents moc)
+        (goto-char (point-min))
+        (while (not (eobp))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position))))
+            (cond
+             ((string-match "^## Planning" line) (setq in-section t))
+             ((and in-section (string-match "^## " line)) (setq in-section nil))
+             (in-section (push line lines))))
+          (forward-line))))
+    (setq lines (nreverse lines))
+    (while (and lines (string-blank-p (car lines))) (setq lines (cdr lines)))
+    (while (and lines (string-blank-p (car (last lines)))) (setq lines (butlast lines)))
+    (dolist (line lines)
+      (cond
+       ((string-match "^|[[:space:]]*[-:]" line)
+        (let* ((cells (split-string (string-trim line "|" "|") "|"))
+               (parts (mapcar (lambda (c)
+                                (make-string (+ (length (string-trim c)) 2) ?─))
+                              cells)))
+          (push (concat "├" (string-join parts "┼") "┤") result)))
+       ((string-match "^|" line)
+        (let* ((cells (split-string (string-trim line "|" "|") "|"))
+               (parts (mapcar (lambda (c) (concat " " (string-trim c) " ")) cells)))
+          (push (concat "│" (string-join parts "│") "│") result)))
+       (t (push line result))))
+    (nreverse result)))
+
+(defun my/uni-new-lecture ()
+  "Create a lecture note from template and open it."
+  (interactive)
+  (let* ((class   (read-string "Class shorthand: "))
+         (date    (format-time-string "%Y-%m-%d"))
+         (lec-dir (expand-file-name "Lecture" my/dash-uni))
+         (tmpl    (expand-file-name "Templates/Lecture.md" my/dash-uni))
+         (target  (expand-file-name (concat class " " date ".md") lec-dir))
+         (content (if (file-exists-p tmpl)
+                      (with-temp-buffer (insert-file-contents tmpl) (buffer-string))
+                    (format "---\nclass: %s\ndate: %s\n---\n\n# Lecture\n\n"
+                            class date))))
+    (with-temp-file target (insert content))
+    (find-file target)))
+
+;; ── Rendering helpers ────────────────────────────────────────────────────
+
+(defun my/dash--center (str win-width)
+  "Center propertized STR within WIN-WIDTH based on visible chars."
+  (let* ((vis (string-width (substring-no-properties str)))
+         (pad (max 0 (/ (- win-width vis) 2))))
+    (concat (make-string pad ?\s) str)))
+
+(defun my/dash--pad (str width)
+  "Right-pad propertized STR to WIDTH based on visible char count."
+  (let* ((vis (string-width (substring-no-properties str)))
+         (pad (max 0 (- width vis))))
+    (concat str (make-string pad ?\s))))
+
+(defun my/dashboard ()
+  "Build and display the personal dashboard in *Dashboard*."
+  (interactive)
+  (let* ((buf      (get-buffer-create "*Dashboard*"))
+         (win-w    (window-width))
+         (todo-f   (expand-file-name "Misc/ToDo.md" my/dash-vault))
+         (daily-f  (expand-file-name
+                    (concat "Dailies/" (format-time-string "%Y-%m-%d") ".md")
+                    my/dash-vault))
+         ;; Gather data
+         (date-str  (format-time-string "%A %-d %B %Y"))
+         (weather   (my/dash--weather))
+         (quote-str (my/dash--fortune))
+         (today-ev  (my/dash--khal "today"))
+         (tmrw-ev   (my/dash--khal "tomorrow"))
+         (khal-timed (seq-filter
+                      (lambda (l) (string-match "^[0-9]\\{2\\}:[0-9]\\{2\\}" l))
+                      today-ev))
+         (sched-ev  (my/dash--schedule-events daily-f))
+         (all-ev    (sort
+                     (append
+                      (mapcar (lambda (l)
+                                (cons (substring l 0 5)
+                                      (string-trim (substring l 5))))
+                              khal-timed)
+                      sched-ev)
+                     (lambda (a b) (string< (car a) (car b)))))
+         (deadlines (my/dash--deadlines))
+         (todo-d    (my/dash--parse-section daily-f "ToDo"))
+         (todo-p    (my/dash--parse-section todo-f  "ToDo"))
+         (projects  (my/dash--parse-section todo-f  "Projects"))
+         (proj-idx  (when projects
+                      (% (1- (string-to-number (format-time-string "%j")))
+                         (length projects))))
+         (proj-today (when projects (nth proj-idx projects)))
+         (mail-info (my/dash--mail-info))
+         (mail-n    (car mail-info))
+         (senders   (cdr mail-info))
+         (nchat-n   (my/dash--nchat)))
+
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (setq-local cursor-type nil)
+
+        ;; ── Header ────────────────────────────────────────────────────────
+        (insert "\n")
+        (insert (my/dash--center (propertize date-str 'face 'font-lock-keyword-face)
+                                 win-w) "\n\n")
+        (insert (my/dash--center
+                 (propertize (concat weather "   ·   " (string-trim quote-str))
+                             'face 'shadow)
+                 win-w) "\n\n")
+
+        ;; ── Today / Tomorrow quick view ───────────────────────────────────
+        (if today-ev
+            (progn (insert (propertize "  Today\n" 'face 'font-lock-keyword-face))
+                   (dolist (l today-ev) (insert "    " l "\n")))
+          (insert (propertize "  Today     —\n" 'face 'shadow)))
+        (insert "\n")
+        (if tmrw-ev
+            (progn (insert (propertize "  Tomorrow\n" 'face 'font-lock-keyword-face))
+                   (dolist (l tmrw-ev) (insert "    " l "\n")))
+          (insert (propertize "  Tomorrow  —\n" 'face 'shadow)))
+        (insert "\n")
+
+        ;; ── Two-column layout ─────────────────────────────────────────────
+        (let (left right)
+          ;; Left: timetable 09–22
+          (push (concat (propertize "        " 'face 'shadow)
+                        (propertize "│" 'face 'shadow)
+                        (propertize " Schedule" 'face 'shadow))
+                left)
+          (dotimes (i 14)
+            (let* ((hour (+ 9 i))
+                   (hh   (format "%02d" hour))
+                   (evs  (seq-filter
+                          (lambda (e) (string-prefix-p hh (car e))) all-ev)))
+              (if (null evs)
+                  (push (concat (propertize (format "  %s:00 " hh) 'face 'shadow)
+                                (propertize "│" 'face 'shadow))
+                        left)
+                (push (concat (propertize (format "  %s:00 " hh) 'face 'shadow)
+                              (propertize "│" 'face 'shadow)
+                              " "
+                              (truncate-string-to-width (cdar evs) 34))
+                      left)
+                (dolist (ev (cdr evs))
+                  (push (concat (propertize "        " 'face 'shadow)
+                                (propertize "│" 'face 'shadow)
+                                " "
+                                (truncate-string-to-width (cdr ev) 34))
+                        left)))))
+          (setq left (nreverse left))
+
+          ;; Right: sections
+          (push (propertize "Dailies" 'face 'font-lock-keyword-face) right)
+          (dolist (item '("□ Brush teeth" "□ Eat vegetables"
+                          "□ Put on deodorant" "□ Write in journal"))
+            (push (concat "  " item) right))
+
+          (let ((bdays (my/dash--birthdays)))
+            (when bdays
+              (push "" right)
+              (push (propertize "Birthdays" 'face 'font-lock-keyword-face) right)
+              (dolist (b bdays) (push (concat "  " b) right))))
+
+          (when deadlines
+            (push "" right)
+            (push (propertize "Deadlines" 'face 'font-lock-keyword-face) right)
+            (dolist (d deadlines) (push (concat "  " d) right)))
+
+          (let ((todos (append todo-d todo-p)))
+            (when todos
+              (push "" right)
+              (push (propertize "ToDo" 'face 'font-lock-keyword-face) right)
+              (dolist (item todos) (push (concat "  · " item) right))))
+
+          (when proj-today
+            (push "" right)
+            (push (propertize "Project today" 'face 'font-lock-keyword-face) right)
+            (push (concat "  · " proj-today) right))
+
+          (when (> mail-n 0)
+            (push "" right)
+            (push (propertize (format "Mail  (%d)" mail-n) 'face 'font-lock-keyword-face) right)
+            (dolist (s senders) (push (concat "  " s) right)))
+
+          (when (> nchat-n 0)
+            (push "" right)
+            (push (propertize (format "Messages  (%d)" nchat-n)
+                              'face 'font-lock-keyword-face) right))
+
+          (setq right (nreverse right))
+
+          ;; Render side by side (44-char left col)
+          (let ((n (max (length left) (length right))))
+            (dotimes (i n)
+              (insert "  "
+                      (my/dash--pad (or (nth i left) "") 44)
+                      "  "
+                      (propertize "│" 'face 'shadow)
+                      "  "
+                      (or (nth i right) "")
+                      "\n"))))
+
+        ;; ── Footer: clickable shortcuts ────────────────────────────────────
+        (insert "\n  ")
+        (dolist (item '(("today"      . my/dash-today)
+                        ("vault-work" . my/dash-vault-work)
+                        ("uni-work"   . my/dash-uni-work)
+                        ("messages"   . my/dash-messages)
+                        ("email"      . my/dash-email)
+                        ("music"      . my/dash-music)
+                        ("cal"        . my/dash-cal)
+                        ("youtube"    . my/dash-youtube)
+                        ("weight"     . my/dash-log-weight)))
+          (insert-text-button (car item)
+            'action  (lambda (b) (funcall (button-get b 'launcher)))
+            'launcher (cdr item)
+            'face     'shadow
+            'mouse-face 'highlight
+            'follow-link t)
+          (insert "  "))
+        (insert "\n\n"))
+
+      (read-only-mode 1)
+      (goto-char (point-min))
+
+      ;; Local keybindings — single keys for every launcher
+      (use-local-map (make-sparse-keymap))
+      (local-set-key (kbd "q") #'bury-buffer)
+      (local-set-key (kbd "g") #'my/dashboard)
+      (local-set-key (kbd "t") #'my/dash-today)
+      (local-set-key (kbd "v") #'my/dash-vault-work)
+      (local-set-key (kbd "u") #'my/dash-uni-work)
+      (local-set-key (kbd "m") #'my/dash-messages)
+      (local-set-key (kbd "e") #'my/dash-email)
+      (local-set-key (kbd "M") #'my/dash-music)
+      (local-set-key (kbd "c") #'my/dash-cal)
+      (local-set-key (kbd "Y") #'my/dash-youtube)
+      (local-set-key (kbd "w") #'my/dash-log-weight)
+      (when (fboundp 'evil-define-key*)
+        (dolist (binding '(("q" . bury-buffer)
+                           ("g" . my/dashboard)
+                           ("t" . my/dash-today)
+                           ("v" . my/dash-vault-work)
+                           ("u" . my/dash-uni-work)
+                           ("m" . my/dash-messages)
+                           ("e" . my/dash-email)
+                           ("M" . my/dash-music)
+                           ("c" . my/dash-cal)
+                           ("Y" . my/dash-youtube)
+                           ("w" . my/dash-log-weight)))
+          (evil-define-key* 'normal (current-local-map)
+                            (car binding) (cdr binding))
+          (evil-define-key* 'motion (current-local-map)
+                            (car binding) (cdr binding)))))
+
+    (switch-to-buffer buf)
+    (my/dash--insert-weight-chart)
+    buf))
+
+;; Show on startup (only when Emacs opens without a file argument)
+(setq initial-buffer-choice #'my/dashboard)
+
+;; Leader binding
+(spc! "d" '(my/dashboard :wk "dashboard"))
+
+(defun my/vault-dashboard ()
+  "Open personal vault dashboard in the personal perspective."
+  (interactive)
+  (persp-switch "personal")
+  (let* ((buf      (get-buffer-create "*Vault*"))
+         (todo-f   (expand-file-name "Misc/ToDo.md" my/dash-vault))
+         (bdays    (my/dash--birthdays))
+         (recent   (my/dash--recent-vault-folders 3))
+         (projects (my/dash--parse-section todo-f "Projects"))
+         (proj-idx (when projects
+                     (% (1- (string-to-number (format-time-string "%j")))
+                        (length projects))))
+         (daily-dir (expand-file-name "Dailies" my/dash-vault))
+         (dailies  (when (file-directory-p daily-dir)
+                     (seq-take
+                      (sort (directory-files daily-dir t "\\.md$")
+                            (lambda (a b)
+                              (> (float-time (file-attribute-modification-time
+                                              (file-attributes a)))
+                                 (float-time (file-attribute-modification-time
+                                              (file-attributes b))))))
+                      5)))
+         (know     (my/dash--knowledge-dirs)))
+
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (setq-local cursor-type nil)
+        (insert "\n")
+        (insert (propertize
+                 (concat "VAULT  ·  " (format-time-string "%A %-d %B %Y"))
+                 'face 'font-lock-keyword-face) "\n\n")
+
+        (cl-flet ((section (header)
+                            (insert (propertize (concat "  " header "\n")
+                                                'face 'font-lock-keyword-face)))
+                  (empty   ()
+                            (insert (propertize "    — none —\n" 'face 'shadow)))
+                  (link    (text path)
+                            (insert "    ")
+                            (insert-text-button text
+                              'action (lambda (_) (find-file path))
+                              'face 'default 'mouse-face 'highlight 'follow-link t)
+                            (insert "\n")))
+
+          (section "BIRTHDAYS THIS MONTH")
+          (if bdays (dolist (b bdays) (insert "    " b "\n")) (empty))
+          (insert "\n")
+
+          (section "CONTINUE")
+          (if recent
+              (dolist (r recent)
+                (link (format "%-18s  %-32s  %s"
+                              (plist-get r :folder)
+                              (plist-get r :name)
+                              (plist-get r :age))
+                      (plist-get r :path)))
+            (empty))
+          (insert "\n")
+
+          (when projects
+            (section "PROJECTS")
+            (let ((i 0))
+              (dolist (p projects)
+                (insert (format "    %d  %s%s\n" (1+ i) p
+                                (if (= i proj-idx)
+                                    (propertize "  ← today"
+                                                'face 'font-lock-keyword-face)
+                                  "")))
+                (setq i (1+ i))))
+            (insert "\n"))
+
+          (section "RECENT DAILY NOTES")
+          (if dailies
+              (dolist (f dailies)
+                (link (file-name-base f) f))
+            (empty))
+          (insert "\n")
+
+          (section "KNOWLEDGE")
+          (when know
+            (let ((row "") (max-w 68))
+              (dolist (kd know)
+                (let ((entry (format "%s (%d)" (car kd) (cdr kd))))
+                  (if (> (+ (length row) (length entry) 3) max-w)
+                      (progn (insert "    " row "\n") (setq row entry))
+                    (setq row (if (string-empty-p row) entry
+                                (concat row "  " entry))))))
+              (unless (string-empty-p row) (insert "    " row "\n"))))
+          (insert "\n")))
+
+      (read-only-mode 1)
+      (goto-char (point-min))
+      (use-local-map (make-sparse-keymap))
+      (local-set-key (kbd "q") #'bury-buffer)
+      (local-set-key (kbd "g") #'my/vault-dashboard)
+      (local-set-key (kbd "f") (lambda () (interactive) (dired my/dash-vault)))
+      (local-set-key (kbd "d") #'my/dash-today)
+      (local-set-key (kbd "w") #'my/dash-log-weight)
+      (when (fboundp 'evil-define-key*)
+        (dolist (b '(("q" . bury-buffer)
+                     ("g" . my/vault-dashboard)
+                     ("d" . my/dash-today)
+                     ("w" . my/dash-log-weight)))
+          (evil-define-key* 'normal (current-local-map) (car b) (cdr b))
+          (evil-define-key* 'motion (current-local-map) (car b) (cdr b)))))
+
+    (switch-to-buffer buf)
+    (my/dash--insert-weight-chart))
+  buf)
+
+(defun my/vault-dashboard-org ()
+  "Open personal vault dashboard (org version) — stub until ~/org/ is populated."
+  (interactive)
+  (persp-switch "personal")
+  (message "org vault dashboard: implement as org migration proceeds"))
+
+(defun my/uni-dashboard ()
+  "Open uni dashboard in the uni perspective."
+  (interactive)
+  (persp-switch "uni")
+  (let* ((buf         (get-buffer-create "*Uni*"))
+         (deadlines   (my/dash--uni-deadlines))
+         (assignments (my/dash--uni-assignments))
+         (courses     (my/dash--uni-courses))
+         (planning    (my/dash--uni-planning)))
+
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (setq-local cursor-type nil)
+        (insert "\n")
+        (insert (propertize
+                 (concat "UNI  ·  " (format-time-string "%A %-d %B %Y"))
+                 'face 'font-lock-keyword-face) "\n\n")
+
+        (cl-flet ((section (h)
+                            (insert (propertize (concat "  " h "\n")
+                                                'face 'font-lock-keyword-face)))
+                  (empty   ()
+                            (insert (propertize "    — none —\n" 'face 'shadow)))
+                  (link    (text path)
+                            (insert "    ")
+                            (insert-text-button text
+                              'action (lambda (_) (find-file path))
+                              'face 'default 'mouse-face 'highlight 'follow-link t)
+                            (insert "\n")))
+
+          (section "UPCOMING DEADLINES")
+          (if deadlines
+              (dolist (d deadlines) (link (plist-get d :text) (plist-get d :path)))
+            (empty))
+          (insert "\n")
+
+          (section "ACTIVE ASSIGNMENTS")
+          (if assignments
+              (dolist (a assignments) (link (plist-get a :text) (plist-get a :path)))
+            (empty))
+          (insert "\n")
+
+          (section "COURSES")
+          (if courses
+              (dolist (c courses)
+                (let ((course c))
+                  (insert "    ")
+                  (insert-text-button
+                   (format "%-40s  Q%-8s  %s"
+                           (plist-get c :name)
+                           (plist-get c :Q)
+                           (plist-get c :code))
+                   'action (lambda (_) (my/uni-course-view course))
+                   'face 'default 'mouse-face 'highlight 'follow-link t)
+                  (insert "\n")))
+            (empty))
+          (insert "\n")
+
+          (section "PLANNING  (from Uni MOC)")
+          (if planning
+              (dolist (l planning) (insert "    " l "\n"))
+            (empty))
+          (insert "\n")))
+
+      (read-only-mode 1)
+      (goto-char (point-min))
+      (use-local-map (make-sparse-keymap))
+      (local-set-key (kbd "q") #'bury-buffer)
+      (local-set-key (kbd "g") #'my/uni-dashboard)
+      (local-set-key (kbd "f") (lambda () (interactive) (dired my/dash-uni)))
+      (local-set-key (kbd "n") #'my/uni-new-lecture)
+      (when (fboundp 'evil-define-key*)
+        (dolist (b '(("q" . bury-buffer)
+                     ("g" . my/uni-dashboard)
+                     ("n" . my/uni-new-lecture)))
+          (evil-define-key* 'normal (current-local-map) (car b) (cdr b))
+          (evil-define-key* 'motion (current-local-map) (car b) (cdr b)))))
+
+    (switch-to-buffer buf))
+  buf)
+
+(defun my/uni-dashboard-org ()
+  "Open uni dashboard (org version) — stub until ~/org/uni/ is populated."
+  (interactive)
+  (persp-switch "uni")
+  (message "org uni dashboard: implement as org migration proceeds"))
+
+(defun my/uni-course-view (course)
+  "Buffer listing lecture notes and assignments for COURSE plist."
+  (let* ((shorthand (plist-get course :shorthand))
+         (name      (plist-get course :name))
+         (code      (plist-get course :code))
+         (lec-dir   (expand-file-name "Lecture" my/dash-uni))
+         lectures assignments summary-file)
+
+    (when (file-directory-p lec-dir)
+      (dolist (file (directory-files lec-dir t "\\.md$"))
+        (let* ((cls   (my/dash--fm-from-file file "class"))
+               (fname (file-name-base file)))
+          (when (or (string= cls shorthand)
+                    (string= cls name)
+                    (string= cls code)
+                    (string-prefix-p (downcase shorthand) (downcase fname)))
+            (let* ((ds    (or (my/dash--fm-from-file file "date")
+                              (and (string-match "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" fname)
+                                   (match-string 0 fname)) ""))
+                   (title (or (my/dash--fm-from-file file "title") fname)))
+              (push (list :name title :date ds :path file) lectures))))))
+    (setq lectures (sort lectures
+                          (lambda (a b) (string< (plist-get a :date)
+                                                  (plist-get b :date)))))
+
+    (dolist (a (my/dash--uni-assignments))
+      (when (string= (my/dash--fm-from-file (plist-get a :path) "class") shorthand)
+        (push a assignments)))
+
+    (dolist (candidate
+             (list (expand-file-name (concat name " Summary.md")
+                                     (expand-file-name "Summary" my/dash-uni))
+                   (expand-file-name (concat shorthand " Summary.md")
+                                     (expand-file-name "Summary" my/dash-uni))))
+      (when (and (file-exists-p candidate) (null summary-file))
+        (setq summary-file candidate)))
+
+    (let ((buf (get-buffer-create (format "*Course: %s*" name))))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert "\n")
+          (insert (propertize (format "%s  (%s)\n\n" name code)
+                              'face 'font-lock-keyword-face))
+
+          (cl-flet ((section (h)
+                              (insert (propertize (concat "  " h "\n")
+                                                  'face 'font-lock-keyword-face)))
+                    (empty   ()
+                              (insert (propertize "    — none —\n" 'face 'shadow)))
+                    (link    (text path)
+                              (insert "    ")
+                              (insert-text-button text
+                                'action (lambda (_) (find-file path))
+                                'face 'default 'mouse-face 'highlight 'follow-link t)
+                              (insert "\n")))
+
+            (section "SUMMARY")
+            (if summary-file (link (file-name-base summary-file) summary-file) (empty))
+            (insert "\n")
+
+            (section "ASSIGNMENTS")
+            (if assignments
+                (dolist (a assignments) (link (plist-get a :text) (plist-get a :path)))
+              (empty))
+            (insert "\n")
+
+            (section (format "LECTURES  (%d)" (length lectures)))
+            (if lectures
+                (let ((i 1))
+                  (dolist (l lectures)
+                    (link (format "%2d.  %-13s  %s" i
+                                  (plist-get l :date) (plist-get l :name))
+                          (plist-get l :path))
+                    (setq i (1+ i))))
+              (empty))))
+
+        (read-only-mode 1)
+        (goto-char (point-min))
+        (use-local-map (make-sparse-keymap))
+        (local-set-key (kbd "q") #'bury-buffer)
+        (local-set-key (kbd "n") #'my/uni-new-lecture)
+        (when (fboundp 'evil-define-key*)
+          (evil-define-key* 'normal (current-local-map) "q" #'bury-buffer)
+          (evil-define-key* 'motion (current-local-map) "q" #'bury-buffer)))
+      (switch-to-buffer buf))))
+
+(use-package mu4e
+  :ensure nil
+
+  :init
+  (setq mu4e-maildir              (expand-file-name "~/Mail")
+        mu4e-get-mail-command     "mbsync -a"
+        mu4e-update-interval      300
+        mu4e-sent-messages-behavior 'delete
+        mu4e-user-mail-address-list
+          '("tidemanus@gmail.com" "thijmen.nouwens@gmail.com"
+            "thijmen@nouwens-lindemans.nl")
+        mu4e-compose-reply-to-address "tidemanus@gmail.com"
+        mu4e-drafts-folder "/Gmail/[Gmail]/Concepten"
+        mu4e-sent-folder   "/Gmail/[Gmail]/Verzonden berichten"
+        mu4e-trash-folder  "/Gmail/[Gmail]/Prullenbak"
+        mu4e-refile-folder "/Gmail/[Gmail]/Alle e-mail")
+
+  :config
+  (setq message-send-mail-function       #'message-send-mail-with-sendmail
+        sendmail-program                 (executable-find "msmtp")
+        message-sendmail-extra-arguments '("--read-envelope-from")
+        message-sendmail-f-is-evil       t)
+
+  (setq mu4e-bookmarks
+        '((:name "Inbox"   :query "maildir:/Gmail/INBOX"             :key ?i)
+          (:name "Unread"  :query "flag:unread AND NOT flag:trashed"  :key ?u)
+          (:name "Today"   :query "date:today..now"                   :key ?t)))
+
+  (setq mu4e-view-prefer-html  nil
+        mu4e-html2text-command "w3m -T text/html")
+
+  (evil-define-key 'normal mu4e-headers-mode-map
+    "j"  #'mu4e-headers-next
+    "k"  #'mu4e-headers-prev
+    "l"  #'mu4e-headers-view-message
+    "d"  #'mu4e-headers-mark-for-delete
+    "u"  #'mu4e-headers-mark-for-unmark
+    "r"  #'mu4e-compose-reply
+    "R"  #'mu4e-compose-wide-reply
+    "m"  #'mu4e-compose-new
+    "G"  #'mu4e-headers-last
+    "q"  #'mu4e-quit)
+
+  (evil-define-key 'normal mu4e-view-mode-map
+    "j"  #'mu4e-view-headers-next
+    "k"  #'mu4e-view-headers-prev
+    "h"  #'mu4e-view-quit-message
+    "r"  #'mu4e-compose-reply
+    "R"  #'mu4e-compose-wide-reply
+    "q"  #'mu4e-view-quit-message))
+
+(spc! "e" '(mu4e :wk "email"))
