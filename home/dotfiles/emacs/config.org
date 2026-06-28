@@ -1511,9 +1511,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
        (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
 
 (defun my/dash--uni-planning ()
-  "Read ## Planning from Uni MOC.md; render markdown table as unicode strings."
+  "Read # Planning from Uni MOC.md; return org-table-compatible lines."
   (let ((moc (expand-file-name "Uni MOC.md" my/dash-uni))
-        lines in-section result)
+        lines in-section)
     (when (file-exists-p moc)
       (with-temp-buffer
         (insert-file-contents moc)
@@ -1523,26 +1523,20 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                        (line-beginning-position) (line-end-position))))
             (cond
              ((string-match "^# Planning" line) (setq in-section t))
-             ((and in-section (string-match "^# " line) (not (string-match "^# Planning" line))) (setq in-section nil))
+             ((and in-section (string-match "^# " line)
+                   (not (string-match "^# Planning" line))) (setq in-section nil))
              (in-section (push line lines))))
           (forward-line))))
     (setq lines (nreverse lines))
     (while (and lines (string-blank-p (car lines))) (setq lines (cdr lines)))
     (while (and lines (string-blank-p (car (last lines)))) (setq lines (butlast lines)))
-    (dolist (line lines)
-      (cond
-       ((string-match "^|[[:space:]]*[-:]" line)
-        (let* ((cells (split-string (string-trim line "|" "|") "|"))
-               (parts (mapcar (lambda (c)
-                                (make-string (+ (length (string-trim c)) 2) ?─))
-                              cells)))
-          (push (concat "├" (string-join parts "┼") "┤") result)))
-       ((string-match "^|" line)
-        (let* ((cells (split-string (string-trim line "|" "|") "|"))
-               (parts (mapcar (lambda (c) (concat " " (string-trim c) " ")) cells)))
-          (push (concat "│" (string-join parts "│") "│") result)))
-       (t (push line result))))
-    (nreverse result)))
+    (mapcar (lambda (line)
+              (if (string-match "^|[[:space:]]*[-:]" line)
+                  ;; Convert markdown separator row to org-table separator
+                  (let ((cols (length (split-string (string-trim line "|" "|") "|"))))
+                    (concat "|" (string-join (make-list cols "---") "+") "|"))
+                line))
+            lines)))
 
 (defun my/uni-new-lecture ()
   "Create a lecture note from template and open it."
@@ -1781,8 +1775,12 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
     (my/dash--insert-weight-chart)
     buf))
 
-;; Show dashboard on startup, but not when running as daemon (no frame yet)
-(unless (daemonp)
+;; Show dashboard on startup; on daemon, open it for each new client frame
+(if (daemonp)
+    (add-hook 'server-after-make-frame-hook
+              (lambda ()
+                (when (string= (buffer-name) "*scratch*")
+                  (my/dashboard))))
   (setq initial-buffer-choice #'my/dashboard))
 
 ;; Leader binding
@@ -2062,91 +2060,68 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (setq-local cursor-type nil)
+        (insert "#+options: toc:nil num:nil\n")
+        (insert "* Vault  ·  " (format-time-string "%A %-d %B %Y") "\n\n")
+
+        (insert "** Birthdays this month\n\n")
+        (if bdays
+            (dolist (b bdays) (insert "- " b "\n"))
+          (insert "/none/\n"))
         (insert "\n")
-        (insert (propertize
-                 (concat "VAULT  ·  " (format-time-string "%A %-d %B %Y"))
-                 'face 'font-lock-keyword-face) "\n\n")
 
-        (cl-flet ((section (header)
-                            (insert (propertize (concat "  " header "\n")
-                                                'face 'font-lock-keyword-face)))
-                  (empty   ()
-                            (insert (propertize "    — none —\n" 'face 'shadow)))
-                  (link    (text path)
-                            (insert "    ")
-                            (insert-text-button text
-                              'action (lambda (_) (find-file path))
-                              'face 'default 'mouse-face 'highlight 'follow-link t)
-                            (insert "\n")))
-
-          (section "BIRTHDAYS THIS MONTH")
-          (if bdays (dolist (b bdays) (insert "    " b "\n")) (empty))
-          (insert "\n")
-
-          (section "CONTINUE")
-          (if recent
-              (dolist (r recent)
-                (link (format "%-18s  %-32s  %s"
+        (insert "** Continue\n\n")
+        (if recent
+            (dolist (r recent)
+              (insert (format "- [[file:%s][%-18s  %-32s  %s]]\n"
+                              (plist-get r :path)
                               (plist-get r :folder)
                               (plist-get r :name)
-                              (plist-get r :age))
-                      (plist-get r :path)))
-            (empty))
-          (insert "\n")
+                              (plist-get r :age))))
+          (insert "/none/\n"))
+        (insert "\n")
 
-          (when projects
-            (section "PROJECTS")
-            (let ((i 0))
-              (dolist (p projects)
-                (insert (format "    %d  %s%s\n" (1+ i) p
-                                (if (= i proj-idx)
-                                    (propertize "  ← today"
-                                                'face 'font-lock-keyword-face)
-                                  "")))
-                (setq i (1+ i))))
-            (insert "\n"))
+        (when projects
+          (insert "** Projects\n\n")
+          (let ((i 0))
+            (dolist (p projects)
+              (insert (format "%d. %s%s\n" (1+ i) p
+                              (if (= i proj-idx) "  ← today" "")))
+              (setq i (1+ i))))
+          (insert "\n"))
 
-          (section "RECENT DAILY NOTES")
-          (if dailies
-              (dolist (f dailies)
-                (link (file-name-base f) f))
-            (empty))
-          (insert "\n")
+        (insert "** Recent daily notes\n\n")
+        (if dailies
+            (dolist (f dailies)
+              (insert (format "- [[file:%s][%s]]\n" f (file-name-base f))))
+          (insert "/none/\n"))
+        (insert "\n")
 
-          (section "KNOWLEDGE")
-          (when know
-            (let ((row "") (max-w 68))
-              (dolist (kd know)
-                (let ((entry (format "%s (%d)" (car kd) (cdr kd))))
-                  (if (> (+ (length row) (length entry) 3) max-w)
-                      (progn (insert "    " row "\n") (setq row entry))
-                    (setq row (if (string-empty-p row) entry
-                                (concat row "  " entry))))))
-              (unless (string-empty-p row) (insert "    " row "\n"))))
-          (insert "\n")
+        (insert "** Knowledge\n\n")
+        (when know
+          (let ((row "") (max-w 68))
+            (dolist (kd know)
+              (let ((entry (format "%s (%d)" (car kd) (cdr kd))))
+                (if (> (+ (length row) (length entry) 3) max-w)
+                    (progn (insert row "\n") (setq row entry))
+                  (setq row (if (string-empty-p row) entry
+                              (concat row "  " entry))))))
+            (unless (string-empty-p row) (insert row "\n"))))
+        (insert "\n")
 
-          (insert (propertize
-                   "  d daily   w weight   f files   g refresh   q close\n"
-                   'face 'shadow))))
+        (insert "-----\n")
+        (insert "=d= daily   =w= weight   =f= files   =g= refresh   =q= close\n")
+
+        (org-mode)
+        (org-show-all))
 
       (read-only-mode 1)
       (goto-char (point-min))
-      (use-local-map (make-sparse-keymap))
-      (local-set-key (kbd "q") #'bury-buffer)
-      (local-set-key (kbd "g") #'my/vault-dashboard)
-      (local-set-key (kbd "f") (lambda () (interactive) (dired my/dash-vault)))
-      (local-set-key (kbd "d") #'my/dash-today)
-      (local-set-key (kbd "w") #'my/dash-log-weight)
-      (local-set-key (kbd "RET") #'push-button)
-      (when (fboundp 'evil-define-key*)
-        (dolist (b '(("q" . bury-buffer)
-                     ("g" . my/vault-dashboard)
-                     ("d" . my/dash-today)
-                     ("w" . my/dash-log-weight)
-                     ("RET" . push-button)))
-          (evil-define-key* 'normal (current-local-map) (kbd (car b)) (cdr b))
-          (evil-define-key* 'motion (current-local-map) (kbd (car b)) (cdr b)))))
+      (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
+      (evil-local-set-key 'normal (kbd "g") #'my/vault-dashboard)
+      (evil-local-set-key 'normal (kbd "d") #'my/dash-today)
+      (evil-local-set-key 'normal (kbd "w") #'my/dash-log-weight)
+      (evil-local-set-key 'normal (kbd "f")
+                          (lambda () (interactive) (dired my/dash-vault))))
 
     (switch-to-buffer buf)
     (my/dash--insert-weight-chart))
@@ -2178,73 +2153,55 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (setq-local cursor-type nil)
+        (insert "#+options: toc:nil num:nil\n")
+        (insert "* Uni  ·  " (format-time-string "%A %-d %B %Y") "\n\n")
+
+        (insert "** Upcoming deadlines\n\n")
+        (if deadlines
+            (dolist (d deadlines)
+              (insert (format "- [[file:%s][%s]]\n"
+                              (plist-get d :path) (plist-get d :text))))
+          (insert "/none/\n"))
         (insert "\n")
-        (insert (propertize
-                 (concat "UNI  ·  " (format-time-string "%A %-d %B %Y"))
-                 'face 'font-lock-keyword-face) "\n\n")
 
-        (cl-flet ((section (h)
-                            (insert (propertize (concat "  " h "\n")
-                                                'face 'font-lock-keyword-face)))
-                  (empty   ()
-                            (insert (propertize "    — none —\n" 'face 'shadow)))
-                  (link    (text path)
-                            (insert "    ")
-                            (insert-text-button text
-                              'action (lambda (_) (find-file path))
-                              'face 'default 'mouse-face 'highlight 'follow-link t)
-                            (insert "\n")))
+        (insert "** Active assignments\n\n")
+        (if assignments
+            (dolist (a assignments)
+              (insert (format "- [[file:%s][%s]]\n"
+                              (plist-get a :path) (plist-get a :text))))
+          (insert "/none/\n"))
+        (insert "\n")
 
-          (section "UPCOMING DEADLINES")
-          (if deadlines
-              (dolist (d deadlines) (link (plist-get d :text) (plist-get d :path)))
-            (empty))
-          (insert "\n")
+        (insert "** Courses\n\n")
+        (if courses
+            (dolist (c courses)
+              (insert (format "- [[file:%s][%-40s  Q%-8s  %s]]\n"
+                              (plist-get c :path)
+                              (plist-get c :name)
+                              (plist-get c :Q)
+                              (plist-get c :code))))
+          (insert "/none/\n"))
+        (insert "\n")
 
-          (section "ACTIVE ASSIGNMENTS")
-          (if assignments
-              (dolist (a assignments) (link (plist-get a :text) (plist-get a :path)))
-            (empty))
-          (insert "\n")
+        (insert "** Planning  (from Uni MOC)\n\n")
+        (if planning
+            (dolist (l planning) (insert l "\n"))
+          (insert "/none/\n"))
+        (insert "\n")
 
-          (section "COURSES")
-          (if courses
-              (dolist (c courses)
-                (let ((course c))
-                  (insert "    ")
-                  (insert-text-button
-                   (format "%-40s  Q%-8s  %s"
-                           (plist-get c :name)
-                           (plist-get c :Q)
-                           (plist-get c :code))
-                   'action (lambda (_) (my/uni-course-view course))
-                   'face 'default 'mouse-face 'highlight 'follow-link t)
-                  (insert "\n")))
-            (empty))
-          (insert "\n")
+        (insert "-----\n")
+        (insert "=g= refresh   =f= files   =n= new lecture   =q= close\n")
 
-          (section "PLANNING  (from Uni MOC)")
-          (if planning
-              (dolist (l planning) (insert "    " l "\n"))
-            (empty))
-          (insert "\n")))
+        (org-mode)
+        (org-show-all))
 
       (read-only-mode 1)
       (goto-char (point-min))
-      (use-local-map (make-sparse-keymap))
-      (local-set-key (kbd "q") #'bury-buffer)
-      (local-set-key (kbd "g") #'my/uni-dashboard)
-      (local-set-key (kbd "f") (lambda () (interactive) (dired my/dash-uni)))
-      (local-set-key (kbd "n") #'my/uni-new-lecture)
-      (local-set-key (kbd "RET") #'push-button)
-      (when (fboundp 'evil-define-key*)
-        (dolist (b '(("q" . bury-buffer)
-                     ("g" . my/uni-dashboard)
-                     ("n" . my/uni-new-lecture)
-                     ("RET" . push-button)))
-          (evil-define-key* 'normal (current-local-map) (kbd (car b)) (cdr b))
-          (evil-define-key* 'motion (current-local-map) (kbd (car b)) (cdr b)))))
+      (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
+      (evil-local-set-key 'normal (kbd "g") #'my/uni-dashboard)
+      (evil-local-set-key 'normal (kbd "f")
+                          (lambda () (interactive) (dired my/dash-uni)))
+      (evil-local-set-key 'normal (kbd "n") #'my/uni-new-lecture))
 
     (switch-to-buffer buf))
   buf)
@@ -2296,54 +2253,45 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
       (with-current-buffer buf
         (let ((inhibit-read-only t))
           (erase-buffer)
+          (insert "#+options: toc:nil num:nil\n")
+          (insert (format "* %s  (%s)\n\n" name code))
+
+          (insert "** Summary\n\n")
+          (if summary-file
+              (insert (format "- [[file:%s][%s]]\n"
+                              summary-file (file-name-base summary-file)))
+            (insert "/none/\n"))
           (insert "\n")
-          (insert (propertize (format "%s  (%s)\n\n" name code)
-                              'face 'font-lock-keyword-face))
 
-          (cl-flet ((section (h)
-                              (insert (propertize (concat "  " h "\n")
-                                                  'face 'font-lock-keyword-face)))
-                    (empty   ()
-                              (insert (propertize "    — none —\n" 'face 'shadow)))
-                    (link    (text path)
-                              (insert "    ")
-                              (insert-text-button text
-                                'action (lambda (_) (find-file path))
-                                'face 'default 'mouse-face 'highlight 'follow-link t)
-                              (insert "\n")))
+          (insert "** Assignments\n\n")
+          (if assignments
+              (dolist (a assignments)
+                (insert (format "- [[file:%s][%s]]\n"
+                                (plist-get a :path) (plist-get a :text))))
+            (insert "/none/\n"))
+          (insert "\n")
 
-            (section "SUMMARY")
-            (if summary-file (link (file-name-base summary-file) summary-file) (empty))
-            (insert "\n")
+          (insert (format "** Lectures  (%d)\n\n" (length lectures)))
+          (if lectures
+              (let ((i 1))
+                (dolist (l lectures)
+                  (insert (format "%d. [[file:%s][%s  —  %s]]\n"
+                                  i (plist-get l :path)
+                                  (plist-get l :date) (plist-get l :name)))
+                  (setq i (1+ i))))
+            (insert "/none/\n"))
+          (insert "\n")
 
-            (section "ASSIGNMENTS")
-            (if assignments
-                (dolist (a assignments) (link (plist-get a :text) (plist-get a :path)))
-              (empty))
-            (insert "\n")
+          (insert "-----\n")
+          (insert "=n= new lecture   =q= close\n")
 
-            (section (format "LECTURES  (%d)" (length lectures)))
-            (if lectures
-                (let ((i 1))
-                  (dolist (l lectures)
-                    (link (format "%2d.  %-13s  %s" i
-                                  (plist-get l :date) (plist-get l :name))
-                          (plist-get l :path))
-                    (setq i (1+ i))))
-              (empty))))
+          (org-mode)
+          (org-show-all))
 
         (read-only-mode 1)
         (goto-char (point-min))
-        (use-local-map (make-sparse-keymap))
-        (local-set-key (kbd "q") #'bury-buffer)
-        (local-set-key (kbd "n") #'my/uni-new-lecture)
-        (local-set-key (kbd "RET") #'push-button)
-        (when (fboundp 'evil-define-key*)
-          (dolist (b '(("q" . bury-buffer)
-                       ("n" . my/uni-new-lecture)
-                       ("RET" . push-button)))
-            (evil-define-key* 'normal (current-local-map) (kbd (car b)) (cdr b))
-            (evil-define-key* 'motion (current-local-map) (kbd (car b)) (cdr b)))))
+        (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
+        (evil-local-set-key 'normal (kbd "n") #'my/uni-new-lecture))
       (switch-to-buffer buf))))
 #+end_src
 
