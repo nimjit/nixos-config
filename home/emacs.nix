@@ -79,6 +79,22 @@
     enable = true;
   };
 
+  # Override the system emacs.desktop so rofi launches via the daemon
+  home.file.".local/share/applications/emacs.desktop".text = ''
+    [Desktop Entry]
+    Name=Emacs
+    GenericName=Text Editor
+    Comment=Edit text
+    Exec=emacsclient -c %F
+    Icon=emacs
+    Type=Application
+    Terminal=false
+    Categories=Development;TextEditor;
+    MimeType=text/english;text/plain;text/x-makefile;text/x-c++hdr;text/x-c++src;text/x-chdr;text/x-csrc;text/x-java;text/x-moc;text/x-pascal;text/x-tcl;text/x-tex;application/x-shellscript;text/x-c;text/x-c++;
+    StartupNotify=true
+    StartupWMClass=Emacs
+  '';
+
   xdg.configFile."emacs/early-init.el".source         = ./dotfiles/emacs/early-init.el;
   xdg.configFile."emacs/init.el".source               = ./dotfiles/emacs/init.el;
   xdg.configFile."emacs/themes/ukiyo-theme.el".source = ./dotfiles/emacs/ukiyo-theme.el;

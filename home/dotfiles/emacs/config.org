@@ -76,7 +76,7 @@ Start the Emacs server so ~emacsclient -c~ can open frames without startup cost.
 When running as a daemon (systemd), the server is already started — skip to avoid conflict.
 
 #+begin_src emacs-lisp
-(unless (daemonp) (server-start))
+(unless (or (daemonp) (server-running-p)) (server-start))
 #+end_src
 
 -By Patric Thomson
