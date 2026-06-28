@@ -24,7 +24,7 @@ in {
 
   # ── Address book ────────────────────────────────────────────────────────────
 
-  home.packages = with pkgs; [ abook ];
+  home.packages = with pkgs; [ abook mu ];
 
   # ── Accounts ────────────────────────────────────────────────────────────────
 

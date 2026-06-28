@@ -60,7 +60,8 @@
       elfeed-tube          # YouTube metadata + mpv playback
 
       # ── Music ─────────────────────────────────────────────────────────────
-      emms                 # in-Emacs music player backed by mpv
+      libmpdel             # MPD protocol library
+      mpdel                # Emacs MPD client (hierarchical browser)
 
       # ── Workspaces ────────────────────────────────────────────────────────
       perspective          # named workspaces with separate buffer lists
@@ -69,6 +70,11 @@
       markdown-mode
       typst-ts-mode        # .typ files with tree-sitter + tinymist LSP
     ];
+
+    extraConfig = ''
+      (add-to-list 'load-path
+        "${pkgs.mu}/share/emacs/site-lisp/mu4e")
+    '';
   };
 
   xdg.configFile."emacs/early-init.el".source         = ./dotfiles/emacs/early-init.el;
