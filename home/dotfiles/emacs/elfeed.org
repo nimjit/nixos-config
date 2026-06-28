@@ -1,0 +1,67 @@
+#+title: RSS Feeds
+#+startup: fold
+
+All feeds are loaded automatically by elfeed-org on startup.
+Tags are inherited from parent headings.
+
+* Feeds
+** Physics                                                              :physics:
+*** [[https://arxiv.org/rss/quant-ph][arXiv: Quantum Physics]]
+*** [[https://arxiv.org/rss/cond-mat][arXiv: Condensed Matter]]
+*** [[https://arxiv.org/rss/physics.hist-ph][arXiv: History & Philosophy of Physics]]
+** Mathematics                                                             :math:
+*** [[https://arxiv.org/rss/math.HO][arXiv: History and Overview of Mathematics]]
+** Tech / Programming                                                       :tech:
+*** [[https://news.ycombinator.com/rss][Hacker News]]
+** Blogs                                                                    :blog:
+** YouTube                                                               :youtube:
+*** Physics
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF-Qj80avWItNRjkZ41rzHyw][Soph's Notes]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFUNtD-UN-fQHHteLHK9HgvQ][Dr. Fatima]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFYrX5FiWjiPd0JytMh6NX1Q][Kathy Loves Physics]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFnoIkPQTzw1SMnatCAChCuA][Quantum Cosmology]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFtscFf8VayggrDYjOwDke_Q][Angela Collier]]
+*** AutoDidacticism
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFI5d0aR9R0AWgTRUkQ-K3UA][Vaughn Gene]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFQjBsscIa_mgEnSvWpm_9vw][Odysseas]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFdIwC3d4CRjrrQdaqZaNBpA][Anthony Metivier]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFlHVl2N3jPEbkNJVx-ItQIQ][HealthyGamerGG]]
+*** Politics & Economics
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF4V_jMdRbbTrmBVJB6FDzgw][Unlearning Economics]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFJXa3_WNNmIpewOtCHf3B0g][LaurieWired]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFYcEgbXH7m5Vv2VZ0JcDwZQ][Dave Garda]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFU4iHnBATIYS_F7PLzibS5A][Rohan Davis]]
+*** Philosophy
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF2PA-AKmVpU6NKCGtZq_rKQ][Philosophy Tube]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF358urzyldvD78E9o2sR-Og][The Leftist Cooks]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF-iaQP4DqEaith7kNvDP3mg][pagemelt]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFGzP7puUuNiDRnC6_QksAHA][artisanalcheese]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF6LEH0rS9V0BF5aNhVYdykQ][CJ The X]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFSkzHxIcfoEr69MWBdo0ppg][Jonas Čeika - CCK Philosophy]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFimiUgDLbi6P17BdaCZpVbg][exurb1a]]
+*** Minecraft
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF32w6uX5qtmUtF4QQQ2PKaQ][Hermitcraft Recap]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFUBsjvdHcwZd3ztdY1Zadcw][GeminiTay]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFFKDEp9si4RmHFWJW1vYsMA][EthosLab]]
+*** Movies & Film
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF7-E5xhZBZdW-8d7V80mzfg][Jenny Nicholson]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFhBD4NpITiW2CzIz5GwppDA][Maggie Mae Fish]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFyNtlmLB73-7gtlBz00XOQQ][Folding Ideas]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFrTNhL_yO3tPTdQ5XgmmWjA][RedLetterMedia]]
+*** Vim & Emacs                                                            :tech:
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF65_CVnMw6hvPET_DRDg3GA][tony]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULF_zBdZ0_H_jn41FDRG7q4Tw][Vimjoyer]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFrk2bNxxxLP-Qd77KxBJ3Xg][diinki]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFwHwDuNd9lCdA7chyyquDXw][Bread on Penguins]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFCWeRTgd79JL0ilH0ZywSJA][AlphaPhoenix]]
+*** Historical Fashion
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFBpAfmni6HEgKM1cq5n-Xig][Vincent Briggs]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFSwwoUNvQWgZDC8a_O6Qs_A][Kaz Rowe]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFca-WkVPVe9nzs2iFct4wxg][Nicole Rudolph]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFgz4oLdeKP1Pt2BpiUn2iXQ][V. Birchwood]]
+*** Bodybuilding
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFLzj9AyaNg_QZ5GTjN97aQA][Bony to Beastly]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFObA5o3mcc1felIMAv6cukw][Geoffrey Verity Schofield]]
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=UULFoGrgxSRHNJ8mNo1E8pg_aQ][Hersovyac]]
+*** Old Reliable
+**** [[https://www.youtube.com/feeds/videos.xml?playlist_id=PLJ_TJFLc25JR3VZ7Xe-cmt4k3bMKBZ5Tm][Best Of The Worst]]

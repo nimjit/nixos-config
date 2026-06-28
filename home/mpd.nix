@@ -2,9 +2,7 @@
 
   services.mpd = {
     enable = true;
-    # Point this at wherever your local music files live.
-    # ~/Music is the XDG default; change if needed.
-    musicDirectory = "${config.home.homeDirectory}/Documents/BACKUP/Music Library";
+    musicDirectory = "${config.home.homeDirectory}/Music";
     extraConfig = ''
       audio_output {
         type "pipewire"

@@ -75,13 +75,21 @@
   xdg.configFile."emacs/init.el".source               = ./dotfiles/emacs/init.el;
   xdg.configFile."emacs/themes/ukiyo-theme.el".source = ./dotfiles/emacs/ukiyo-theme.el;
 
-  # config.org is deployed as a mutable copy on first install so it can be edited
-  # without a Nix rebuild. To persist changes back to git, copy
-  # ~/.config/emacs/config.org back to home/dotfiles/emacs/config.org and commit.
+  # config.org and elfeed.org are deployed as mutable copies on first install so
+  # they can be edited without a Nix rebuild. To persist changes back to git,
+  # copy them back to home/dotfiles/emacs/ and commit.
   home.activation.emacsConfigOrg = lib.hm.dag.entryAfter ["writeBoundary"] ''
     dest="${config.xdg.configHome}/emacs/config.org"
     if [ ! -f "$dest" ]; then
       $DRY_RUN_CMD cp -- ${./dotfiles/emacs/config.org} "$dest"
+      $DRY_RUN_CMD chmod 644 "$dest"
+    fi
+  '';
+
+  home.activation.emacsElfeedOrg = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    dest="${config.xdg.configHome}/emacs/elfeed.org"
+    if [ ! -f "$dest" ]; then
+      $DRY_RUN_CMD cp -- ${./dotfiles/emacs/elfeed.org} "$dest"
       $DRY_RUN_CMD chmod 644 "$dest"
     fi
   '';
