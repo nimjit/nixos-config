@@ -1297,6 +1297,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                                         (nth (1- month) months)
                                         day when-str age)
                                 results))))))))))
+      ))
     (sort results #'string<)))
 
 (defun my/dash--insert-weight-chart ()
@@ -1451,7 +1452,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                                             (format "in %d days" (ceiling diff))))
                             :diff diff :path file)
                       results))))))
-    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
+    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff)))))))
 
 (defun my/dash--uni-assignments ()
   "Ungraded assignments from UNI/Assignments/ (sorted by deadline)."
