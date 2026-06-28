@@ -166,6 +166,211 @@ rather than deferring indefinitely.
 
 ---
 
+## Known annoyances — causes and fixes
+
+These are quality-of-life issues that come up in daily use. They're all solvable
+with small, well-understood config changes.
+
+---
+
+### 1. Input error on close / restart
+
+**What happens:** Closing Emacs or running `restart-emacs` prints an error like
+`"Error in process sentinel"` or `"Error running timer"` or an X input-related
+warning. Sometimes the window freezes briefly before closing.
+
+**Likely causes:**
+- `desktop-save-mode` is running a save hook during shutdown that races against
+  the window being unmapped. The hook tries to write state after Emacs has already
+  started tearing down the display connection.
+- Some package's `kill-emacs-hook` raises a non-fatal error (e.g., a sentinel
+  waiting on a process that's already dead, or the `make-process` calls from
+  `my/dash--insert-weight-chart` not being cleaned up).
+- Less likely: an X grab or modifier key state issue from evil-mode on the last
+  keypress before quit.
+
+**Fix:**
+
+First, get the exact error: run `M-x toggle-debug-on-error`, then close with
+`M-x save-buffers-kill-emacs`. The backtrace will appear in `*Messages*` or a
+`*Backtrace*` buffer before the window closes — redirect it with:
+```elisp
+(add-hook 'kill-emacs-hook
+          (lambda () (with-current-buffer (get-buffer-create "*kill-log*")
+                       (insert (format-time-string "%T ") "kill-emacs\n"))))
+```
+Or run `emacs 2>/tmp/emacs-err.log` from a terminal and check the log after closing.
+
+Once the error is identified, the fix is usually one of:
+- Add `:after-kill t` or a guard to the offending hook
+- Move desktop-save earlier: `(add-hook 'kill-emacs-hook #'desktop-save-in-desktop-dir -90)`
+  so it runs before other hooks unmount things
+- Wrap the problematic hook body in `(ignore-errors ...)`
+
+In the server/client setup (see §4 below), this partially resolves itself —
+`emacsclient` frames close silently and the server only shuts down on explicit
+`kill-emacs`, reducing the surface area.
+
+---
+
+### 2. Buffer and directory changes not reflected automatically
+
+**What happens:** If a file is modified outside Emacs (e.g., mbsync writes a new
+mail file, mu updates the database, a git operation modifies a tracked file), the
+Emacs buffer still shows the old content. Dired buffers similarly don't update when
+files are created or deleted.
+
+**Cause:** Emacs does not watch the filesystem by default. Buffers hold a snapshot
+of the file at open time. `auto-revert-mode` can be enabled per-buffer, or globally.
+
+**Fix:** Add to config.org `* Core Settings`:
+
+```elisp
+(global-auto-revert-mode 1)
+(setq global-auto-revert-non-file-buffers t)   ; also update dired and special buffers
+(setq auto-revert-verbose nil)                  ; no "Reverting buffer" messages
+```
+
+`global-auto-revert-non-file-buffers t` covers dired (folder listings update when
+files appear or disappear), mu4e header lists, and other special buffers.
+
+By default, auto-revert polls every 5 seconds. On Linux, Emacs can use inotify
+instead (no polling, instant, cheaper):
+```elisp
+(setq auto-revert-use-notify t)
+```
+This is the default on recent Emacs builds but worth making explicit. If `inotify`
+isn't available for some buffer type, it falls back to polling.
+
+**Note on mu4e specifically:** mu4e has its own update mechanism (`mu4e-update-interval`
+is already set to 300s in the config). File-level auto-revert won't help with the mu4e
+headers view — that requires `mu index` to run and mu4e to call `mu4e-headers-revert`.
+The existing mbsync + mu systemd integration should handle this automatically.
+
+---
+
+### 3. Backup files scattered in wrong directories
+
+**What happens:** Emacs creates `filename~` (backup) and `#filename#` (auto-save)
+files in the same directory as the file being edited. These appear in dired, confuse
+git status, and pollute the vault and notes directories.
+
+**Cause:** Default Emacs behavior — backups go next to the original file unless
+configured otherwise.
+
+**Fix:** Add to config.org `* Core Settings`:
+
+```elisp
+(let ((backup-dir  (expand-file-name "backups/"   user-emacs-directory))
+      (autosave-dir (expand-file-name "auto-saves/" user-emacs-directory)))
+  (dolist (dir (list backup-dir autosave-dir))
+    (unless (file-exists-p dir) (make-directory dir t)))
+  (setq backup-directory-alist         `(("." . ,backup-dir))
+        auto-save-file-name-transforms `((".*" ,autosave-dir t))
+        backup-by-copying              t    ; don't break hard links
+        delete-old-versions            t
+        kept-new-versions              6
+        kept-old-versions              2
+        version-control                t))  ; numbered backups
+```
+
+This centralises everything in `~/.config/emacs/backups/` and `~/.config/emacs/auto-saves/`.
+Neither directory ends up in the git repo (they're not in `/etc/nixos/`). The
+`backup-by-copying t` avoids breaking symlinks in the Nix store.
+
+Also suppress the lock files (`.#filename` symlinks that appear when a file is open):
+```elisp
+(setq create-lockfiles nil)
+```
+Lock files exist to warn other processes that a file is being edited. On a single-user
+machine they're mostly noise, especially when the vault and notes dirs are synced by
+Syncthing (Syncthing sees `.#filename` as a new file to sync).
+
+---
+
+### 4. White screen on startup (server/client approach)
+
+**What happens:** Opening Emacs shows a blank white frame for 1–3 seconds while the
+config tangles and loads. This is the most visible performance annoyance on this machine.
+
+**Cause:** Every `emacs` invocation loads the entire config from scratch: tangles
+`config.org` → reads `config.el` → evaluates all `use-package` forms → connects to org-gcal,
+sets up elfeed, initialises evil, etc. This is unavoidable in a fresh-start model.
+
+**Solution: emacs daemon + emacsclient**
+
+Run a persistent Emacs server in the background. Client frames connect to it
+instantly — the config is already loaded.
+
+```
+emacs --daemon          ; starts once, loads full config, stays in background
+emacsclient -c          ; opens a new frame in ~100ms (no startup cost)
+emacsclient -c -e '(my/dashboard)'   ; opens directly to dashboard
+```
+
+**NixOS integration** — two options:
+
+**Option A: systemd user service (recommended)**
+
+Add to `home/emacs.nix` or a new `home/emacs-server.nix`:
+
+```nix
+services.emacs = {
+  enable  = true;
+  package = pkgs.emacs-pgtk;
+  client.enable = true;   ; creates an emacsclient wrapper
+};
+```
+
+Home Manager's `services.emacs` starts an Emacs daemon as a systemd user service
+and creates a `emacsclient` wrapper that opens frames in the running server.
+
+Rebuild, then `systemctl --user start emacs` to start immediately, or log out/in
+for the service to auto-start.
+
+**Option B: socket activation (lazier start)**
+
+Don't auto-start; instead let the first `emacsclient` call start the server:
+```bash
+emacsclient -c --alternate-editor='emacs'
+```
+The `--alternate-editor='emacs'` means: if no server is running, start a full `emacs`
+instead. Once that Emacs is running, subsequent `emacsclient` calls connect to it
+instantly.
+
+**Shell alias integration**
+
+Replace the current `emacs` entry point with `emacsclient`:
+```nix
+home.shellAliases.emacs = "emacsclient -c";
+```
+Or keep the existing aliases and change what they invoke internally.
+
+**config.org change** — add near the top, after core settings:
+
+```elisp
+(server-start)   ; idempotent — does nothing if server is already running
+```
+
+This lets the config also work when invoked directly as `emacs` (not as a daemon),
+since it self-promotes to a server on first use.
+
+**Trade-offs to know:**
+- The first server start still takes the full startup time (1–3 seconds). Subsequent
+  frames are instant.
+- `kill-emacs` kills the server and all clients. Use `delete-frame` (or `C-x 5 0`)
+  to close a client frame without killing the server.
+- The white-screen issue (§4) partially improves §1 (close/restart errors): client
+  frames close cleanly via `delete-frame`; the server only shuts down deliberately.
+- Consider adding `(setq server-kill-new-buffers nil)` if you want buffers opened in
+  a client frame to persist in the server after the frame closes.
+
+**Relation to the white-screen:** Not fully solved — the first server start still
+shows white. But since the server starts at login (systemd option A), the white
+screen happens in the background once, not every time you open Emacs.
+
+---
+
 ## Hardware note
 
 ```
