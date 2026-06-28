@@ -275,56 +275,59 @@ Comma (,) is a secondary local leader used for mode-specific commands.
 ** Open, windows, toggles, workspaces
 
 #+begin_src emacs-lisp
-(spc!
-  ;; Open
-  "o"   '(:ignore t :wk "open")
-  "ot"  'vterm
-  "op"  'projectile-find-file
-  "ov"  'open-personal-snowflake
-  "ou"  'open-uni-snowflake
-  "on"  'open-nixos-snowflake
-  "oV"  'regenerate-snowflakes
+  (spc!
+    ;; Open
+    "o"   '(:ignore t :wk "open")
+    "ot"  'vterm
+    "op"  'projectile-find-file
+    "ov"  'open-personal-snowflake
+    "ou"  'open-uni-snowflake
+    "on"  'open-nixos-snowflake
+    "oV"  'regenerate-snowflakes
 
-  ;; Window (mirrors Super+hjkl sway layout)
-  "w"   '(:ignore t :wk "window")
-  "wh"  'evil-window-left
-  "wj"  'evil-window-down
-  "wk"  'evil-window-up
-  "wl"  'evil-window-right
-  "ws"  'evil-window-split
-  "wv"  'evil-window-vsplit
-  "wd"  'evil-window-delete
-  "w="  'balance-windows
-  "wm"  'delete-other-windows  ; maximize current
+    ;; Window (mirrors Super+hjkl sway layout)
+    "w"   '(:ignore t :wk "window")
+    "wh"  'evil-window-left
+    "wj"  'evil-window-down
+    "wk"  'evil-window-up
+    "wl"  'evil-window-right
+    "ws"  'evil-window-split
+    "wv"  'evil-window-vsplit
+    "wd"  'evil-window-delete
+    "w="  'balance-windows
+    "wm"  'delete-other-windows  ; maximize current
 
-  ;; Toggles
-  "t"   '(:ignore t :wk "toggle")
-  "tp"  'org-typst-preview-mode
-  "tP"  'org-typst-preview-buffer
-  "te"  'dired-sidebar-toggle-sidebar
-  "tl"  'display-line-numbers-mode
-  "tw"  'olivetti-mode
-  "tt"  'org-transclusion-mode
-  ;; Music
-  "m"     '(:ignore t :wk "music")
-  "m m"   '(mpdel-browser-open-artists         :wk "music browser")
-  "m SPC" '(mpdel-core-toggle-play-pause        :wk "play / pause")
-  "m n"   '(mpdel-core-next                     :wk "next")
-  "m p"   '(mpdel-core-previous                 :wk "prev")
-  "m q"   '(mpdel-browser-open-current-playlist :wk "queue")
+    ;; Toggles
+    "t"   '(:ignore t :wk "toggle")
+    "tp"  'org-typst-preview-mode
+    "tP"  'org-typst-preview-buffer
+    "te"  'dired-sidebar-toggle-sidebar
+    "tl"  'display-line-numbers-mode
+    "tw"  'olivetti-mode
+    "tt"  'org-transclusion-mode
 
-  ;; Workspaces (perspective)
-  "TAB"    '(:ignore t :wk "workspace")
-  "TAB p"  'perspective-personal
-  "TAB u"  'perspective-uni
-  "TAB TAB" 'persp-switch
-  "TAB d"  'persp-kill
-  "TAB r"  'persp-rename
+    ;; Music
+    "m"     '(:ignore t :wk "music")
+    "m m"   '(mpdel-core-open-artists        :wk "music browser")
+    "m SPC" '(libmpdel-playback-play-pause   :wk "play / pause")
+    "m n"   '(libmpdel-playback-next         :wk "next")
+    "m p"   '(libmpdel-playback-previous     :wk "prev")
+    "m q"   '(mpdel-playlist-open            :wk "queue")
 
-  ;; Quit
-  "q"   '(:ignore t :wk "quit")
-  "qq"  'save-buffers-kill-emacs
-  "qf"  'delete-frame)
+    ;; Workspaces (perspective)
+    "TAB"    '(:ignore t :wk "workspace")
+    "TAB p"  'perspective-personal
+    "TAB u"  'perspective-uni
+    "TAB e"  'perspective-emacs-conf
+    "TAB n"  'perspective-nixos-conf
+    "TAB TAB" 'persp-switch
+    "TAB d"  'persp-kill
+    "TAB r"  'persp-rename
+
+    ;; Quit
+    "q"   '(:ignore t :wk "quit")
+    "qq"  'save-buffers-kill-emacs
+    "qf"  'delete-frame)
 #+end_src
 
 * Appearance
@@ -731,7 +734,9 @@ After that, syncs happen automatically when =org-agenda= opens.
              . "~/org/calendars/semi-productive.org")
             ("cp7ljbsac30lakkm39rsdht0m0@group.calendar.google.com"
              . "~/org/calendars/misc.org")))
-    (run-with-idle-timer 600 t #'org-gcal-sync))
+    (run-with-idle-timer 600 t #'org-gcal-sync)
+    ;; Cache plstore passphrase so OAuth token persists without browser re-auth
+    (setq plstore-cache-passphrase-for-symmetric-encryption t))
 #+end_src
 ** Org Capture Templates
 
@@ -902,23 +907,51 @@ Opening to personal perspective = opening the personal Obsidian vault.
 Opening to uni perspective = opening the uni Obsidian vault.
 
 #+begin_src emacs-lisp
-(use-package perspective
-  :custom
-  (persp-mode-prefix-key (kbd "C-c C-p"))
-  (persp-initial-frame-name "personal")
-  :init (persp-mode))
+  (use-package perspective
+    :custom
+    (persp-mode-prefix-key (kbd "C-c C-p"))
+    (persp-initial-frame-name "personal")
+    :init (persp-mode))
 
-(defun perspective-personal ()
-  "Switch to personal perspective and open vault dashboard."
-  (interactive)
-  (persp-switch "personal")
-  (my/vault-dashboard))
+  (defun perspective-personal ()
+    "Switch to personal perspective and open vault dashboard."
+    (interactive)
+    (persp-switch "personal")
+    (my/vault-dashboard))
 
-(defun perspective-uni ()
-  "Switch to uni perspective and open uni dashboard."
-  (interactive)
-  (persp-switch "uni")
-  (my/uni-dashboard))
+  (defun perspective-uni ()
+    "Switch to uni perspective and open uni dashboard."
+    (interactive)
+    (persp-switch "uni")
+    (my/uni-dashboard))
+
+  (defun perspective-emacs-conf ()
+    "Switch to emacs-conf perspective: vterm (claude) left, config.org right."
+    (interactive)
+    (persp-switch "emacs-conf")
+    (delete-other-windows)
+    (let* ((left (selected-window))
+           (right (split-window-right)))
+      (select-window right)
+      (find-file "~/.config/emacs/config.org")
+      (select-window left)
+      (let ((default-directory "~/.config/emacs/"))
+        (vterm "*emacs-claude*"))
+      (vterm-send-string "claude --continue\n")))
+
+  (defun perspective-nixos-conf ()
+    "Switch to nixos-conf perspective: dired left, vterm (claude) middle, magit right."
+    (interactive)
+    (persp-switch "nixos-conf")
+    (delete-other-windows)
+    (dired "/etc/nixos")
+    (let ((middle (split-window-right)))
+      (select-window middle)
+      (let ((default-directory "/etc/nixos/"))
+        (vterm "*nixos-claude*"))
+      (vterm-send-string "claude --continue\n")
+      (split-window-right)
+      (magit-status "/etc/nixos")))
 #+end_src
 
 * Multi media
@@ -985,21 +1018,21 @@ on port 6600 (rmpc is the primary TUI; mpdel is the Emacs interface).
   (mpdel-mode)
 
   (evil-define-key 'normal mpdel-browser-mode-map
-    "j"   #'mpdel-browser-next-line
-    "k"   #'mpdel-browser-previous-line
-    "l"   #'mpdel-browser-open-entry
-    "h"   #'mpdel-browser-back
-    "g"   (lambda () (interactive) (goto-char (point-min)))
+    "j"   #'next-line
+    "k"   #'previous-line
+    "l"   #'navigel-open
+    "h"   #'navigel-open-parent
+    "gg"  (lambda () (interactive) (goto-char (point-min)))
     "G"   (lambda () (interactive) (goto-char (point-max)))
-    "a"   #'mpdel-browser-add
+    "a"   #'mpdel-core-add-to-current-playlist
     "q"   #'bury-buffer
-    "SPC" #'mpdel-core-toggle-play-pause)
+    "SPC" #'libmpdel-playback-play-pause)
 
   (evil-define-key 'normal mpdel-playlist-mode-map
-    "j"   #'mpdel-playlist-next-line
-    "k"   #'mpdel-playlist-previous-line
-    "d"   #'mpdel-playlist-remove-from-queue
-    "SPC" #'mpdel-core-toggle-play-pause
+    "j"   #'next-line
+    "k"   #'previous-line
+    "d"   #'navigel-delete
+    "SPC" #'libmpdel-playback-play-pause
     "q"   #'bury-buffer))
 #+end_src
 
@@ -1082,7 +1115,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 (defun my/dash-music ()
   "Open mpdel MPD browser."
   (interactive)
-  (mpdel-browser-open-artists))
+  (mpdel-core-open-artists))
 
 (defun my/dash-cal ()
   "Open org-agenda week view (org-gcal keeps it in sync)."
@@ -1316,24 +1349,28 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 
 (defun my/dash--insert-weight-chart ()
   "Run plot-weights async and insert the PNG at end of current buffer."
-  (let ((buf (current-buffer)))
+  (let ((buf  (current-buffer))
+        (cols (max 40 (- (window-width) 6))))
     (make-process
-     :name     "plot-weights"
-     :command  (list (expand-file-name "~/.local/bin/plot-weights")
-                     "--cols" (number-to-string (- (window-width) 6)))
-     :filter   #'ignore
+     :name   "plot-weights"
+     :command (list (expand-file-name "~/.local/bin/plot-weights")
+                    "--cols" (number-to-string cols))
+     :filter  #'ignore
+     :stderr  (get-buffer-create "*plot-weights-err*")
      :sentinel (lambda (_proc _event)
-                 (when (file-exists-p "/tmp/weight-plot.png")
+                 (when (and (buffer-live-p buf)
+                            (file-exists-p "/tmp/weight-plot.png"))
                    (with-current-buffer buf
-                     (when (buffer-live-p buf)
-                       (let ((inhibit-read-only t))
-                         (save-excursion
-                           (goto-char (point-max))
-                           (insert "\n")
-                           (insert-image
-                            (create-image "/tmp/weight-plot.png" 'png nil
-                                          :max-width (- (window-width) 6)))
-                           (insert "\n"))))))))))
+                     (let* ((inhibit-read-only t)
+                            (win (get-buffer-window buf))
+                            (w   (if win (window-width win) cols)))
+                       (save-excursion
+                         (goto-char (point-max))
+                         (insert "\n")
+                         (insert-image
+                          (create-image "/tmp/weight-plot.png" 'png nil
+                                        :max-width (- w 6)))
+                         (insert "\n"))))))))
 
 (defun my/dash-log-weight (weight)
   "Append WEIGHT (kg) as a new row to the weights markdown table."
@@ -1720,15 +1757,16 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 
         ;; ── Footer: clickable shortcuts ────────────────────────────────────
         (insert "\n  ")
-        (dolist (item '(("today"      . my/dash-today)
-                        ("vault-work" . my/dash-vault-work)
-                        ("uni-work"   . my/dash-uni-work)
-                        ("messages"   . my/dash-messages)
-                        ("email"      . my/dash-email)
-                        ("music"      . my/dash-music)
-                        ("cal"        . my/dash-cal)
-                        ("youtube"    . my/dash-youtube)
-                        ("weight"     . my/dash-log-weight)))
+        (dolist (item '(("[ t ] today"      . my/dash-today)
+                        ("[ v ] vault"      . my/dash-vault-work)
+                        ("[ u ] uni"        . my/dash-uni-work)
+                        ("[ m ] messages"   . my/dash-messages)
+                        ("[ e ] email"      . my/dash-email)
+                        ("[ M ] music"      . my/dash-music)
+                        ("[ c ] cal"        . my/dash-cal)
+                        ("[ Y ] youtube"    . my/dash-youtube)
+                        ("[ w ] weight"     . my/dash-log-weight)
+                        ("[ n ] news"       . my/news-view)))
           (insert-text-button (car item)
             'action  (lambda (b) (funcall (button-get b 'launcher)))
             'launcher (cdr item)
@@ -1754,6 +1792,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
       (local-set-key (kbd "c") #'my/dash-cal)
       (local-set-key (kbd "Y") #'my/dash-youtube)
       (local-set-key (kbd "w") #'my/dash-log-weight)
+      (local-set-key (kbd "n") #'my/news-view)
       (when (fboundp 'evil-define-key*)
         (dolist (binding '(("q" . bury-buffer)
                            ("g" . my/dashboard)
@@ -1765,7 +1804,8 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                            ("M" . my/dash-music)
                            ("c" . my/dash-cal)
                            ("Y" . my/dash-youtube)
-                           ("w" . my/dash-log-weight)))
+                           ("w" . my/dash-log-weight)
+                           ("n" . my/news-view)))
           (evil-define-key* 'normal (current-local-map)
                             (car binding) (cdr binding))
           (evil-define-key* 'motion (current-local-map)
@@ -2109,9 +2149,12 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
         (insert "\n")
 
         (insert "-----\n")
-        (insert "=d= daily   =w= weight   =f= files   =g= refresh   =q= close\n")
+        (insert "[ d ] daily   [ w ] weight   [ f ] files   [ g ] refresh   [ q ] close\n")
 
         (org-mode)
+        (setq-local org-hide-emphasis-markers t)
+        (olivetti-mode 1)
+        (setq-local olivetti-body-width 140)
         (org-show-all))
 
       (read-only-mode 1)
@@ -2190,9 +2233,12 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (insert "\n")
 
         (insert "-----\n")
-        (insert "=g= refresh   =f= files   =n= new lecture   =q= close\n")
+        (insert "[ g ] refresh   [ f ] files   [ n ] new lecture   [ q ] close\n")
 
         (org-mode)
+        (setq-local org-hide-emphasis-markers t)
+        (olivetti-mode 1)
+        (setq-local olivetti-body-width 140)
         (org-show-all))
 
       (read-only-mode 1)
@@ -2283,9 +2329,12 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
           (insert "\n")
 
           (insert "-----\n")
-          (insert "=n= new lecture   =q= close\n")
+          (insert "[ n ] new lecture   [ q ] close\n")
 
           (org-mode)
+          (setq-local org-hide-emphasis-markers t)
+          (olivetti-mode 1)
+          (setq-local olivetti-body-width 140)
           (org-show-all))
 
         (read-only-mode 1)
@@ -2293,6 +2342,77 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
         (evil-local-set-key 'normal (kbd "n") #'my/uni-new-lecture))
       (switch-to-buffer buf))))
+#+end_src
+
+** World News
+
+One headline per country, sourced from elfeed. Requires elfeed-update to have run.
+=g= to refresh, =u= to trigger elfeed-update, =q= to close.
+
+#+begin_src emacs-lisp
+(defun my/news-view ()
+  "Show one recent headline per country from elfeed."
+  (interactive)
+  (let* ((countries '(("nl"     . "🇳🇱 Netherlands")
+                      ("uk"     . "🇬🇧 United Kingdom")
+                      ("us"     . "🇺🇸 United States")
+                      ("de"     . "🇩🇪 Germany")
+                      ("fr"     . "🇫🇷 France")
+                      ("jp"     . "🇯🇵 Japan")
+                      ("in"     . "🇮🇳 India")
+                      ("cn"     . "🇨🇳 China")
+                      ("ru"     . "🇷🇺 Russia")
+                      ("ua"     . "🇺🇦 Ukraine")
+                      ("il"     . "🇮🇱 Israel")
+                      ("sa"     . "🇸🇦 Arabia")
+                      ("kr"     . "🇰🇷 South Korea")
+                      ("au"     . "🇦🇺 Australia")
+                      ("br"     . "🇧🇷 Brazil")
+                      ("global" . "🌍 Global")))
+         (buf (get-buffer-create "*World News*"))
+         (all-entries
+          (let (es)
+            (maphash (lambda (_url feed)
+                       (maphash (lambda (_id entry) (push entry es))
+                                (elfeed-feed-entries feed)))
+                     elfeed-db-feeds)
+            es)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "* World News  ·  " (format-time-string "%A %-d %B %Y") "\n\n")
+        (dolist (c countries)
+          (let* ((tag (intern (car c)))
+                 (matching (seq-filter
+                            (lambda (e) (memq tag (elfeed-entry-tags e)))
+                            all-entries))
+                 (latest (car (sort (copy-sequence matching)
+                                    (lambda (a b)
+                                      (> (elfeed-entry-date a)
+                                         (elfeed-entry-date b)))))))
+            (insert "** " (cdr c) "\n")
+            (if latest
+                (insert (format "   [[%s][%s]]\n   /%s/\n\n"
+                                (elfeed-entry-link latest)
+                                (elfeed-entry-title latest)
+                                (format-time-string "%Y-%m-%d"
+                                 (seconds-to-time (elfeed-entry-date latest)))))
+              (insert "   /no entries — press u to fetch/\n\n"))))
+        (insert "-----\n")
+        (insert "[ g ] refresh   [ u ] fetch feeds   [ q ] close\n")
+        (org-mode)
+        (setq-local org-hide-emphasis-markers t)
+        (olivetti-mode 1)
+        (setq-local olivetti-body-width 140)
+        (org-show-all))
+      (read-only-mode 1)
+      (goto-char (point-min))
+      (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
+      (evil-local-set-key 'normal (kbd "g") #'my/news-view)
+      (evil-local-set-key 'normal (kbd "u") #'elfeed-update))
+    (switch-to-buffer buf)))
+
+(spc! "N" '(my/news-view :wk "world news"))
 #+end_src
 
 * Email (mu4e)
