@@ -1102,16 +1102,65 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
         (term-send-string (get-buffer-process buf) (concat cmd "\n"))
         buf))))
 
-(defun my/dash-messages ()
-  "Open WhatsApp via nchat in a vterm. Reuses existing *nchat* buffer."
+;; ── wuzapi / WhatsApp ────────────────────────────────────────────────────────
+;; wuzapi runs as a user systemd service on :8089 (see home/wuzapi.nix).
+;; First-time setup: M-x my/wuzapi-create-user, then M-x my/wuzapi-connect.
+
+(defvar my/wuzapi-url   "http://localhost:8089")
+(defvar my/wuzapi-admin "YTgBgBGGRGgJ8quO6oWqkEtL535DvwpA"
+  "Admin token from ~/.local/share/wuzapi/.env.")
+(defvar my/wuzapi-token nil
+  "Per-user API token — set by my/wuzapi-create-user, persists for session.")
+
+(defun my/wuzapi--post (endpoint headers &optional body)
+  "POST to wuzapi ENDPOINT with HEADERS alist and optional JSON BODY string."
+  (let ((url-request-method "POST")
+        (url-request-extra-headers (append '(("Content-Type" . "application/json"))
+                                           headers))
+        (url-request-data (when body (encode-coding-string body 'utf-8))))
+    (with-current-buffer (url-retrieve-synchronously
+                          (concat my/wuzapi-url endpoint) t nil 10)
+      (goto-char (point-min))
+      (search-forward "\n\n" nil t)
+      (json-read))))
+
+(defun my/wuzapi-create-user ()
+  "Create a wuzapi user (run once). Saves token to my/wuzapi-token."
   (interactive)
-  (let ((bufname "*nchat*"))
-    (if (get-buffer bufname)
-        (switch-to-buffer bufname)
-      (let ((default-directory "~"))
-        (vterm bufname))
-      (with-current-buffer bufname
-        (vterm-send-string "nchat\n")))))
+  (let* ((resp (my/wuzapi--post "/api/user"
+                                `(("Authorization" . ,my/wuzapi-admin))
+                                (json-encode '((name . "thijmen")))))
+         (tok  (or (alist-get 'token resp)
+                   (alist-get 'Token resp))))
+    (if tok
+        (progn (setq my/wuzapi-token tok)
+               (message "wuzapi user created. Token: %s" tok))
+      (message "Error: %s" (json-encode resp)))))
+
+(defun my/wuzapi-connect ()
+  "Connect wuzapi to WhatsApp. Renders QR code in a buffer to scan."
+  (interactive)
+  (unless my/wuzapi-token
+    (user-error "Run M-x my/wuzapi-create-user first"))
+  (let* ((resp (my/wuzapi--post "/api/session/connect"
+                                `(("Token" . ,my/wuzapi-token))
+                                "{}"))
+         (qr   (or (alist-get 'QRCode resp) (alist-get 'qrcode resp))))
+    (if qr
+        (let ((f "/tmp/wuzapi-qr.png"))
+          (with-temp-file f
+            (set-buffer-multibyte nil)
+            (insert (base64-decode-string qr)))
+          (find-file f)
+          (message "Scan the QR code in WhatsApp → Linked Devices, then M-x my/wuzapi-connect again to check status"))
+      (message "wuzapi response: %s" (json-encode resp)))))
+
+(defun my/dash-messages ()
+  "Open WhatsApp setup via wuzapi (m to create user, then connect and scan QR)."
+  (interactive)
+  (if my/wuzapi-token
+      (my/wuzapi-connect)
+    (my/wuzapi-create-user)))
 
 (defun my/dash-email ()
   "Open mu4e."
@@ -1553,8 +1602,45 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                (directory-files dir t "\\.md$"))
        (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
 
+(defun my/render-md-table (lines)
+  "Convert markdown pipe-table LINES to box-drawing unicode (like neovim render_md_table)."
+  (let* ((is-sep   (lambda (l) (string-match-p "^[[:space:]]*|[[:space:]]*[-:]" l)))
+         (cells-of (lambda (l)
+                     (mapcar #'string-trim
+                             (split-string (string-trim l "|" "|") "|"))))
+         widths)
+    ;; Measure column widths from data rows only
+    (dolist (line lines)
+      (unless (funcall is-sep line)
+        (when (string-match-p "^[[:space:]]*|" line)
+          (let ((i 0))
+            (dolist (cell (funcall cells-of line))
+              (when (>= i (length widths))
+                (setq widths (append widths (list 0))))
+              (setf (nth i widths) (max (nth i widths) (length cell)))
+              (setq i (1+ i)))))))
+    (if (null widths)
+        lines
+      (mapcar
+       (lambda (line)
+         (cond
+          ((funcall is-sep line)
+           (concat "├"
+                   (mapconcat (lambda (w) (make-string (+ w 2) ?─)) widths "┼")
+                   "┤"))
+          ((string-match-p "^[[:space:]]*|" line)
+           (let* ((cs    (funcall cells-of line))
+                  (parts (cl-loop for i from 0 below (length widths)
+                                  for cell = (or (nth i cs) "")
+                                  collect (concat " " cell
+                                                  (make-string (max 0 (- (nth i widths) (length cell))) ?\s)
+                                                  " "))))
+             (concat "│" (string-join parts "│") "│")))
+          (t line)))
+       lines))))
+
 (defun my/dash--uni-planning ()
-  "Read # Planning from Uni MOC.md; return org-table-compatible lines."
+  "Read # Planning from Uni MOC.md; return box-drawing table lines."
   (let ((moc (expand-file-name "Uni MOC.md" my/dash-uni))
         lines in-section)
     (when (file-exists-p moc)
@@ -1573,13 +1659,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
     (setq lines (nreverse lines))
     (while (and lines (string-blank-p (car lines))) (setq lines (cdr lines)))
     (while (and lines (string-blank-p (car (last lines)))) (setq lines (butlast lines)))
-    (mapcar (lambda (line)
-              (if (string-match "^|[[:space:]]*[-:]" line)
-                  ;; Convert markdown separator row to org-table separator
-                  (let ((cols (length (split-string (string-trim line "|" "|") "|"))))
-                    (concat "|" (string-join (make-list cols "---") "+") "|"))
-                line))
-            lines)))
+    (my/render-md-table lines)))
 
 (defun my/uni-new-lecture ()
   "Create a lecture note from template and open it."
@@ -1786,8 +1866,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 
       (read-only-mode 1)
       (goto-char (point-min))
-
-      ;; Local keybindings — evil-local-set-key overrides evil's own M, u, etc.
+      ;; Non-evil local keybindings (emacs-state / fallback)
       (use-local-map (make-sparse-keymap))
       (dolist (b '(("q" . bury-buffer)
                    ("g" . my/dashboard)
@@ -1801,11 +1880,26 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                    ("Y" . my/dash-youtube)
                    ("w" . my/dash-log-weight)
                    ("n" . my/news-view)))
-        (local-set-key (kbd (car b)) (cdr b))
-        (evil-local-set-key 'normal (kbd (car b)) (cdr b))
-        (evil-local-set-key 'motion (kbd (car b)) (cdr b))))
+        (local-set-key (kbd (car b)) (cdr b))))
 
+    ;; Switch first so evil has already initialised for this buffer,
+    ;; then register evil-local keybindings (avoids clobber on buffer switch).
     (switch-to-buffer buf)
+    (dolist (b '(("q" . bury-buffer)
+                 ("g" . my/dashboard)
+                 ("t" . my/dash-today)
+                 ("v" . my/dash-vault-work)
+                 ("u" . my/dash-uni-work)
+                 ("m" . my/dash-messages)
+                 ("e" . my/dash-email)
+                 ("M" . my/dash-music)
+                 ("c" . my/dash-cal)
+                 ("Y" . my/dash-youtube)
+                 ("w" . my/dash-log-weight)
+                 ("n" . my/news-view)))
+      (evil-local-set-key 'normal (kbd (car b)) (cdr b))
+      (evil-local-set-key 'motion (kbd (car b)) (cdr b)))
+    (evil-normal-state)
     (my/dash--insert-weight-chart)
     buf))
 
@@ -2221,8 +2315,9 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (insert "\n")
 
         (insert "** Planning  (from Uni MOC)\n\n")
-        (insert (format "   [[file:%s][Open Uni MOC — full planning table]]\n\n"
-                        (expand-file-name "Uni MOC.md" my/dash-uni)))
+        (if planning
+            (dolist (l planning) (insert l "\n"))
+          (insert "/none/\n"))
         (insert "\n")
 
         (insert "-----\n")
@@ -2365,8 +2460,8 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
          (buf (get-buffer-create "*World News*"))
          (all-entries
           (let (es)
-            (maphash (lambda (_id entry) (push entry es))
-                     (elfeed-db-entries elfeed-db))
+            (with-elfeed-db-visit (entry _feed)
+              (push entry es))
             es)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))

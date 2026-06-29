@@ -20,6 +20,7 @@
     ./git.nix
     ./email.nix
     ./services.nix
+    ./wuzapi.nix
   ];
 
   # ── Home basics ───────────────────────────────────────────────────────────
