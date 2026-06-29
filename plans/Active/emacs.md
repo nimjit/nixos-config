@@ -79,7 +79,7 @@ All implemented in the `* Dashboard` section of config.org.
 | Component | Status | Notes |
 |-----------|--------|-------|
 | `my/dashboard` (greeting) | ✅ | Date/weather/fortune header; today/tomorrow khal events; timetable 09–22; birthdays/deadlines/todo/mail/messages right column; footer with all shortcuts |
-| Olivetti centering | ✅ | 140 char body width |
+| Olivetti centering | ✅ | 180 char body width |
 | Evil keybindings (greeting) | ✅ | Set after `switch-to-buffer` to avoid evil reinit clobber |
 | Weight chart (async PNG) | X | `my/dash--insert-weight-chart`; runs plot-weights async, inserts at end, but not shown |
 | Weight logging | ✅ | `my/dash-log-weight` (`w`); computes 7/21/30 day moving averages |
@@ -190,6 +190,7 @@ it becomes a friction point:
 - `h` key in headers mode (currently unbound — should go back or prev-unread)
 - `gg` / first-message binding (omitted to avoid mapping complexity)
 - HTML rendering via w3m — test with real messages
+- no persistent side bar for different email addresses.
 
 ---
 
