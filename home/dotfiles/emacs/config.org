@@ -1732,6 +1732,8 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 
 (defvar my/weight-chart-max-px nil
   "Pixel cap for the weight chart, or nil for full window width.")
+(defvar-local my/weight-chart-marker nil
+  "Buffer-local marker for the weight chart insertion point.")
 
 (defun my/dash--insert-weight-chart ()
   "Run plot-weights async and insert the PNG at point-max of current buffer."
@@ -1758,13 +1760,15 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                                 (pw    (if my/weight-chart-max-px
                                            (min pw my/weight-chart-max-px)
                                          pw))
-                                (pos   (and (boundp 'my/weight-chart-marker)
-                                            (markerp my/weight-chart-marker)
-                                            my/weight-chart-marker)))
+                                (pos   (when (markerp my/weight-chart-marker)
+                                          my/weight-chart-marker))
+                                (img   (create-image "/tmp/weight-plot.png" 'png nil
+                                                     :max-width pw)))
+                           (message "weight chart: pos=%s pw=%d img-type=%s"
+                                    (if pos (marker-position pos) "nil")
+                                    pw (car img))
                            (goto-char (or pos (point-max)))
-                           (insert-image
-                            (create-image "/tmp/weight-plot.png" 'png nil
-                                          :max-width pw))
+                           (insert-image img)
                            (insert "\n"))))
                    (error (message "weight chart error: %s" err)))))))
 
