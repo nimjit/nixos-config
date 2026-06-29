@@ -66,8 +66,8 @@ The key gotchas from the old config that still apply:
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| elfeed + elfeed-org + elfeed-tube | ✅ configured | Feeds in `~/.config/emacs/elfeed.org`; YouTube UULF URLs included. **Runtime status unknown** — needs `M-x elfeed-update` test |
-| Music (mpdel) | ✅ | Artists → Albums → Tracks; `SPC m m` browser, `SPC m SPC` play/pause |
+| elfeed + elfeed-org + elfeed-tube | ✅ | Feeds in `~/.config/emacs/elfeed.org`; YouTube UULF URLs included; category tags on all headings |
+| Music (mpdel) | ✅ | `SPC m m` two-panel view (dir browser left, cover art right); `SPC m s` slim side player; `SPC m SPC` play/pause; cover art from `~/Music/Artist/Album/cover.jpg` |
 | Email (mu4e) | ✅ configured | Reads `~/Mail/`; msmtp send; 3 accounts; evil keybindings. **Needs `mu init` + `mu index` first time** |
 | Calendar | ✅ | `SPC a` → org-agenda (org-gcal keeps it synced) |
 | PDF tools | ✅ | `pdf-tools-install`; evil keybindings (hjkl, H/W fit, +/- zoom) |
@@ -81,7 +81,7 @@ All implemented in the `* Dashboard` section of config.org.
 | `my/dashboard` (greeting) | ✅ | Date/weather/fortune header; today/tomorrow khal events; timetable 09–22; birthdays/deadlines/todo/mail/messages right column; footer with all shortcuts |
 | Olivetti centering | ✅ | 180 char body width |
 | Evil keybindings (greeting) | ✅ | Set after `switch-to-buffer` to avoid evil reinit clobber |
-| Weight chart (async PNG) | X | `my/dash--insert-weight-chart`; runs plot-weights async, inserts at end, but not shown |
+| Weight chart (async PNG) | ✅ | `my/dash--insert-weight-chart`; sentinel fixed with `condition-case`; inserts at point-max after async plot |
 | Weight logging | ✅ | `my/dash-log-weight` (`w`); computes 7/21/30 day moving averages |
 | Birthday reader | ✅ | Parses People/ YAML frontmatter; YYYY-MM-DD and DD-MM-YYYY |
 | Mail count | ✅ | Scans `~/Mail/*/INBOX/new/`; shows sender names |
@@ -90,7 +90,8 @@ All implemented in the `* Dashboard` section of config.org.
 | `my/uni-dashboard` | ✅ | Deadlines, assignments, courses, planning table; org-mode rendering |
 | `my/uni-course-view` | ✅ | Summary, assignments, lectures per course |
 | `my/news-view` | X | One headline per country from elfeed; 16 countries; org-mode, news update not working yet |
-| `my/render-md-table` | X | Box-drawing table renderer with optional max-width shrink, Table is wider than the window, window should be made wider. |
+| `my/render-md-table` | X | Box-drawing table renderer; table is wider than window |
+| `my/yt-view` | ✅ | Two-panel YouTube viewer: list (j/k) + thumbnail preview; category filter via `c`; `RET` plays in mpv with `--title=emacs-youtube` for KDE window rules |
 | Planning table | ✅ | Reads `# Planning` from Uni MOC.md; renders as box-drawing via `my/render-md-table` |
 | `my/uni-new-lecture` | ✅ | Creates from template or default YAML |
 | Auto-open on client frame | ✅ | `server-after-make-frame-hook` opens dashboard in new client |
@@ -142,18 +143,6 @@ M-x my/wuzapi-connect        ; fetches QR code PNG, opens it in Emacs
 ```
 
 Scan the QR code in WhatsApp → Linked Devices. Session persists in `~/.local/share/wuzapi/`.
-
-### 3. elfeed — verify feeds load
-
-```
-M-x elfeed          ; open elfeed
-R                   ; trigger update
-```
-
-If the list stays empty after a minute: check `*Messages*` for elfeed-org errors.
-The expected path is `~/.config/emacs/elfeed.org`; check `rmh-elfeed-org-files` with `C-h v`.
-
-elfeed-update did nothing, and nothing was printed to *Messages*
 
 ---
 

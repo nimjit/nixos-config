@@ -308,7 +308,8 @@ Comma (,) is a secondary local leader used for mode-specific commands.
 
     ;; Music
     "m"     '(:ignore t :wk "music")
-    "m m"   '(mpdel-core-open-artists        :wk "music browser")
+    "m m"   '(my/mpd-view                   :wk "mpd library view")
+    "m s"   '(my/mpd-player                 :wk "mpd side player")
     "m SPC" '(libmpdel-playback-play-pause   :wk "play / pause")
     "m n"   '(libmpdel-playback-next         :wk "next")
     "m p"   '(libmpdel-playback-previous     :wk "prev")
@@ -812,12 +813,14 @@ Templates for org-roam nodes. Captures go to the correct folder automatically.
        :target (file "inbox.org")
        :prepend t)))
 
-  ;; Daily note template
+  ;; Daily note template — matches terminal today structure
   (setq org-roam-dailies-capture-templates
-    '(("d" "default" entry
-       "* %<%H:%M> %?"
+    '(("d" "default" plain
+       "* Schedule\n\n* ToDo\n\n* Inbox\n\n* Italian\n\n* Notes\n"
        :target (file+head "%<%Y-%m-%d>.org"
-                          "#+title: %<%Y-%m-%d>\n#+created: %U\n")))))
+                          "#+title: %<%Y-%m-%d>\n#+created: %U\n\n")
+       :unnarrowed t
+       :jump-to-captured t))))
 #+end_src
 
 * Git
@@ -989,14 +992,244 @@ then run the conversion script and reload: =M-x elfeed-update=.
     :after elfeed
     :config
     (elfeed-tube-setup)
-    (setq elfeed-tube-mpv-options '("--no-terminal"))
     (evil-define-key 'normal elfeed-show-mode-map
       "F"   #'elfeed-tube-fetch
-      "C-m" #'elfeed-tube-mpv-play)
+      "C-m" (lambda ()
+              (interactive)
+              (when-let ((entry elfeed-show-entry))
+                (start-process "mpv-yt" nil "mpv"
+                               "--gpu-api=opengl"
+                               "--title=emacs-youtube"
+                               (elfeed-entry-link entry)))))
     (evil-define-key 'normal elfeed-search-mode-map
       "F" #'elfeed-tube-fetch))
 
   (spc! "r" '(elfeed :wk "rss / youtube"))
+#+end_src
+
+** YouTube view
+
+Two-panel YouTube feed viewer. =Y= on dashboard opens it. Category filter via =c=.
+Thumbnail images displayed inline in the preview panel (GUI only).
+Shares thumbnail cache with terminal =yt-feed= (~/.cache/yt-feed/).
+
+After adding category tags to elfeed.org: run =M-x my/yt--retag-all= once to apply
+the new tags to entries already in the DB.
+
+#+begin_src emacs-lisp
+(defvar my/yt--category nil "Current category tag filter, or nil for All.")
+
+(defconst my/yt-categories
+  '(("All"           . nil)
+    ("Physics"        . phys)
+    ("AutoDidact"     . autodidact)
+    ("Politics"       . politics)
+    ("Philosophy"     . phil)
+    ("Minecraft"      . minecraft)
+    ("Movies & Film"  . film)
+    ("Vim & Emacs"    . tech)
+    ("Fashion"        . fashion)
+    ("Bodybuilding"   . lifting)
+    ("Old Reliable"   . oldrel)))
+
+(defun my/yt--id (url)
+  "Extract YouTube video ID from URL."
+  (when (and url (string-match "\\(?:[?&]v=\\|youtu\\.be/\\)\\([A-Za-z0-9_-]\\{11\\}\\)" url))
+    (match-string 1 url)))
+
+(defun my/yt--thumb-path (id)
+  (expand-file-name (concat id ".jpg") (expand-file-name "~/.cache/yt-feed/")))
+
+(defun my/yt--thumb-url (id)
+  (format "https://i.ytimg.com/vi/%s/mqdefault.jpg" id))
+
+(defun my/yt--channel (entry)
+  (let ((feed (elfeed-entry-feed entry)))
+    (if feed (elfeed-feed-title feed) "?")))
+
+(defun my/yt--entries ()
+  "Return YouTube entries newest first, filtered by my/yt--category."
+  (let (es)
+    (with-elfeed-db-visit (entry _feed)
+      (let ((tags (elfeed-entry-tags entry))
+            (link (or (elfeed-entry-link entry) "")))
+        (when (and (or (memq 'youtube tags)
+                       (string-match-p "youtube\\.com\\|youtu\\.be" link))
+                   (or (null my/yt--category)
+                       (memq my/yt--category tags)))
+          (push entry es))))
+    (sort es (lambda (a b) (> (elfeed-entry-date a) (elfeed-entry-date b))))))
+
+(defun my/yt--retag-all ()
+  "Apply feed tags from elfeed-org to all existing DB entries.
+Run once after adding category tags to elfeed.org."
+  (interactive)
+  (elfeed-org)
+  (with-elfeed-db-visit (entry _feed)
+    (let* ((feed (elfeed-entry-feed entry))
+           (feed-tags (when feed (elfeed-meta feed :tags))))
+      (dolist (tag feed-tags)
+        (elfeed-tag entry tag))))
+  (elfeed-db-save)
+  (message "Done retagging all elfeed entries."))
+
+;; ── List buffer ────────────────────────────────────────────────────────────
+
+(defvar my/yt--list-buf    "*YouTube List*")
+(defvar my/yt--preview-buf "*YouTube Preview*")
+(defvar my/yt--window-config nil "Window config saved on open, restored on quit.")
+(defvar my/yt--all-entries nil)
+
+(defun my/yt--draw-list ()
+  "Erase and redraw the list buffer. Returns the buffer."
+  (setq my/yt--all-entries (my/yt--entries))
+  (let* ((buf (get-buffer-create my/yt--list-buf))
+         (cat-name (or (car (rassq my/yt--category my/yt-categories)) "All"))
+         (n (length my/yt--all-entries)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize (format " YouTube  [%s]  (%d)\n" cat-name n) 'face 'bold))
+        (insert (propertize (make-string 70 ?─) 'face 'shadow) "\n")
+        (dolist (entry my/yt--all-entries)
+          (let* ((title   (or (elfeed-entry-title entry) ""))
+                 (channel (my/yt--channel entry))
+                 (date    (format-time-string "%m-%d"
+                           (seconds-to-time (elfeed-entry-date entry))))
+                 (unread  (memq 'unread (elfeed-entry-tags entry)))
+                 (line    (format " %s  %-20s  %s\n"
+                                  date
+                                  (truncate-string-to-width channel 20)
+                                  (truncate-string-to-width title 55))))
+            (insert (propertize line
+                                'elfeed-entry entry
+                                'face (if unread 'default '(:foreground "#777"))))))
+        (read-only-mode 1))
+      (goto-char (point-min))
+      (forward-line 2))
+    buf))
+
+(defun my/yt--entry-at-point ()
+  (get-text-property (line-beginning-position) 'elfeed-entry))
+
+(defun my/yt--move (n)
+  "Move N lines; skip past header lines; update preview."
+  (forward-line n)
+  (when (< (line-number-at-pos) 3)
+    (goto-char (point-min))
+    (forward-line 2))
+  (my/yt--update-preview))
+
+(defun my/yt--next () (interactive) (my/yt--move 1))
+(defun my/yt--prev () (interactive) (my/yt--move -1))
+
+(defun my/yt--play ()
+  "Play entry at point in mpv."
+  (interactive)
+  (when-let* ((e (my/yt--entry-at-point))
+              (url (elfeed-entry-link e)))
+    (elfeed-untag e 'unread)
+    (elfeed-db-save)
+    (start-process "mpv-yt" nil "mpv"
+                   "--gpu-api=opengl"
+                   "--title=emacs-youtube"
+                   url)))
+
+(defun my/yt--pick-category ()
+  "Choose a category with completing-read (uses vertico)."
+  (interactive)
+  (let* ((choice (completing-read "Category: " (mapcar #'car my/yt-categories) nil t))
+         (tag (cdr (assoc choice my/yt-categories))))
+    (setq my/yt--category tag)
+    (my/yt--draw-list)
+    (my/yt--update-preview)))
+
+(defun my/yt--refresh ()
+  "Fetch new entries from YouTube feeds and redraw after 8s."
+  (interactive)
+  (message "Fetching YouTube feeds…")
+  (elfeed-update)
+  (run-with-timer 8 nil (lambda ()
+                          (my/yt--draw-list)
+                          (my/yt--update-preview)
+                          (message "YouTube: done."))))
+
+(defun my/yt--quit ()
+  "Kill YouTube buffers and restore the previous window layout."
+  (interactive)
+  (dolist (b (list my/yt--list-buf my/yt--preview-buf))
+    (when (get-buffer b) (kill-buffer b)))
+  (if my/yt--window-config
+      (set-window-configuration my/yt--window-config)
+    (delete-other-windows))
+  (setq my/yt--window-config nil))
+
+;; ── Preview buffer ─────────────────────────────────────────────────────────
+
+(defun my/yt--update-preview ()
+  "Redraw preview for the entry currently at point in the list buffer."
+  (when (buffer-live-p (get-buffer my/yt--list-buf))
+    (with-current-buffer my/yt--list-buf
+      (when-let ((e (my/yt--entry-at-point)))
+        (my/yt--draw-preview e)))))
+
+(defun my/yt--draw-preview (entry)
+  "Populate *YouTube Preview* for ENTRY."
+  (let* ((buf   (get-buffer-create my/yt--preview-buf))
+         (title (or (elfeed-entry-title entry) ""))
+         (ch    (my/yt--channel entry))
+         (date  (format-time-string "%Y-%m-%d"
+                 (seconds-to-time (elfeed-entry-date entry))))
+         (url   (elfeed-entry-link entry))
+         (id    (when url (my/yt--id url)))
+         (path  (when id (my/yt--thumb-path id))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (cond
+         ((and path (file-exists-p path))
+          (insert-image (create-image path 'jpeg nil :max-width 720 :max-height 480) " ")
+          (insert "\n\n"))
+         (id
+          (insert (propertize "[loading thumbnail…]\n\n" 'face 'shadow))
+          (make-directory "~/.cache/yt-feed/" t)
+          (make-process
+           :name "yt-thumb"
+           :command (list "curl" "-s" "-L" "-o" path (my/yt--thumb-url id))
+           :sentinel (lambda (proc _)
+                       (when (= 0 (process-exit-status proc))
+                         (my/yt--update-preview)))))
+         (t
+          (insert (propertize "[no thumbnail]\n\n" 'face 'shadow))))
+        (insert (propertize title 'face '(:weight bold :height 1.1)) "\n")
+        (insert (propertize (format "%s  ·  %s\n" ch date) 'face 'shadow))
+        (when url (insert "\n" (propertize url 'face '(:foreground "#999")) "\n"))
+        (insert "\n" (propertize "[RET] play  [c] category  [u] fetch  [q] quit"
+                                 'face 'shadow) "\n")
+        (read-only-mode 1)
+        (goto-char (point-min))))))
+
+;; ── Entry point ────────────────────────────────────────────────────────────
+
+(defun my/yt-view ()
+  "Open two-panel YouTube feed viewer."
+  (interactive)
+  (setq my/yt--category nil
+        my/yt--window-config (current-window-configuration))
+  (delete-other-windows)
+  (switch-to-buffer (my/yt--draw-list))
+  (evil-normal-state)
+  (evil-local-set-key 'normal (kbd "j")   #'my/yt--next)
+  (evil-local-set-key 'normal (kbd "k")   #'my/yt--prev)
+  (evil-local-set-key 'normal (kbd "RET") #'my/yt--play)
+  (evil-local-set-key 'normal (kbd "c")   #'my/yt--pick-category)
+  (evil-local-set-key 'normal (kbd "u")   #'my/yt--refresh)
+  (evil-local-set-key 'normal (kbd "q")   #'my/yt--quit)
+  (split-window-right)
+  (other-window 1)
+  (switch-to-buffer (get-buffer-create my/yt--preview-buf))
+  (other-window 1)
+  (my/yt--update-preview))
 #+end_src
 
 ** Music (mpdel)
@@ -1034,6 +1267,100 @@ on port 6600 (rmpc is the primary TUI; mpdel is the Emacs interface).
     "d"   #'navigel-delete
     "SPC" #'libmpdel-playback-play-pause
     "q"   #'bury-buffer))
+#+end_src
+
+** MPD view
+
+Two-panel view (=SPC m m=): directory browser left, cover art + now-playing right.
+Slim side player (=SPC m s=): narrow panel alongside any buffer, auto-hides with =q=.
+Both share the =*MPD Now Playing*= buffer which auto-updates on track changes.
+
+#+begin_src emacs-lisp
+(defun my/mpd--cover-path (song)
+  "Return a cover art path for SONG, or nil."
+  (when-let* ((file (libmpdel-song-file song))
+              (dir  (file-name-directory
+                     (expand-file-name file libmpdel-music-directory))))
+    (cl-find-if #'file-exists-p
+                (mapcar (lambda (n) (expand-file-name n dir))
+                        '("cover.jpg" "Cover.jpg" "folder.jpg" "Folder.jpg"
+                          "cover.png" "Cover.png" "front.jpg" "Front.jpg")))))
+
+(defvar my/mpd--np-buf "*MPD Now Playing*")
+
+(defun my/mpd--draw-now-playing ()
+  "Redraw the *MPD Now Playing* buffer."
+  (let* ((song (libmpdel-current-song))
+         (buf  (get-buffer-create my/mpd--np-buf)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (if (null song)
+            (insert (propertize "Nothing playing\n" 'face 'shadow))
+          (let* ((title  (or (libmpdel-entity-name song) "Unknown"))
+                 (artist (mapconcat #'libmpdel-entity-name
+                                    (libmpdel-artists song) ", "))
+                 (album  (when-let (a (libmpdel-album song))
+                           (libmpdel-entity-name a)))
+                 (cover  (my/mpd--cover-path song))
+                 (state  (pcase (libmpdel-play-state)
+                           ('play "▶") ('pause "⏸") (_ "■"))))
+            (when (and cover (file-exists-p cover))
+              (insert-image (create-image cover nil nil
+                                          :max-width 300 :max-height 300) " ")
+              (insert "\n\n"))
+            (insert (propertize title 'face '(:weight bold :height 1.1)) "\n")
+            (insert (propertize (concat artist (when album (concat "  ·  " album)))
+                                'face 'shadow) "\n")
+            (insert "\n")
+            (insert (propertize
+                     (format "%s  [SPC] play/pause  [n] next  [p] prev  [q] close"
+                             state)
+                     'face 'shadow) "\n")))
+        (read-only-mode 1)
+        (goto-char (point-min))))))
+
+(defvar my/mpd--hooks-live nil)
+
+(defun my/mpd--hook-update ()
+  (when (buffer-live-p (get-buffer my/mpd--np-buf))
+    (my/mpd--draw-now-playing)))
+
+(unless my/mpd--hooks-live
+  (add-hook 'libmpdel-current-song-changed-hook #'my/mpd--hook-update)
+  (add-hook 'libmpdel-player-changed-hook       #'my/mpd--hook-update)
+  (setq my/mpd--hooks-live t))
+
+(defun my/mpd-view ()
+  "Two-panel MPD view: directory browser left, now-playing right."
+  (interactive)
+  (delete-other-windows)
+  (mpdel-core-open-directories)
+  (split-window-right)
+  (other-window 1)
+  (switch-to-buffer (get-buffer-create my/mpd--np-buf))
+  (evil-normal-state)
+  (evil-local-set-key 'normal (kbd "SPC") #'libmpdel-playback-play-pause)
+  (evil-local-set-key 'normal (kbd "n")   #'libmpdel-playback-next)
+  (evil-local-set-key 'normal (kbd "p")   #'libmpdel-playback-previous)
+  (evil-local-set-key 'normal (kbd "q")   #'delete-window)
+  (other-window 1)
+  (my/mpd--draw-now-playing))
+
+(defun my/mpd-player ()
+  "Open a slim MPD player panel on the right."
+  (interactive)
+  (let ((w (max 40 (min 50 (/ (window-width) 3)))))
+    (split-window-right (- (window-width) w)))
+  (other-window 1)
+  (switch-to-buffer (get-buffer-create my/mpd--np-buf))
+  (evil-normal-state)
+  (evil-local-set-key 'normal (kbd "SPC") #'libmpdel-playback-play-pause)
+  (evil-local-set-key 'normal (kbd "n")   #'libmpdel-playback-next)
+  (evil-local-set-key 'normal (kbd "p")   #'libmpdel-playback-previous)
+  (evil-local-set-key 'normal (kbd "q")   #'delete-window)
+  (other-window -1)
+  (my/mpd--draw-now-playing))
 #+end_src
 
 * Startup Behaviour 
@@ -1168,9 +1495,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
   (mu4e))
 
 (defun my/dash-music ()
-  "Open mpdel MPD browser."
+  "Open MPD two-panel view."
   (interactive)
-  (mpdel-core-open-artists))
+  (my/mpd-view))
 
 (defun my/dash-cal ()
   "Open org-agenda week view (org-gcal keeps it in sync)."
@@ -1178,9 +1505,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
   (org-agenda nil "a"))
 
 (defun my/dash-youtube ()
-  "Open elfeed for YouTube subscriptions (elfeed-tube adds mpv playback)."
+  "Open two-panel YouTube feed viewer."
   (interactive)
-  (elfeed))
+  (my/yt-view))
 
 ;; ── Data helpers ───────────────────────────────────────────────────────────
 
@@ -1414,19 +1741,22 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
      :filter  #'ignore
      :stderr  (get-buffer-create "*plot-weights-err*")
      :sentinel (lambda (_proc _event)
-                 (when (and (buffer-live-p buf)
-                            (file-exists-p "/tmp/weight-plot.png"))
-                   (with-current-buffer buf
-                     (let* ((inhibit-read-only t)
-                            (win (get-buffer-window buf))
-                            (w   (if win (window-width win) cols)))
-                       (save-excursion
-                         (goto-char (point-max))
-                         (insert "\n")
-                         (insert-image
-                          (create-image "/tmp/weight-plot.png" 'png nil
-                                        :max-width (- w 6)))
-                         (insert "\n")))))))))
+                 (condition-case err
+                     (when (and (buffer-live-p buf)
+                                (file-exists-p "/tmp/weight-plot.png"))
+                       (with-current-buffer buf
+                         (let* ((inhibit-read-only t)
+                                (win (get-buffer-window buf))
+                                (w   (if win (window-width win) cols)))
+                           (goto-char (point-max))
+                           (insert "\n")
+                           (insert-image
+                            (create-image "/tmp/weight-plot.png" 'png nil
+                                          :max-width (- w 6)))
+                           (insert "\n"))))
+                   (error (message "weight chart error: %s" err)))))))
+
+
 
 (defun my/dash-log-weight (weight)
   "Append WEIGHT (kg) as a new row to the weights markdown table."
@@ -1752,7 +2082,7 @@ When MAX-WIDTH is set, shrink widest columns so total fits."
         (erase-buffer)
         (setq-local cursor-type nil)
         (olivetti-mode 1)
-        (setq-local olivetti-body-width 140)
+        (setq-local olivetti-body-width 180)
 
         ;; ── Header ────────────────────────────────────────────────────────
         (insert "\n")
@@ -2254,7 +2584,7 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
         (org-mode)
         (setq-local org-hide-emphasis-markers t)
         (olivetti-mode 1)
-        (setq-local olivetti-body-width 140)
+        (setq-local olivetti-body-width 180)
         (org-show-all))
 
       (face-remap-add-relative 'org-link '(:underline nil :weight normal))
@@ -2436,7 +2766,7 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
           (org-mode)
           (setq-local org-hide-emphasis-markers t)
           (olivetti-mode 1)
-          (setq-local olivetti-body-width 140)
+          (setq-local olivetti-body-width 180)
           (org-show-all))
 
         (read-only-mode 1)
