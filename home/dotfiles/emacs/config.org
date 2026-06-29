@@ -16,6 +16,7 @@ Compare with =home/dotfiles/emacs-old/config.org= to see what the fuller config 
 Auto-generated custom settings go to a separate file so this config stays clean.
 
 #+begin_src emacs-lisp
+;;; -*- lexical-binding: t -*-
 (require 'use-package)
 (setq use-package-always-ensure nil)
 
