@@ -1757,9 +1757,11 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                                 (pw    (or (and win2 (window-body-width win2 t)) w-px))
                                 (pw    (if my/weight-chart-max-px
                                            (min pw my/weight-chart-max-px)
-                                         pw)))
-                           (goto-char (point-max))
-                           (insert "\n")
+                                         pw))
+                                (pos   (and (boundp 'my/weight-chart-marker)
+                                            (markerp my/weight-chart-marker)
+                                            my/weight-chart-marker)))
+                           (goto-char (or pos (point-max)))
                            (insert-image
                             (create-image "/tmp/weight-plot.png" 'png nil
                                           :max-width pw))
@@ -2586,6 +2588,9 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
                               (concat row "  " entry))))))
             (unless (string-empty-p row) (insert row "\n"))))
         (insert "\n")
+
+        (insert "** Weight\n\n")
+        (setq-local my/weight-chart-marker (point-marker))
 
         (insert "-----\n")
         (insert "[ d ] daily   [ w ] weight   [ f ] files   [ g ] refresh   [ q ] close\n")
