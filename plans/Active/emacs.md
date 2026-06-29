@@ -208,10 +208,11 @@ Monitors at 100% scaling → performance acceptable for Cairo/PGTK.
 ## Known annoyances
 
 
-### 1. elfeed feeds may still be empty
+### 1. elfeed feeds automatic settings are quite difficult to parse
 
-`elfeed-tube` requires `yt-dlp` for metadata. It's in `modules/common.nix`.
-If elfeed still shows nothing after `R`:
-1. Check `C-h v rmh-elfeed-org-files` — should be `("~/.config/emacs/elfeed.org")`
-2. Check `*elfeed-log*` buffer for HTTP errors
-3. Check whether `elfeed.org` has entries tagged `:elfeed:` at the top level
+Currently (after fixing elfeed), I just see a large list of entries.
+Nothing to identify them. 
+I would like the youtube specific feed to work kind of like the youtube terminal function, but instead in a GUI.
+That should make it better than the terminal version.
+
+
