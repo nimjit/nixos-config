@@ -1730,13 +1730,19 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
       ))
     (sort results #'string<)))
 
+(defvar my/weight-chart-max-px nil
+  "Pixel cap for the weight chart, or nil for full window width.")
+
 (defun my/dash--insert-weight-chart ()
-  "Run plot-weights async and insert the PNG at end of current buffer."
-  (let ((buf  (current-buffer))
-        (cols (min (max 40 (- (window-width) 6))
-                   (- (or (bound-and-true-p olivetti-body-width) 140) 10))))
+  "Run plot-weights async and insert the PNG at point-max of current buffer."
+  (let* ((buf   (current-buffer))
+         (win   (get-buffer-window buf))
+         (w-px  (or (and win (window-body-width win t))
+                    (* 120 (frame-char-width))))
+         (w-px  (if my/weight-chart-max-px (min w-px my/weight-chart-max-px) w-px))
+         (cols  (max 40 (/ w-px 9))))
     (make-process
-     :name   "plot-weights"
+     :name    "plot-weights"
      :command (list (expand-file-name "~/.local/bin/plot-weights")
                     "--cols" (number-to-string cols))
      :filter  #'ignore
@@ -1747,13 +1753,16 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                                 (file-exists-p "/tmp/weight-plot.png"))
                        (with-current-buffer buf
                          (let* ((inhibit-read-only t)
-                                (win (get-buffer-window buf))
-                                (w   (if win (window-width win) cols)))
+                                (win2  (get-buffer-window buf))
+                                (pw    (or (and win2 (window-body-width win2 t)) w-px))
+                                (pw    (if my/weight-chart-max-px
+                                           (min pw my/weight-chart-max-px)
+                                         pw)))
                            (goto-char (point-max))
                            (insert "\n")
                            (insert-image
                             (create-image "/tmp/weight-plot.png" 'png nil
-                                          :max-width (- w 6)))
+                                          :max-width pw))
                            (insert "\n"))))
                    (error (message "weight chart error: %s" err)))))))
 
@@ -2243,7 +2252,6 @@ When MAX-WIDTH is set, shrink widest columns so total fits."
       (evil-local-set-key 'normal (kbd (car b)) (cdr b))
       (evil-local-set-key 'motion (kbd (car b)) (cdr b)))
     (evil-normal-state)
-    (my/dash--insert-weight-chart)
     buf))
 
 ;; Show dashboard on startup; on daemon, open it for each new client frame
