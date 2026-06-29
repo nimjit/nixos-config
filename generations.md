@@ -174,3 +174,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 169 | 2026-06-29  00:53 | 433b457 | emacs: mpdel fixes, elfeed UULF→UC, perspectives, news view, wuzapi    |
 | 171 | 2026-06-29  00:53 | b95adc0 | wuzapi service flags corrected (-port 8089 -datadir)                   |
 | 172 | 2026-06-29  01:39 | e4fa22c | dashboard keys/centering, news view, messages→nchat, wuzapi .env       |
+| 173 | 2026-06-29  02:04 | f385d8c | elfeed fix, evil keys, planning table, wuzapi→user service             |

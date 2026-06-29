@@ -353,14 +353,9 @@ Modern org rendering (tables, tags, todo keywords)
 #+begin_src emacs-lisp
   (use-package org-modern
     :hook ((org-mode          . org-modern-mode)
-           (org-agenda-finalize . org-modern-agenda)))
-
-  ;; Prettier org headings
-  (use-package org-superstar
-    :hook (org-mode . org-superstar-mode)
+           (org-agenda-finalize . org-modern-agenda))
     :custom
-    (org-superstar-headline-bullets-list '("◈" "◆" "◇" "▸" "▹"))
-    (org-superstar-item-bullet-alist '((?- . ?•) (?* . ?◦))))
+    (org-modern-star '("◈" "◆" "◇" "▸" "▹")))
 #+end_src
 
 ** Other
@@ -416,9 +411,9 @@ URLs should be highlighted and linkified.
         (evil-local-set-key 'normal "q" 'my/markdown-reading-toggle)
         (message "Reading view active. Press 'q' to return to editing."))))
 
-  ;; --- Bind the 'SPC m r' sequence in Markdown Mode to activate ---
+  ;; --- Bind in Markdown Mode under toggle prefix (SPC m is music) ---
   (with-eval-after-load 'markdown-mode
-    (evil-define-key 'normal markdown-mode-map (kbd "SPC m r") #'my/markdown-reading-toggle))
+    (evil-define-key 'normal markdown-mode-map (kbd "SPC t r") #'my/markdown-reading-toggle))
 #+end_src
 
 * Physics Notes workflow essentials
@@ -478,25 +473,30 @@ Only matches single-line fragments without nested dollar signs."
       (insert fragment "\n"))
     (when (zerop (call-process "typst" nil nil nil
                                "compile" "--format" "svg" typ-file svg-file))
-      (let ((ov (make-overlay beg end)))
-        (overlay-put ov 'display
-                     (create-image svg-file 'svg nil
-                                   :scale org-typst-preview-scale))
-        (overlay-put ov 'org-typst-preview t)
-        (overlay-put ov 'evaporate t)))))
+      (let* ((paged (concat (file-name-sans-extension svg-file) "1.svg"))
+             (actual-svg (cond ((file-exists-p svg-file) svg-file)
+                               ((file-exists-p paged)    paged))))
+        (when actual-svg
+          (let ((ov (make-overlay beg end)))
+            (overlay-put ov 'display
+                         (create-image actual-svg 'svg nil
+                                       :scale org-typst-preview-scale))
+            (overlay-put ov 'org-typst-preview t)
+            (overlay-put ov 'evaporate t)
+            (run-at-time 30 nil (lambda () (ignore-errors (delete-directory tmp-dir t))))))))))
 
 (defun org-typst-preview-buffer ()
   "Render all $...$ fragments in the current buffer."
   (interactive)
   (dolist (ov (overlays-in (point-min) (point-max)))
     (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward "\\$\\([^$\n]+\\)\\$" nil t)
-      (let ((beg (match-beginning 0)) (end (match-end 0)))
-        ;; Don't render the fragment the cursor is currently inside
-        (unless (and (>= (point) beg) (<= (point) end))
-          (org-typst-preview--render beg end))))))
+  (let ((orig (point)))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "\\$\\([^$\n]+\\)\\$" nil t)
+        (let ((beg (match-beginning 0)) (end (match-end 0)))
+          (unless (and (>= orig beg) (<= orig end))
+            (org-typst-preview--render beg end)))))))
 
 (defun org-typst-preview--post-command ()
   "Auto-toggle preview when cursor moves in or out of a math fragment."
@@ -950,7 +950,7 @@ Opening to uni perspective = opening the uni Obsidian vault.
       (let ((default-directory "/etc/nixos/"))
         (vterm "*nixos-claude*"))
       (vterm-send-string "claude --continue\n")
-      (split-window-right)
+      (select-window (split-window-right))
       (magit-status "/etc/nixos")))
 #+end_src
 
@@ -1405,7 +1405,8 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 (defun my/dash--insert-weight-chart ()
   "Run plot-weights async and insert the PNG at end of current buffer."
   (let ((buf  (current-buffer))
-        (cols (max 40 (- (window-width) 6))))
+        (cols (min (max 40 (- (window-width) 6))
+                   (- (or (bound-and-true-p olivetti-body-width) 140) 10))))
     (make-process
      :name   "plot-weights"
      :command (list (expand-file-name "~/.local/bin/plot-weights")
@@ -1571,11 +1572,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                (class    (my/dash--fm-from-file file "class"))
                (atype    (my/dash--fm-from-file file "type")))
           (when (or (null grade) (string-empty-p (or grade "")))
-            (let* ((diff (and deadline (not (string-empty-p deadline))
-                               (my/dash--date-ts
-                                (concat (my/dash--normalize-date deadline)
-                                        " 12:00:00"))))
-                   (diff (when diff (/ (- (float-time diff) (float-time)) 86400)))
+            (let* ((diff (and deadline (not (string-empty-p (or deadline "")))
+                               (my/dash--date-ts deadline)))
+                   (diff (when diff (/ (- diff (float-time)) 86400)))
                    (when-str (cond ((null diff) "?")
                                    ((< diff 1) "TODAY")
                                    ((>= diff 1) (format "in %d days" (ceiling diff)))
@@ -1602,8 +1601,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                (directory-files dir t "\\.md$"))
        (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
 
-(defun my/render-md-table (lines)
-  "Convert markdown pipe-table LINES to box-drawing unicode (like neovim render_md_table)."
+(defun my/render-md-table (lines &optional max-width)
+  "Convert markdown pipe-table LINES to box-drawing unicode.
+When MAX-WIDTH is set, shrink widest columns so total fits."
   (let* ((is-sep   (lambda (l) (string-match-p "^[[:space:]]*|[[:space:]]*[-:]" l)))
          (cells-of (lambda (l)
                      (mapcar #'string-trim
@@ -1619,6 +1619,18 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                 (setq widths (append widths (list 0))))
               (setf (nth i widths) (max (nth i widths) (length cell)))
               (setq i (1+ i)))))))
+    ;; Shrink widest columns proportionally if table exceeds max-width
+    (when (and max-width widths)
+      (let* ((total (+ 1 (* 3 (length widths)) (apply #'+ widths)))
+             (excess (- total max-width)))
+        (when (> excess 0)
+          (let ((sorted-i (sort (number-sequence 0 (1- (length widths)))
+                                (lambda (a b) (> (nth a widths) (nth b widths))))))
+            (dolist (i sorted-i)
+              (when (> excess 0)
+                (let ((shrink (min excess (max 0 (- (nth i widths) 4)))))
+                  (setf (nth i widths) (- (nth i widths) shrink))
+                  (setq excess (- excess shrink)))))))))
     (if (null widths)
         lines
       (mapcar
@@ -1659,7 +1671,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
     (setq lines (nreverse lines))
     (while (and lines (string-blank-p (car lines))) (setq lines (cdr lines)))
     (while (and lines (string-blank-p (car (last lines)))) (setq lines (butlast lines)))
-    (my/render-md-table lines)))
+    (my/render-md-table lines 130)))
 
 (defun my/uni-new-lecture ()
   "Create a lecture note from template and open it."
@@ -2245,6 +2257,7 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
         (setq-local olivetti-body-width 140)
         (org-show-all))
 
+      (face-remap-add-relative 'org-link '(:underline nil :weight normal))
       (read-only-mode 1)
       (goto-char (point-min))
       (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
@@ -2252,11 +2265,11 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
       (evil-local-set-key 'normal (kbd "d") #'my/dash-today)
       (evil-local-set-key 'normal (kbd "w") #'my/dash-log-weight)
       (evil-local-set-key 'normal (kbd "f")
-                          (lambda () (interactive) (dired my/dash-vault))))
+                          (lambda () (interactive) (dired my/dash-vault)))
+      (evil-local-set-key 'normal (kbd "RET") #'org-open-at-point))
 
     (switch-to-buffer buf)
-    (my/dash--insert-weight-chart))
-  buf)
+    (my/dash--insert-weight-chart)))
 
 (defun my/vault-dashboard-org ()
   "Open personal vault dashboard (org version) — stub until ~/org/ is populated."
@@ -2329,16 +2342,17 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (setq-local olivetti-body-width 140)
         (org-show-all))
 
+      (face-remap-add-relative 'org-link '(:underline nil :weight normal))
       (read-only-mode 1)
       (goto-char (point-min))
       (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
       (evil-local-set-key 'normal (kbd "g") #'my/uni-dashboard)
       (evil-local-set-key 'normal (kbd "f")
                           (lambda () (interactive) (dired my/dash-uni)))
-      (evil-local-set-key 'normal (kbd "n") #'my/uni-new-lecture))
+      (evil-local-set-key 'normal (kbd "n") #'my/uni-new-lecture)
+      (evil-local-set-key 'normal (kbd "RET") #'org-open-at-point))
 
-    (switch-to-buffer buf))
-  buf)
+    (switch-to-buffer buf)))
 
 (defun my/uni-dashboard-org ()
   "Open uni dashboard (org version) — stub until ~/org/uni/ is populated."
