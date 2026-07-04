@@ -391,15 +391,14 @@ The theme file is Nix-managed at =~/.config/emacs/themes/ukiyo-theme.el=.
 #+end_src
 
 #+begin_src emacs-lisp
-  (set-face-attribute 'default nil :font "CMU Typewriter Text-14")
+  (set-face-attribute 'default nil :font "CMU Typewriter Text-16")
   ;; Daemon: set-face-attribute with nil frame only applies to the initial frame.
   ;; This hook applies the font to every new client frame.
   (add-hook 'after-make-frame-functions
     (lambda (frame)
-      (set-face-attribute 'default frame :font "CMU Typewriter Text-14")))
+      (set-face-attribute 'default frame :font "CMU Typewriter Text-16")))
 #+end_src
 
-#+RESULTS:
 
 ** Org Appearance
 
@@ -412,6 +411,7 @@ Modern org rendering (tables, tags, todo keywords)
     :custom
     (org-modern-star '("◈" "◆" "◇" "▸" "▹")))
 #+end_src
+
 
 ** Other
 URLs should be highlighted and linkified.
@@ -483,11 +483,11 @@ This mirrors typst-mate behavior in Obsidian, using the Typst CLI already instal
 
 #+begin_src emacs-lisp
 (defgroup org-typst-preview nil
-  "Preview Typst math fragments inline in org-mode."
+  "Preview Typst math $...$ fragments inline in org and markdown buffers."
   :group 'org)
 
-(defcustom org-typst-preview-scale 0.9
-  "SVG scale factor for rendered math."
+(defcustom org-typst-preview-scale 1.4
+  "SVG scale factor for rendered math. 1.4 ≈ 13pt typst at 14pt body font."
   :type 'number :group 'org-typst-preview)
 
 ;; Ukiyo base05 (main text color) — update if you change themes
@@ -496,6 +496,8 @@ This mirrors typst-mate behavior in Obsidian, using the Typst CLI already instal
   :type 'string :group 'org-typst-preview)
 
 (defvar-local org-typst-preview--last-point nil)
+(defvar-local org-typst-preview--idle-timer nil
+  "Pending re-render timer, cancelled if cursor re-enters fragment before firing.")
 
 (defun org-typst-preview--find-fragment (pos)
   "Return (beg . end) of the $...$ fragment containing POS, or nil.
@@ -514,7 +516,6 @@ Only matches single-line fragments without nested dollar signs."
 
 (defun org-typst-preview--render (beg end)
   "Compile the Typst fragment at BEG..END to SVG and display as an overlay."
-  ;; Clear any existing overlay at this location
   (dolist (ov (overlays-in beg end))
     (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))
   (let* ((fragment (buffer-substring-no-properties beg end))
@@ -523,7 +524,7 @@ Only matches single-line fragments without nested dollar signs."
          (svg-file (expand-file-name "math.svg" tmp-dir)))
     (with-temp-file typ-file
       (insert "#set page(width: auto, height: auto, margin: (x: 2pt, y: 3pt), fill: none)\n")
-      (insert (format "#set text(size: 10.5pt, fill: rgb(\"%s\"))\n"
+      (insert (format "#set text(size: 13pt, fill: rgb(\"%s\"))\n"
                       org-typst-preview-text-color))
       (insert fragment "\n"))
     (when (zerop (call-process "typst" nil nil nil
@@ -555,33 +556,52 @@ Only matches single-line fragments without nested dollar signs."
 
 (defun org-typst-preview--post-command ()
   "Auto-toggle preview when cursor moves in or out of a math fragment."
-  (when (and (eq major-mode 'org-mode) (not (minibufferp)))
+  (when (and (memq major-mode '(org-mode markdown-mode)) (not (minibufferp)))
     (let ((prev org-typst-preview--last-point)
           (curr (point)))
       (setq org-typst-preview--last-point curr)
       (when prev
         (let ((prev-frag (org-typst-preview--find-fragment prev))
               (curr-frag (org-typst-preview--find-fragment curr)))
-          ;; Moved OUT of a fragment → render it
-          (when (and prev-frag (not (equal prev-frag curr-frag)))
-            (unless (seq-find (lambda (o) (overlay-get o 'org-typst-preview))
-                              (overlays-in (car prev-frag) (cdr prev-frag)))
-              (org-typst-preview--render (car prev-frag) (cdr prev-frag))))
-          ;; Moved INTO a fragment → remove overlay to show source
+          ;; Moved INTO a fragment → remove overlay immediately to show source
           (when (and curr-frag (not (equal curr-frag prev-frag)))
+            (when org-typst-preview--idle-timer
+              (cancel-timer org-typst-preview--idle-timer)
+              (setq org-typst-preview--idle-timer nil))
             (dolist (ov (overlays-in (car curr-frag) (cdr curr-frag)))
-              (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))))))))
+              (when (overlay-get ov 'org-typst-preview) (delete-overlay ov))))
+          ;; Moved OUT of a fragment → re-render after 0.3s idle (debounced)
+          (when (and prev-frag (not (equal prev-frag curr-frag)))
+            (when org-typst-preview--idle-timer
+              (cancel-timer org-typst-preview--idle-timer))
+            (let ((buf (current-buffer))
+                  (beg (car prev-frag))
+                  (end (cdr prev-frag)))
+              (setq org-typst-preview--idle-timer
+                    (run-with-idle-timer 0.3 nil
+                      (lambda ()
+                        (when (buffer-live-p buf)
+                          (with-current-buffer buf
+                            (setq org-typst-preview--idle-timer nil)
+                            (org-typst-preview--render beg end)))))))))))))
 
 (define-minor-mode org-typst-preview-mode
-  "Auto-preview Typst math $...$ fragments in org-mode buffers."
+  "Auto-preview Typst math $...$ fragments in org and markdown buffers."
   :lighter " TypPrev"
   (if org-typst-preview-mode
       (progn
         (add-hook 'post-command-hook #'org-typst-preview--post-command nil t)
         (org-typst-preview-buffer))
+    (when org-typst-preview--idle-timer
+      (cancel-timer org-typst-preview--idle-timer)
+      (setq org-typst-preview--idle-timer nil))
     (remove-hook 'post-command-hook #'org-typst-preview--post-command t)
     (dolist (ov (overlays-in (point-min) (point-max)))
       (when (overlay-get ov 'org-typst-preview) (delete-overlay ov)))))
+
+;; Auto-start in org and markdown buffers
+(add-hook 'org-mode-hook      #'org-typst-preview-mode)
+(add-hook 'markdown-mode-hook #'org-typst-preview-mode)
 #+end_src
 
 ** PDF Tools
