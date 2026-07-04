@@ -391,14 +391,19 @@ The theme file is Nix-managed at =~/.config/emacs/themes/ukiyo-theme.el=.
 #+end_src
 
 #+begin_src emacs-lisp
-  (set-face-attribute 'default nil :font "CMU Typewriter Text-16")
-  ;; Daemon: set-face-attribute with nil frame only applies to the initial frame.
-  ;; This hook applies the font to every new client frame.
-  (add-hook 'after-make-frame-functions
-    (lambda (frame)
-      (set-face-attribute 'default frame :font "CMU Typewriter Text-16")))
-#+end_src
+(defun my/setup-frame (&optional frame)
+  "Apply Ukiyo theme and font to FRAME.
+Called both at startup and for each new daemon client frame.
+Using a named function prevents lambda accumulation on config hot-reload."
+  (with-selected-frame (or frame (selected-frame))
+    (load-theme 'ukiyo t)
+    (set-face-attribute 'default nil :font "CMU Typewriter Text-16")))
 
+;; Apply immediately for non-daemon startup (or initial daemon frame)
+(my/setup-frame)
+;; Apply to every new client frame opened via emacsclient
+(add-hook 'after-make-frame-functions #'my/setup-frame)
+#+end_src
 
 ** Org Appearance
 
@@ -411,7 +416,6 @@ Modern org rendering (tables, tags, todo keywords)
     :custom
     (org-modern-star '("◈" "◆" "◇" "▸" "▹")))
 #+end_src
-
 
 ** Other
 URLs should be highlighted and linkified.
