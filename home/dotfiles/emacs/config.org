@@ -33,6 +33,50 @@ Auto-generated custom settings go to a separate file so this config stays clean.
   (setq max-specpdl-size 5000)
 #+end_src
 
+** Config hot-reload
+
+Save config.org → retangle to config.el → hot-reload in the running Emacs.
+Most settings and keybindings are idempotent; use-package forms re-run safely
+(all packages come from Nix, so =:ensure nil= means no download attempts).
+Use =SPC q R= for changes that need a fresh process (new packages, etc.).
+
+#+begin_src emacs-lisp
+(defun my/config-retangle ()
+  "Retangle config.org → config.el and hot-reload it (called from after-save-hook)."
+  (when (equal (buffer-file-name)
+               (expand-file-name "config.org" user-emacs-directory))
+    (let ((config-el (expand-file-name "config.el" user-emacs-directory)))
+      (org-babel-tangle)
+      (condition-case err
+          (load-file config-el)
+        (error (message "config reload error: %s" err)))
+      (message "config.org retangled and reloaded"))))
+
+(add-hook 'after-save-hook #'my/config-retangle)
+
+(defun my/reload-config ()
+  "Manually retangle config.org and hot-reload config.el (=SPC q r=)."
+  (interactive)
+  (let* ((dir user-emacs-directory)
+         (org (expand-file-name "config.org" dir))
+         (el  (expand-file-name "config.el"  dir)))
+    (with-current-buffer (find-file-noselect org)
+      (org-babel-tangle))
+    (condition-case err
+        (load-file el)
+      (error (message "config reload error: %s" err)))
+    (message "Config reloaded.")))
+
+(defun my/restart-daemon ()
+  "Save all buffers and restart the Emacs daemon via systemctl (=SPC q R=).
+The current client frame will die; reconnect with: emacsclient -c"
+  (interactive)
+  (save-some-buffers t)
+  (start-process "restart-emacs-daemon" nil
+                 "systemctl" "--user" "restart" "emacs")
+  (message "Daemon restarting — reconnect with: emacsclient -c"))
+#+end_src
+
 * Core Settings
 
 Tabs as spaces.
@@ -279,7 +323,7 @@ Comma (,) is a secondary local leader used for mode-specific commands.
   (spc!
     ;; Open
     "o"   '(:ignore t :wk "open")
-    "ot"  'vterm
+    "ot"  'ghostel
     "op"  'projectile-find-file
     "ov"  'open-personal-snowflake
     "ou"  'open-uni-snowflake
@@ -329,7 +373,9 @@ Comma (,) is a secondary local leader used for mode-specific commands.
     ;; Quit
     "q"   '(:ignore t :wk "quit")
     "qq"  'save-buffers-kill-emacs
-    "qf"  'delete-frame)
+    "qf"  'delete-frame
+    "qr"  'my/reload-config
+    "qR"  'my/restart-daemon)
 #+end_src
 
 * Appearance
@@ -346,7 +392,14 @@ The theme file is Nix-managed at =~/.config/emacs/themes/ukiyo-theme.el=.
 
 #+begin_src emacs-lisp
   (set-face-attribute 'default nil :font "CMU Typewriter Text-14")
+  ;; Daemon: set-face-attribute with nil frame only applies to the initial frame.
+  ;; This hook applies the font to every new client frame.
+  (add-hook 'after-make-frame-functions
+    (lambda (frame)
+      (set-face-attribute 'default frame :font "CMU Typewriter Text-14")))
 #+end_src
+
+#+RESULTS:
 
 ** Org Appearance
 
@@ -930,7 +983,7 @@ Opening to uni perspective = opening the uni Obsidian vault.
     (my/uni-dashboard))
 
   (defun perspective-emacs-conf ()
-    "Switch to emacs-conf perspective: vterm (claude) left, config.org right."
+    "Switch to emacs-conf perspective: ghostel (claude) left, config.org right."
     (interactive)
     (persp-switch "emacs-conf")
     (delete-other-windows)
@@ -939,23 +992,48 @@ Opening to uni perspective = opening the uni Obsidian vault.
       (select-window right)
       (find-file "~/.config/emacs/config.org")
       (select-window left)
-      (let ((default-directory "~/.config/emacs/"))
-        (vterm "*emacs-claude*"))
-      (vterm-send-string "claude --continue\n")))
+      (let* ((default-directory "~/.config/emacs/")
+             (ghostel-buffer-name "*emacs-claude*")
+             (buf (ghostel)))
+        (run-with-timer 1.0 nil
+          (lambda ()
+            (when (buffer-live-p buf)
+              (with-current-buffer buf
+                (ghostel-send-string "claude --continue\n"))))))))
 
   (defun perspective-nixos-conf ()
-    "Switch to nixos-conf perspective: dired left, vterm (claude) middle, magit right."
+    "Switch to nixos-conf perspective: dired left, ghostel (claude) middle, magit right."
     (interactive)
     (persp-switch "nixos-conf")
     (delete-other-windows)
     (dired "/etc/nixos")
     (let ((middle (split-window-right)))
       (select-window middle)
-      (let ((default-directory "/etc/nixos/"))
-        (vterm "*nixos-claude*"))
-      (vterm-send-string "claude --continue\n")
-      (select-window (split-window-right))
-      (magit-status "/etc/nixos")))
+      (let* ((default-directory "/etc/nixos/")
+             (ghostel-buffer-name "*nixos-claude*")
+             (buf (ghostel)))
+        (run-with-timer 1.0 nil
+          (lambda ()
+            (when (buffer-live-p buf)
+              (with-current-buffer buf
+                (ghostel-send-string "claude --continue\n")))))
+        (select-window (split-window-right))
+        (magit-status "/etc/nixos"))))
+#+end_src
+
+* Terminal (ghostel)
+
+ghostel wraps libghostty-vt (Zig, from the Ghostty terminal). Advantages over vterm:
+Kitty graphics protocol, mouse passthrough to TUIs, auto zsh shell integration,
+~4× higher throughput. Module is pre-compiled in the Nix store — no download needed.
+
+=SPC o t= opens a terminal. =TAB e= / =TAB n= open workspace terminals with claude.
+
+#+begin_src emacs-lisp
+(use-package ghostel
+  :custom
+  (ghostel-kill-buffer-on-exit t)
+  (ghostel-shell-integration   t))
 #+end_src
 
 * Multi media
@@ -1787,9 +1865,11 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
       (goto-char (point-min))
       (while (re-search-forward
               "| *\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\) *| *\\([0-9.]+\\)" nil t)
-        (push (cons (float-time (date-to-time (match-string 1)))
-                    (string-to-number (match-string 2)))
-              entries)))
+        (let ((date-str (match-string 1))
+              (weight-str (match-string 2)))
+          (push (cons (float-time (date-to-time date-str))
+                      (string-to-number weight-str))
+                entries))))
     (let* ((now (float-time))
            (ma  (lambda (days)
                   (let* ((cut  (- now (* days 86400)))

@@ -5,7 +5,7 @@
 
 ---
 
-## New plans and notes from using emacs for a bit longer:
+## New plans and notes from using emacs for a bit longer: [2026-07-04]
 
 ### Open problems
 
@@ -53,6 +53,11 @@ There are still a few open problems in the current state of the emacs configurat
 6. Auto detect changes in files
     This is something which I've gotten quite used to and feels really cool. Whenever you update something here, it gets seen and is immediately visible everywhere in your system.
     I want emacs to have this too.
+7. org-cal
+    I find the current mini-buffer look a little confusing, especially because it is still empty for now.
+    - I think something more like a week column view, like other calendars would look good. Probably not to replace the mini-buffer, but to ammend it.
+8. Line numbers
+    - I think I want line numbers in org files too, what is the consensus on this? If there is one.
 
 ### Inspirations
 - Vulpea
@@ -62,6 +67,7 @@ The links jumping and such would be quite nice for me, coming from obsidian. Tho
 - ERC/mastodon/etc.
 I've read about this and I'm interested in whether I'd use anything like this. I don't really use social media at all, but maybe if it's convenient and actually adds anything, it could be fun to have access to it.
 - I want to dive slightly deeper into distributions and how they do their visuals. I've seen some with sidebar file structures and sidebar tasks, they all have some kind of dashboard. I want to take inspiration from this.
+    - nano emacs and others looked really nice and I think the aesthetics of emacs + moving around files and inside files are probably the two most important aspects for me.
 - Some reddit posters who seem really knowlegable
     - Nicholas-Gougier
     - WassupMahFelloG
@@ -272,5 +278,59 @@ Currently (after fixing elfeed), I just see a large list of entries.
 Nothing to identify them. 
 I would like the youtube specific feed to work kind of like the youtube terminal function, but instead in a GUI.
 That should make it better than the terminal version.
+
+---
+
+## Queued improvements
+
+*Noted 2026-07-05 — not yet implemented. Implement one at a time.*
+
+### Typst auto-render on buffer load
+
+The typst math preview (`org-typst-preview-mode`) works when toggled manually.
+To match Obsidian's behaviour, add a hook so all `$...$` fragments render when
+the buffer is first loaded:
+
+```elisp
+(add-hook 'org-mode-hook #'org-typst-preview-mode)
+;; optionally for markdown too:
+;; (add-hook 'markdown-mode-hook #'org-typst-preview-mode)
+```
+
+One-liner in the existing `** Typst Math Preview` section of config.org.
+
+### calfw — visual calendar
+
+A week/month calendar grid (like a normal calendar app) to complement org-agenda.
+
+- Nix packages to add to `home/emacs.nix`: `calfw` + `calfw-org`
+- use-package block with `calfw-org`
+- Integrates with org-gcal automatically (same agenda files)
+- Suggested binding: `SPC a c` for the calfw week view
+
+### Google Calendar frequent re-auth
+
+org-gcal prompts for re-auth every few minutes when the plstore passphrase
+is not cached across sessions. Two options:
+
+1. **Longer gpg-agent TTL**: add to `~/.gnupg/gpg-agent.conf`:
+   `default-cache-ttl 86400` (24h) and `max-cache-ttl 86400`
+   Then restart: `gpgconf --kill gpg-agent`
+
+2. **Plain authinfo**: move credentials from `~/.authinfo.gpg` to `~/.authinfo`
+   (unencrypted). Acceptable given full-disk encryption on this machine.
+
+### wuzapi 404 on create-user
+
+`my/wuzapi-create-user` returns 404. Likely the admin token in `my/wuzapi-admin`
+in config.org does not match what is in `~/.local/share/wuzapi/.env`.
+Debug: `cat ~/.local/share/wuzapi/.env` and compare.
+
+### Key repeat rate (hold-delay)
+
+The perceived hold-delay difference between Emacs and kitty/neovim is a
+system-level keyboard repeat rate, not an Emacs variable.
+Fix: KDE → System Settings → Input Devices → Keyboard → Delay / Rate.
+Reducing the delay (ms before repeat starts) will make held keys feel snappier.
 
 

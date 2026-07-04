@@ -60,7 +60,8 @@
       elfeed-tube          # YouTube metadata + mpv playback
 
       # ── Terminal ──────────────────────────────────────────────────────────
-      vterm                # full VTE terminal emulator inside Emacs
+      ghostel              # libghostty-vt terminal: Kitty graphics, mouse passthrough, fast
+      # vterm              # fallback: C/libvterm, no Kitty graphics, slower
 
       # ── Music ─────────────────────────────────────────────────────────────
       libmpdel             # MPD protocol library
