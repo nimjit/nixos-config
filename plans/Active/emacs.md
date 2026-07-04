@@ -1,6 +1,74 @@
 # Emacs — Current State
 
-*Last updated: 2026-06-29*
+*Last updated: 2026-07-04*
+
+
+---
+
+## New plans and notes from using emacs for a bit longer:
+
+### Open problems
+
+There are still a few open problems in the current state of the emacs configuration.
+1. Client/Server relation
+    The client server relation in emacs is working correctly, however it creates it's own problems sometimes.
+    - Restarting is not as trivial as it would be without a client server relation.
+    - Sometimes the config state is still the older version of the emacs configuration, after I updated config.org
+2. Config.org not always loaded correctly
+    - The font and typography I defined in config.org is not set correctly on startup.
+3. Youtube feed is not quite where I want it.
+    - The feed does not update, I think it could be the same issue as the config.org not retangling.
+    - The feed itself does work, but I think I prefer the visual styling of my terminal setup. A single column with the thumbnail, details and the subscript. Instead of a list on the left and a single instance of the thumbnail and details on the right.
+4. Performance
+    - This is not a huge worry or big difference, but I do notice the difference moving from emacs into my terminal or neovim. It's just faster. I think a big part of this is the hold delay, which seems slower in emacs.
+5. ESC to exist
+    - This is not so much a problem as it is something I find confusing. When I accidentally type a leader key, any leader key, it waits for the next keypress. But I'm used to just pressing ESC then to escape, but it just registers this as any other key. There is also no timeout. So each time I accidentally press a space, control, meta, I have to press escape at least twice to escape the sequence.
+6. Google calendar prompt
+    Google calendar still prompts me personally very often to log in and it is very inconvenient. Emacs fully stops when the prompt opens and I have to hunt for it in an open browser.
+7. The whatsapp emacs client is still not set up correctly.
+
+### Improvement ideas
+
+1. I have looked into the typst inline math problem and I have a few ideas.
+    I understand now that there are no current larger projects that do what I want.
+    Most people who write inline maths in org files just use latex, because they know it. 
+    I know it too, but I prefer the typst syntax. It's speed is not so relevant for this, as it is for .typ files.
+    But I do think it is possible to make a typst preview handler that works well, given that this exact thing exists in obsidian.
+    - I essentially want to transpile the typst-mate plugin from obsidian into emacs for org-mode.
+    If this is really not possible, I may need to consider moving to latex again, though I find the typing experience quite bad.
+2. Org-mode and Org-agenda
+    I was just setting up the tasks plugin for my girlfriend in obsidian, and realised that most, if not all, of its features exist in org-mode. 
+    Then I realised how I might use it. 
+    I don't really need org-mode for this, as I've created a system to do all of it for me, but I currently don't have a good tasks setup and org-mode would do this for me.
+    - So I want to create a tasks system in org-mode which can for now sit on its own.
+    - Maybe this will be a reason to fully switch to .org files. Then I would need to recheck and recompile my markdown into org-mode files.
+    This is almost fully done, but I would want to update this.
+3. I want to incorporate my graph views more into emacs. They are currently a bit out of date, and ugly too, so I want to improve them. But they can just be static as they are now, as I prefer this.
+4. The terminal
+    - The terminal experience in emacs is a bit slow, especially compared to kitty. Though I did learn there are some integrations between emacs and kitty, so I want to figure those out. Then I could continue to gain the GPU performance of kitty when I want terminal applications.
+    - I also currently have claude code running in a terminal inside emacs (and neovim). In neovim this worked well, but in emacs, it feels a bit off for some reason. So I want to implement a claude-code window without needing the full terminal emulation layer below it. Like agent-shell
+5. Youtube -> mpv inside emacs
+    Currently the youtube feed opens mpv, which opens in a seperate instance. 
+    - I would like this to open inside an emacs window on the side.
+6. Auto detect changes in files
+    This is something which I've gotten quite used to and feels really cool. Whenever you update something here, it gets seen and is immediately visible everywhere in your system.
+    I want emacs to have this too.
+
+### Inspirations
+- Vulpea
+I read about this, and it seems to add a number of things that are native in obsidian into emacs. This seems to make sense to me as I now see obsidian as a more modern, but less powerful version of emacs.
+- Obsidian.el
+The links jumping and such would be quite nice for me, coming from obsidian. Though I wonder what exactly it adds if I don't use obsidian alongside emacs. May be insteresting to take further inspiration from this though. Just take a couple of functions from it.
+- ERC/mastodon/etc.
+I've read about this and I'm interested in whether I'd use anything like this. I don't really use social media at all, but maybe if it's convenient and actually adds anything, it could be fun to have access to it.
+- I want to dive slightly deeper into distributions and how they do their visuals. I've seen some with sidebar file structures and sidebar tasks, they all have some kind of dashboard. I want to take inspiration from this.
+- Some reddit posters who seem really knowlegable
+    - Nicholas-Gougier
+    - WassupMahFelloG
+    - tarsius_
+
+### Fun things I saw that could be a fun addition in my spare time
+- Lichess.el
 
 ---
 

@@ -363,6 +363,15 @@ sys.exit(1)
               (( in_sched )) && [[ "$line" =~ ^[0-9]{2}:[0-9]{2} ]] && all_events+=("''${line:0:5}|''${line:6}")
             done < "$daily"
           fi
+          local org_daily="$HOME/org/daily/$(date +%Y-%m-%d).org"
+          if [[ -f "$org_daily" ]]; then
+            local in_org_sched=0
+            while IFS= read -r line; do
+              [[ "$line" == "* Schedule" ]] && { in_org_sched=1; continue; }
+              [[ "$line" =~ ^\*[[:space:]] ]] && (( in_org_sched )) && { in_org_sched=0; continue; }
+              (( in_org_sched )) && [[ "$line" =~ ^[0-9]{2}:[0-9]{2} ]] && all_events+=("''${line:0:5}|''${line:6}")
+            done < "$org_daily"
+          fi
           # Sort by time
           typeset -a sorted_events=()
           while IFS= read -r line; do sorted_events+=("$line"); done < <(printf '%s\n' "''${all_events[@]}" | sort)

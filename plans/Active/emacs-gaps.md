@@ -12,7 +12,7 @@ Nearly everything from the original gap list is implemented. What remains:
 - [ ] `mu index`
 - [ ] `M-x my/wuzapi-create-user` — creates wuzapi user, saves token to session
 - [ ] `M-x my/wuzapi-connect` — fetches QR PNG; scan in WhatsApp → Linked Devices
-- [ ] `M-x elfeed-update` — test that feeds actually load after setup
+- [x] `M-x elfeed-update` — feeds confirmed working
 
 ---
 
