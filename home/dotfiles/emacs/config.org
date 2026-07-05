@@ -1076,6 +1076,7 @@ then run the conversion script and reload: =M-x elfeed-update=.
   (use-package elfeed
     :custom
     (elfeed-search-filter "@2-weeks-ago +unread")
+    (elfeed-curl-timeout 30)
     :config
     (evil-define-key 'normal elfeed-search-mode-map
       "q" #'elfeed-kill-buffer
@@ -1090,9 +1091,11 @@ then run the conversion script and reload: =M-x elfeed-update=.
     (setq rmh-elfeed-org-files
           (list (expand-file-name "elfeed.org" user-emacs-directory)))
     (elfeed-org)
-    ;; Timer lives here so feeds are populated before the first fetch.
-    ;; 5 s delay lets elfeed-org finish; then repeats every 2 hours.
-    (run-with-timer 5 (* 2 3600) #'elfeed-update))
+    ;; Guard: only create the timer once so config reloads don't stack timers.
+    (defvar my/elfeed-update-timer nil)
+    (unless my/elfeed-update-timer
+      (setq my/elfeed-update-timer
+            (run-with-timer 5 (* 2 3600) #'elfeed-update))))
 
   (use-package elfeed-tube
     :after elfeed
