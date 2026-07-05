@@ -1381,7 +1381,7 @@ Each completed download debounces a redraw: the last finish triggers it."
   (interactive)
   (require 'elfeed-org)
   (setq rmh-elfeed-org-files (list (expand-file-name "elfeed.org" user-emacs-directory)))
-  (elfeed-org)
+  (rmh-elfeed-org-process rmh-elfeed-org-files rmh-elfeed-org-tree-id)
   (let ((feeds (seq-filter (lambda (url) (string-match-p "youtube\\.com\\|youtu\\.be" url))
                            (elfeed-feed-list))))
     (if (null feeds)
@@ -3087,7 +3087,7 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
                             (require 'elfeed-org)
                             (setq rmh-elfeed-org-files
                                   (list (expand-file-name "elfeed.org" user-emacs-directory)))
-                            (elfeed-org)
+                            (rmh-elfeed-org-process rmh-elfeed-org-files rmh-elfeed-org-tree-id)
                             (let ((feeds (seq-filter
                                           (lambda (url)
                                             (not (string-match-p "youtube\\.com\\|youtu\\.be\\|arxiv\\.org\\|ycombinator\\.com" url)))
