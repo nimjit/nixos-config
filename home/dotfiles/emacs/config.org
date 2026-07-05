@@ -1082,7 +1082,9 @@ then run the conversion script and reload: =M-x elfeed-update=.
       "r" #'elfeed-search-untag-all-unread
       "u" #'elfeed-search-tag-all-unread
       "R" #'elfeed-update
-      "b" #'elfeed-search-browse-url))
+      "b" #'elfeed-search-browse-url)
+    ;; Fetch all feeds at startup (0 delay) and then every 2 hours.
+    (run-with-timer 0 (* 2 3600) #'elfeed-update))
 
   (use-package elfeed-org
     :after elfeed
@@ -1112,9 +1114,10 @@ then run the conversion script and reload: =M-x elfeed-update=.
 
 ** YouTube view
 
-Two-panel YouTube feed viewer. =Y= on dashboard opens it. Category filter via =c=.
-Thumbnail images displayed inline in the preview panel (GUI only).
-Shares thumbnail cache with terminal =yt-feed= (~/.cache/yt-feed/).
+Single-column YouTube feed viewer with inline thumbnails (GUI) or placeholders (terminal).
+=Y= on dashboard opens it. Category filter via =c=. Shares thumbnail cache with terminal
+=yt-feed= (~/.cache/yt-feed/). Navigation is index-based: =j=/=k= move by entry, =RET=
+plays in mpv, =o= opens in browser, =u= fetches and redraws when done.
 
 After adding category tags to elfeed.org: run =M-x my/yt--retag-all= once to apply
 the new tags to entries already in the DB.
@@ -1176,60 +1179,143 @@ Run once after adding category tags to elfeed.org."
   (elfeed-db-save)
   (message "Done retagging all elfeed entries."))
 
-;; ── List buffer ────────────────────────────────────────────────────────────
+;; ── State ──────────────────────────────────────────────────────────────────
 
-(defvar my/yt--list-buf    "*YouTube List*")
-(defvar my/yt--preview-buf "*YouTube Preview*")
+(defvar my/yt--list-buf     "*YouTube List*")
 (defvar my/yt--window-config nil "Window config saved on open, restored on quit.")
-(defvar my/yt--all-entries nil)
+(defvar my/yt--all-entries  nil "Current entry list, populated by my/yt--draw-list.")
+(defvar my/yt--positions    nil "Buffer positions, one per entry, parallel to my/yt--all-entries.")
+(defvar my/yt--cursor-idx   0   "Index into my/yt--positions / my/yt--all-entries.")
+(defvar my/yt--hl-overlay   nil "Overlay on the current entry's title line.")
+(defvar my/yt--redraw-timer nil "Debounced redraw timer after thumbnail downloads finish.")
+
+;; ── Drawing ────────────────────────────────────────────────────────────────
 
 (defun my/yt--draw-list ()
-  "Erase and redraw the list buffer. Returns the buffer."
+  "Erase and redraw *YouTube List* in single-column layout. Returns the buffer."
   (setq my/yt--all-entries (my/yt--entries))
-  (let* ((buf (get-buffer-create my/yt--list-buf))
+  (let* ((buf      (get-buffer-create my/yt--list-buf))
          (cat-name (or (car (rassq my/yt--category my/yt-categories)) "All"))
-         (n (length my/yt--all-entries)))
+         (n        (length my/yt--all-entries))
+         (width    (max 40 (or (when-let ((w (get-buffer-window buf t)))
+                                 (window-width w))
+                               (frame-width)
+                               80)))
+         (sep      (propertize (make-string width ?─) 'face 'shadow))
+         positions)
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
         (insert (propertize (format " YouTube  [%s]  (%d)\n" cat-name n) 'face 'bold))
-        (insert (propertize (make-string 70 ?─) 'face 'shadow) "\n")
+        (insert sep "\n")
         (dolist (entry my/yt--all-entries)
-          (let* ((title   (or (elfeed-entry-title entry) ""))
+          (let* ((title   (or (elfeed-entry-title entry) "(no title)"))
                  (channel (my/yt--channel entry))
-                 (date    (format-time-string "%m-%d"
+                 (date    (format-time-string "%Y-%m-%d"
                            (seconds-to-time (elfeed-entry-date entry))))
+                 (url     (elfeed-entry-link entry))
+                 (id      (when url (my/yt--id url)))
+                 (path    (when id (my/yt--thumb-path id)))
                  (unread  (memq 'unread (elfeed-entry-tags entry)))
-                 (line    (format " %s  %-20s  %s\n"
-                                  date
-                                  (truncate-string-to-width channel 20)
-                                  (truncate-string-to-width title 55))))
-            (insert (propertize line
-                                'elfeed-entry entry
-                                'face (if unread 'default '(:foreground "#777"))))))
-        (read-only-mode 1))
-      (goto-char (point-min))
-      (forward-line 2))
+                 (dot     (if unread
+                              (propertize "●" 'face 'font-lock-keyword-face)
+                            (propertize "○" 'face 'shadow))))
+            (push (point) positions)
+            (if (and path (file-exists-p path)
+                     (condition-case nil (display-graphic-p) (error nil)))
+                (insert-image (create-image path 'jpeg nil
+                                            :max-width 220 :max-height 124) " ")
+              (insert (propertize (make-string 22 ?░) 'face 'shadow)))
+            (insert "\n")
+            (insert " " dot " "
+                    (propertize title 'face (if unread 'bold 'shadow))
+                    "\n")
+            (insert (propertize (format "    %s · %s\n" channel date) 'face 'shadow))
+            (insert sep "\n")))
+        (insert (propertize " RET play  o browser  c category  u refresh  q quit\n"
+                            'face 'shadow))
+        (read-only-mode 1)))
+    (setq my/yt--positions (nreverse positions))
+    (setq my/yt--cursor-idx
+          (if (null my/yt--positions) 0
+            (min my/yt--cursor-idx (1- (length my/yt--positions)))))
+    (my/yt--highlight-current)
     buf))
 
-(defun my/yt--entry-at-point ()
-  (get-text-property (line-beginning-position) 'elfeed-entry))
+;; ── Navigation ────────────────────────────────────────────────────────────
 
-(defun my/yt--move (n)
-  "Move N lines; skip past header lines; update preview."
-  (forward-line n)
-  (when (< (line-number-at-pos) 3)
-    (goto-char (point-min))
-    (forward-line 2))
-  (my/yt--update-preview))
+(defun my/yt--highlight-current ()
+  "Put hl-line overlay on the title row of the current entry."
+  (when-let ((buf (get-buffer my/yt--list-buf)))
+    (with-current-buffer buf
+      (when my/yt--hl-overlay
+        (delete-overlay my/yt--hl-overlay)
+        (setq my/yt--hl-overlay nil))
+      (when-let ((pos (nth my/yt--cursor-idx my/yt--positions)))
+        (save-excursion
+          (goto-char pos)
+          (forward-line 1)
+          (let ((beg (point))
+                (end (line-end-position)))
+            (setq my/yt--hl-overlay (make-overlay beg end))
+            (overlay-put my/yt--hl-overlay 'face 'hl-line)))))))
 
-(defun my/yt--next () (interactive) (my/yt--move 1))
-(defun my/yt--prev () (interactive) (my/yt--move -1))
+(defun my/yt--goto-idx (idx)
+  "Move cursor to entry IDX, scroll the list window, and update highlight."
+  (setq my/yt--cursor-idx
+        (max 0 (min idx (max 0 (1- (length my/yt--positions))))))
+  (when-let* ((pos (nth my/yt--cursor-idx my/yt--positions))
+              (win (get-buffer-window my/yt--list-buf t)))
+    (with-selected-window win
+      (goto-char pos)
+      (forward-line 1)))
+  (my/yt--highlight-current))
+
+(defun my/yt--next ()
+  (interactive)
+  (when (< my/yt--cursor-idx (1- (length my/yt--positions)))
+    (my/yt--goto-idx (1+ my/yt--cursor-idx))))
+
+(defun my/yt--prev ()
+  (interactive)
+  (when (> my/yt--cursor-idx 0)
+    (my/yt--goto-idx (1- my/yt--cursor-idx))))
+
+(defun my/yt--current-entry ()
+  (nth my/yt--cursor-idx my/yt--all-entries))
+
+;; ── Thumbnail fetching ────────────────────────────────────────────────────
+
+(defun my/yt--fetch-missing-thumbs ()
+  "Async-download thumbnails for entries that lack a cached image.
+Each completed download cancels any pending redraw and reschedules one
+for 1.5 s later — so a burst of downloads causes only one redraw."
+  (make-directory "~/.cache/yt-feed/" t)
+  (dolist (entry my/yt--all-entries)
+    (let* ((url  (elfeed-entry-link entry))
+           (id   (when url (my/yt--id url)))
+           (path (when id (my/yt--thumb-path id))))
+      (when (and path (not (file-exists-p path)))
+        (make-process
+         :name    (concat "yt-thumb-" id)
+         :buffer  nil
+         :noquery t
+         :command (list "curl" "-s" "-L" "-o" path (my/yt--thumb-url id))
+         :sentinel (lambda (_proc _event)
+                     (when my/yt--redraw-timer
+                       (cancel-timer my/yt--redraw-timer))
+                     (setq my/yt--redraw-timer
+                           (run-with-timer 1.5 nil
+                             (lambda ()
+                               (when (get-buffer my/yt--list-buf)
+                                 (my/yt--draw-list)))))))))))
+
+;; ── Actions ───────────────────────────────────────────────────────────────
 
 (defun my/yt--play ()
-  "Play entry at point in mpv."
+  "Play the current entry in mpv and mark it read."
   (interactive)
-  (when-let* ((e (my/yt--entry-at-point))
+  (when-let* ((e   (my/yt--current-entry))
               (url (elfeed-entry-link e)))
     (elfeed-untag e 'unread)
     (elfeed-db-save)
@@ -1238,101 +1324,68 @@ Run once after adding category tags to elfeed.org."
                    "--title=emacs-youtube"
                    url)))
 
+(defun my/yt--open-browser ()
+  "Open the current entry in the default browser."
+  (interactive)
+  (when-let* ((e   (my/yt--current-entry))
+              (url (elfeed-entry-link e)))
+    (browse-url url)))
+
 (defun my/yt--pick-category ()
-  "Choose a category with completing-read (uses vertico)."
+  "Choose a category filter with completing-read."
   (interactive)
   (let* ((choice (completing-read "Category: " (mapcar #'car my/yt-categories) nil t))
-         (tag (cdr (assoc choice my/yt-categories))))
+         (tag    (cdr (assoc choice my/yt-categories))))
     (setq my/yt--category tag)
     (my/yt--draw-list)
-    (my/yt--update-preview)))
+    (my/yt--goto-idx 0)))
 
 (defun my/yt--refresh ()
-  "Fetch new entries from YouTube feeds and redraw after 8s."
+  "Fetch new entries; redraw when elfeed finishes writing to the DB."
   (interactive)
   (message "Fetching YouTube feeds…")
-  (elfeed-update)
-  (run-with-timer 8 nil (lambda ()
-                          (my/yt--draw-list)
-                          (my/yt--update-preview)
-                          (message "YouTube: done."))))
+  (letrec ((fn (lambda ()
+                 (remove-hook 'elfeed-db-update-hook fn)
+                 (my/yt--draw-list)
+                 (my/yt--fetch-missing-thumbs)
+                 (message "YouTube: done."))))
+    (add-hook 'elfeed-db-update-hook fn))
+  (elfeed-update))
 
 (defun my/yt--quit ()
-  "Kill YouTube buffers and restore the previous window layout."
+  "Kill the YouTube buffer and restore the previous window layout."
   (interactive)
-  (dolist (b (list my/yt--list-buf my/yt--preview-buf))
-    (when (get-buffer b) (kill-buffer b)))
+  (when my/yt--hl-overlay
+    (delete-overlay my/yt--hl-overlay)
+    (setq my/yt--hl-overlay nil))
+  (when (get-buffer my/yt--list-buf)
+    (kill-buffer my/yt--list-buf))
   (if my/yt--window-config
       (set-window-configuration my/yt--window-config)
     (delete-other-windows))
   (setq my/yt--window-config nil))
 
-;; ── Preview buffer ─────────────────────────────────────────────────────────
-
-(defun my/yt--update-preview ()
-  "Redraw preview for the entry currently at point in the list buffer."
-  (when (buffer-live-p (get-buffer my/yt--list-buf))
-    (with-current-buffer my/yt--list-buf
-      (when-let ((e (my/yt--entry-at-point)))
-        (my/yt--draw-preview e)))))
-
-(defun my/yt--draw-preview (entry)
-  "Populate *YouTube Preview* for ENTRY."
-  (let* ((buf   (get-buffer-create my/yt--preview-buf))
-         (title (or (elfeed-entry-title entry) ""))
-         (ch    (my/yt--channel entry))
-         (date  (format-time-string "%Y-%m-%d"
-                 (seconds-to-time (elfeed-entry-date entry))))
-         (url   (elfeed-entry-link entry))
-         (id    (when url (my/yt--id url)))
-         (path  (when id (my/yt--thumb-path id))))
-    (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (cond
-         ((and path (file-exists-p path))
-          (insert-image (create-image path 'jpeg nil :max-width 720 :max-height 480) " ")
-          (insert "\n\n"))
-         (id
-          (insert (propertize "[loading thumbnail…]\n\n" 'face 'shadow))
-          (make-directory "~/.cache/yt-feed/" t)
-          (make-process
-           :name "yt-thumb"
-           :command (list "curl" "-s" "-L" "-o" path (my/yt--thumb-url id))
-           :sentinel (lambda (proc _)
-                       (when (= 0 (process-exit-status proc))
-                         (my/yt--update-preview)))))
-         (t
-          (insert (propertize "[no thumbnail]\n\n" 'face 'shadow))))
-        (insert (propertize title 'face '(:weight bold :height 1.1)) "\n")
-        (insert (propertize (format "%s  ·  %s\n" ch date) 'face 'shadow))
-        (when url (insert "\n" (propertize url 'face '(:foreground "#999")) "\n"))
-        (insert "\n" (propertize "[RET] play  [c] category  [u] fetch  [q] quit"
-                                 'face 'shadow) "\n")
-        (read-only-mode 1)
-        (goto-char (point-min))))))
-
 ;; ── Entry point ────────────────────────────────────────────────────────────
 
 (defun my/yt-view ()
-  "Open two-panel YouTube feed viewer."
+  "Open single-column YouTube feed viewer."
   (interactive)
-  (setq my/yt--category nil
+  (setq my/yt--category     nil
+        my/yt--cursor-idx   0
         my/yt--window-config (current-window-configuration))
   (delete-other-windows)
-  (switch-to-buffer (my/yt--draw-list))
+  (my/yt--draw-list)
+  (switch-to-buffer my/yt--list-buf)
+  (my/yt--goto-idx 0)
+  (my/yt--fetch-missing-thumbs)
   (evil-normal-state)
   (evil-local-set-key 'normal (kbd "j")   #'my/yt--next)
   (evil-local-set-key 'normal (kbd "k")   #'my/yt--prev)
   (evil-local-set-key 'normal (kbd "RET") #'my/yt--play)
+  (evil-local-set-key 'normal (kbd "o")   #'my/yt--open-browser)
   (evil-local-set-key 'normal (kbd "c")   #'my/yt--pick-category)
   (evil-local-set-key 'normal (kbd "u")   #'my/yt--refresh)
-  (evil-local-set-key 'normal (kbd "q")   #'my/yt--quit)
-  (split-window-right)
-  (other-window 1)
-  (switch-to-buffer (get-buffer-create my/yt--preview-buf))
-  (other-window 1)
-  (my/yt--update-preview))
+  (evil-local-set-key 'normal (kbd "q")   #'my/yt--quit))
 #+end_src
 
 ** Music (mpdel)
