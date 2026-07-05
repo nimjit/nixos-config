@@ -1382,11 +1382,13 @@ Each completed download debounces a redraw: the last finish triggers it."
             (message "YouTube: updated.")))))
 
 (defun my/yt--refresh ()
-  "Fetch new entries; redraw once all feeds finish."
+  "Fetch only YouTube feeds; redraw once they finish."
   (interactive)
   (message "Fetching YouTube feeds…")
   (add-hook 'elfeed-update-hooks #'my/yt--on-feed-update)
-  (elfeed-update))
+  (mapc #'elfeed-update-feed
+        (seq-filter (lambda (url) (string-match-p "youtube\\.com\\|youtu\\.be" url))
+                    (elfeed-feed-list))))
 
 (defun my/yt--rebuild-cache ()
   "Delete all cached thumbnails and re-fetch at maxresdefault quality."
@@ -3084,7 +3086,11 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
                             (interactive)
                             (message "Fetching news feeds…")
                             (add-hook 'elfeed-update-hooks #'my/news--on-feed-update)
-                            (elfeed-update))))
+                            (mapc #'elfeed-update-feed
+                                  (seq-filter
+                                   (lambda (url)
+                                     (not (string-match-p "youtube\\.com\\|youtu\\.be\\|arxiv\\.org\\|ycombinator\\.com" url)))
+                                   (elfeed-feed-list)))))
     (switch-to-buffer buf)))
 
 (spc! "N" '(my/news-view :wk "world news"))
