@@ -165,7 +165,7 @@ All implemented in the `* Dashboard` section of config.org.
 | `my/uni-course-view` | ✅ | Summary, assignments, lectures per course |
 | `my/news-view` | X | One headline per country from elfeed; 16 countries; org-mode, news update not working yet |
 | `my/render-md-table` | X | Box-drawing table renderer; table is wider than window |
-| `my/yt-view` | ✅ | Two-panel YouTube viewer: list (j/k) + thumbnail preview; category filter via `c`; `RET` plays in mpv with `--title=emacs-youtube` for KDE window rules |
+| `my/yt-view` | ✅ | Single-column YouTube viewer: inline thumbnails (GUI) / ░ placeholders (terminal); index-based j/k; hl-line highlight; o=browser, c=category, u=hook-refresh, q=quit; auto-fetches missing thumbs async |
 | Planning table | ✅ | Reads `# Planning` from Uni MOC.md; renders as box-drawing via `my/render-md-table` |
 | `my/uni-new-lecture` | ✅ | Creates from template or default YAML |
 | Auto-open on client frame | ✅ | `server-after-make-frame-hook` opens dashboard in new client |
@@ -276,8 +276,7 @@ Monitors at 100% scaling → performance acceptable for Cairo/PGTK.
 
 Currently (after fixing elfeed), I just see a large list of entries.
 Nothing to identify them. 
-I would like the youtube specific feed to work kind of like the youtube terminal function, but instead in a GUI.
-That should make it better than the terminal version.
+The youtube feed is now a single-column layout with inline thumbnails — done 2026-07-05.
 
 ---
 
