@@ -11,11 +11,11 @@
       (base05 "#ccc2b7")   ; main text
       (base06 "#ddd5cc")   ; lighter text
       (base07 "#eee8e2")   ; lightest text
-      (base08 "#c72626")   ; red — errors, deleted
+      (base08 "#ce631c")   ; warm orange-red — errors, deleted
       (base09 "#e77a59")   ; orange — warnings
       (base0A "#ba945f")   ; yellow/gold — types, highlights
-      (base0B "#9aad6e")   ; green — strings, success
-      (base0C "#7ab5a0")   ; cyan — builtins, special
+      (base0B "#da7b5f")   ; warm red — strings, success
+      (base0C "#da9517")   ; warm gold — builtins, special
       (base0D "#e0ba86")   ; gold accent — keywords, links (blue slot)
       (base0E "#ba945f")   ; warm yellow — regex, special vars (magenta slot)
       (base0F "#645743"))  ; brown — deprecated
