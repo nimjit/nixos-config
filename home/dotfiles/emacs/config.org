@@ -1139,15 +1139,16 @@ the new tags to entries already in the DB.
     ("Old Reliable"   . oldrel)))
 
 (defun my/yt--id (url)
-  "Extract YouTube video ID from URL."
-  (when (and url (string-match "\\(?:[?&]v=\\|youtu\\.be/\\)\\([A-Za-z0-9_-]\\{11\\}\\)" url))
+  "Extract YouTube video ID from URL, including Shorts."
+  (when (and url
+             (string-match "\\(?:[?&]v=\\|youtu\\.be/\\|/shorts/\\)\\([A-Za-z0-9_-]\\{11\\}\\)" url))
     (match-string 1 url)))
 
 (defun my/yt--thumb-path (id)
   (expand-file-name (concat id ".jpg") (expand-file-name "~/.cache/yt-feed/")))
 
 (defun my/yt--thumb-url (id)
-  (format "https://i.ytimg.com/vi/%s/mqdefault.jpg" id))
+  (format "https://i.ytimg.com/vi/%s/hqdefault.jpg" id))
 
 (defun my/yt--channel (entry)
   (let ((feed (elfeed-entry-feed entry)))
@@ -1181,13 +1182,14 @@ Run once after adding category tags to elfeed.org."
 
 ;; ── State ──────────────────────────────────────────────────────────────────
 
-(defvar my/yt--list-buf     "*YouTube List*")
+(defvar my/yt--list-buf      "*YouTube List*")
 (defvar my/yt--window-config nil "Window config saved on open, restored on quit.")
-(defvar my/yt--all-entries  nil "Current entry list, populated by my/yt--draw-list.")
-(defvar my/yt--positions    nil "Buffer positions, one per entry, parallel to my/yt--all-entries.")
-(defvar my/yt--cursor-idx   0   "Index into my/yt--positions / my/yt--all-entries.")
-(defvar my/yt--hl-overlay   nil "Overlay on the current entry's title line.")
-(defvar my/yt--redraw-timer nil "Debounced redraw timer after thumbnail downloads finish.")
+(defvar my/yt--all-entries   nil "Current entry list, populated by my/yt--draw-list.")
+(defvar my/yt--positions     nil "Buffer positions, one per entry, parallel to my/yt--all-entries.")
+(defvar my/yt--cursor-idx    0   "Index into my/yt--positions / my/yt--all-entries.")
+(defvar my/yt--hl-overlay    nil "Overlay on the current entry's title line.")
+(defvar my/yt--footer-overlay nil "After-string overlay showing keybind hints below current entry.")
+(defvar my/yt--redraw-timer  nil "Debounced redraw timer after thumbnail downloads finish.")
 
 ;; ── Drawing ────────────────────────────────────────────────────────────────
 
@@ -1218,22 +1220,19 @@ Run once after adding category tags to elfeed.org."
                  (path    (when id (my/yt--thumb-path id)))
                  (unread  (memq 'unread (elfeed-entry-tags entry)))
                  (dot     (if unread
-                              (propertize "●" 'face 'font-lock-keyword-face)
-                            (propertize "○" 'face 'shadow))))
+                              (propertize "○" 'face 'font-lock-keyword-face)
+                            (propertize "●" 'face 'shadow))))
             (push (point) positions)
             (if (and path (file-exists-p path)
                      (condition-case nil (display-graphic-p) (error nil)))
                 (insert-image (create-image path 'jpeg nil
-                                            :max-width 220 :max-height 124) " ")
-              (insert (propertize (make-string 22 ?░) 'face 'shadow)))
+                                            :width 640 :height 360) " ")
+              (insert (propertize (make-string 70 ?░) 'face 'shadow)))
             (insert "\n")
             (insert " " dot " "
                     (propertize title 'face (if unread 'bold 'shadow))
                     "\n")
-            (insert (propertize (format "    %s · %s\n" channel date) 'face 'shadow))
-            (insert sep "\n")))
-        (insert (propertize " RET play  o browser  c category  u refresh  q quit\n"
-                            'face 'shadow))
+            (insert (propertize (format "    %s · %s\n" channel date) 'face 'shadow))))
         (read-only-mode 1)))
     (setq my/yt--positions (nreverse positions))
     (setq my/yt--cursor-idx
@@ -1245,12 +1244,15 @@ Run once after adding category tags to elfeed.org."
 ;; ── Navigation ────────────────────────────────────────────────────────────
 
 (defun my/yt--highlight-current ()
-  "Put hl-line overlay on the title row of the current entry."
+  "Highlight the current entry's title row; show keybind footer below it."
   (when-let ((buf (get-buffer my/yt--list-buf)))
     (with-current-buffer buf
       (when my/yt--hl-overlay
         (delete-overlay my/yt--hl-overlay)
         (setq my/yt--hl-overlay nil))
+      (when my/yt--footer-overlay
+        (delete-overlay my/yt--footer-overlay)
+        (setq my/yt--footer-overlay nil))
       (when-let ((pos (nth my/yt--cursor-idx my/yt--positions)))
         (save-excursion
           (goto-char pos)
@@ -1258,7 +1260,13 @@ Run once after adding category tags to elfeed.org."
           (let ((beg (point))
                 (end (line-end-position)))
             (setq my/yt--hl-overlay (make-overlay beg end))
-            (overlay-put my/yt--hl-overlay 'face 'hl-line)))))))
+            (overlay-put my/yt--hl-overlay 'face 'hl-line))
+          (forward-line 1)
+          (let ((eol (line-end-position)))
+            (setq my/yt--footer-overlay (make-overlay eol eol))
+            (overlay-put my/yt--footer-overlay 'after-string
+                         (propertize "\n  RET play  o browser  c category  u refresh  q quit"
+                                     'face 'shadow))))))))
 
 (defun my/yt--goto-idx (idx)
   "Move cursor to entry IDX, scroll the list window, and update highlight."
@@ -1288,8 +1296,7 @@ Run once after adding category tags to elfeed.org."
 
 (defun my/yt--fetch-missing-thumbs ()
   "Async-download thumbnails for entries that lack a cached image.
-Each completed download cancels any pending redraw and reschedules one
-for 1.5 s later — so a burst of downloads causes only one redraw."
+Each completed download debounces a redraw: the last finish triggers it."
   (make-directory "~/.cache/yt-feed/" t)
   (dolist (entry my/yt--all-entries)
     (let* ((url  (elfeed-entry-link entry))
@@ -1341,23 +1348,27 @@ for 1.5 s later — so a burst of downloads causes only one redraw."
     (my/yt--goto-idx 0)))
 
 (defun my/yt--refresh ()
-  "Fetch new entries; redraw when elfeed finishes writing to the DB."
+  "Fetch new entries; redraw when elfeed finishes or after 60 s fallback."
   (interactive)
-  (message "Fetching YouTube feeds…")
-  (letrec ((fn (lambda ()
-                 (remove-hook 'elfeed-db-update-hook fn)
-                 (my/yt--draw-list)
-                 (my/yt--fetch-missing-thumbs)
-                 (message "YouTube: done."))))
-    (add-hook 'elfeed-db-update-hook fn))
-  (elfeed-update))
+  (message "Fetching YouTube feeds… (may take a minute)")
+  (let (done)
+    (letrec ((fn (lambda ()
+                   (unless done
+                     (setq done t)
+                     (remove-hook 'elfeed-db-update-hook fn)
+                     (my/yt--draw-list)
+                     (my/yt--fetch-missing-thumbs)
+                     (message "YouTube: done.")))))
+      (add-hook 'elfeed-db-update-hook fn)
+      (run-with-timer 60 nil fn))
+    (elfeed-update)))
 
 (defun my/yt--quit ()
   "Kill the YouTube buffer and restore the previous window layout."
   (interactive)
-  (when my/yt--hl-overlay
-    (delete-overlay my/yt--hl-overlay)
-    (setq my/yt--hl-overlay nil))
+  (dolist (ov (list my/yt--hl-overlay my/yt--footer-overlay))
+    (when ov (delete-overlay ov)))
+  (setq my/yt--hl-overlay nil my/yt--footer-overlay nil)
   (when (get-buffer my/yt--list-buf)
     (kill-buffer my/yt--list-buf))
   (if my/yt--window-config
@@ -1376,6 +1387,9 @@ for 1.5 s later — so a burst of downloads causes only one redraw."
   (delete-other-windows)
   (my/yt--draw-list)
   (switch-to-buffer my/yt--list-buf)
+  (when (fboundp 'olivetti-mode)
+    (setq-local olivetti-body-width 200)
+    (olivetti-mode 1))
   (my/yt--goto-idx 0)
   (my/yt--fetch-missing-thumbs)
   (evil-normal-state)
