@@ -3085,7 +3085,7 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
                                   (seq-filter
                                    (lambda (url)
                                      (not (string-match-p "youtube\\.com\\|youtu\\.be\\|arxiv\\.org\\|ycombinator\\.com" url)))
-                                   (elfeed-feed-list)))))
+                                   (elfeed-feed-list))))))
     (switch-to-buffer buf)))
 
 (spc! "N" '(my/news-view :wk "world news"))
