@@ -4,34 +4,25 @@
 All feeds are loaded automatically by elfeed-org on startup.
 Tags are inherited from parent headings.
 
-* Feeds
-** Physics                                                              :physics:
-*** [[https://arxiv.org/rss/quant-ph][arXiv: Quantum Physics]]
-*** [[https://arxiv.org/rss/cond-mat][arXiv: Condensed Matter]]
-*** [[https://arxiv.org/rss/physics.hist-ph][arXiv: History & Philosophy of Physics]]
-** Mathematics                                                             :math:
-*** [[https://arxiv.org/rss/math.HO][arXiv: History and Overview of Mathematics]]
-** Tech / Programming                                                       :tech:
-*** [[https://news.ycombinator.com/rss][Hacker News]]
-** Blogs                                                                    :blog:
+* Feeds :elfeed:
 ** YouTube                                                               :youtube:
-*** Physics
+*** Physics                                                                 :phys:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC-Qj80avWItNRjkZ41rzHyw][Soph's Notes]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCUNtD-UN-fQHHteLHK9HgvQ][Dr. Fatima]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCYrX5FiWjiPd0JytMh6NX1Q][Kathy Loves Physics]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCnoIkPQTzw1SMnatCAChCuA][Quantum Cosmology]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCtscFf8VayggrDYjOwDke_Q][Angela Collier]]
-*** AutoDidacticism
+*** AutoDidacticism                                                     :autodidact:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCI5d0aR9R0AWgTRUkQ-K3UA][Vaughn Gene]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCQjBsscIa_mgEnSvWpm_9vw][Odysseas]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCdIwC3d4CRjrrQdaqZaNBpA][Anthony Metivier]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UClHVl2N3jPEbkNJVx-ItQIQ][HealthyGamerGG]]
-*** Politics & Economics
+*** Politics & Economics                                                 :politics:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC4V_jMdRbbTrmBVJB6FDzgw][Unlearning Economics]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCJXa3_WNNmIpewOtCHf3B0g][LaurieWired]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCYcEgbXH7m5Vv2VZ0JcDwZQ][Dave Garda]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCU4iHnBATIYS_F7PLzibS5A][Rohan Davis]]
-*** Philosophy
+*** Philosophy                                                               :phil:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC2PA-AKmVpU6NKCGtZq_rKQ][Philosophy Tube]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC358urzyldvD78E9o2sR-Og][The Leftist Cooks]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC-iaQP4DqEaith7kNvDP3mg][pagemelt]]
@@ -39,11 +30,11 @@ Tags are inherited from parent headings.
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC6LEH0rS9V0BF5aNhVYdykQ][CJ The X]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCSkzHxIcfoEr69MWBdo0ppg][Jonas Čeika - CCK Philosophy]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCimiUgDLbi6P17BdaCZpVbg][exurb1a]]
-*** Minecraft
+*** Minecraft                                                            :minecraft:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC32w6uX5qtmUtF4QQQ2PKaQ][Hermitcraft Recap]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCUBsjvdHcwZd3ztdY1Zadcw][GeminiTay]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCFKDEp9si4RmHFWJW1vYsMA][EthosLab]]
-*** Movies & Film
+*** Movies & Film                                                             :film:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UC7-E5xhZBZdW-8d7V80mzfg][Jenny Nicholson]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UChBD4NpITiW2CzIz5GwppDA][Maggie Mae Fish]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCyNtlmLB73-7gtlBz00XOQQ][Folding Ideas]]
@@ -54,16 +45,16 @@ Tags are inherited from parent headings.
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCrk2bNxxxLP-Qd77KxBJ3Xg][diinki]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCwHwDuNd9lCdA7chyyquDXw][Bread on Penguins]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCCWeRTgd79JL0ilH0ZywSJA][AlphaPhoenix]]
-*** Historical Fashion
+*** Historical Fashion                                                      :fashion:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCBpAfmni6HEgKM1cq5n-Xig][Vincent Briggs]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCSwwoUNvQWgZDC8a_O6Qs_A][Kaz Rowe]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCca-WkVPVe9nzs2iFct4wxg][Nicole Rudolph]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCgz4oLdeKP1Pt2BpiUn2iXQ][V. Birchwood]]
-*** Bodybuilding
+*** Bodybuilding                                                            :lifting:
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCLzj9AyaNg_QZ5GTjN97aQA][Bony to Beastly]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCObA5o3mcc1felIMAv6cukw][Geoffrey Verity Schofield]]
 **** [[https://www.youtube.com/feeds/videos.xml?channel_id=UCoGrgxSRHNJ8mNo1E8pg_aQ][Hersovyac]]
-*** Old Reliable
+*** Old Reliable                                                             :oldrel:
 **** [[https://www.youtube.com/feeds/videos.xml?playlist_id=PLJ_TJFLc25JR3VZ7Xe-cmt4k3bMKBZ5Tm][Best Of The Worst]]
 ** World News
 *** 🇳🇱 Netherlands                                                         :news:nl:
@@ -79,7 +70,6 @@ Tags are inherited from parent headings.
 *** 🇯🇵 Japan                                                                :news:jp:
 **** [[https://www3.nhk.or.jp/rss/news/cat0.xml][NHK World]]
 *** 🇮🇳 India                                                                :news:in:
-**** [[https://feeds.feedburner.com/ndtvnews-latest][NDTV]]
 *** 🇨🇳 China                                                                :news:cn:
 **** [[https://www.cgtn.com/subscribe/rss/section/world.xml][CGTN English]]
 *** 🇷🇺 Russia                                                               :news:ru:
