@@ -1099,6 +1099,8 @@ then run the conversion script and reload: =M-x elfeed-update=.
 
   (use-package elfeed-tube
     :after elfeed
+    :custom
+    (elfeed-tube-auto-fetch-p nil)
     :config
     (elfeed-tube-setup)
     (evil-define-key 'normal elfeed-show-mode-map
