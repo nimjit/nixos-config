@@ -42,11 +42,12 @@ Use =SPC q R= for changes that need a fresh process (new packages, etc.).
 
 #+begin_src emacs-lisp
 (defun my/config-retangle ()
-  "Retangle config.org → config.el and hot-reload it (called from after-save-hook)."
+  "Retangle config.org → config.el and hot-reload it (called from after-save-hook).
+Uses org-babel-tangle-file so blocks without :tangle directives are included."
   (when (equal (buffer-file-name)
                (expand-file-name "config.org" user-emacs-directory))
     (let ((config-el (expand-file-name "config.el" user-emacs-directory)))
-      (org-babel-tangle)
+      (org-babel-tangle-file buffer-file-name config-el "emacs-lisp")
       (condition-case err
           (load-file config-el)
         (error (message "config reload error: %s" err)))
@@ -60,8 +61,7 @@ Use =SPC q R= for changes that need a fresh process (new packages, etc.).
   (let* ((dir user-emacs-directory)
          (org (expand-file-name "config.org" dir))
          (el  (expand-file-name "config.el"  dir)))
-    (with-current-buffer (find-file-noselect org)
-      (org-babel-tangle))
+    (org-babel-tangle-file org el "emacs-lisp")
     (condition-case err
         (load-file el)
       (error (message "config reload error: %s" err)))
