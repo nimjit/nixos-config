@@ -1082,16 +1082,17 @@ then run the conversion script and reload: =M-x elfeed-update=.
       "r" #'elfeed-search-untag-all-unread
       "u" #'elfeed-search-tag-all-unread
       "R" #'elfeed-update
-      "b" #'elfeed-search-browse-url)
-    ;; Fetch all feeds at startup (0 delay) and then every 2 hours.
-    (run-with-timer 0 (* 2 3600) #'elfeed-update))
+      "b" #'elfeed-search-browse-url))
 
   (use-package elfeed-org
     :after elfeed
     :config
     (setq rmh-elfeed-org-files
           (list (expand-file-name "elfeed.org" user-emacs-directory)))
-    (elfeed-org))
+    (elfeed-org)
+    ;; Timer lives here so feeds are populated before the first fetch.
+    ;; 5 s delay lets elfeed-org finish; then repeats every 2 hours.
+    (run-with-timer 5 (* 2 3600) #'elfeed-update))
 
   (use-package elfeed-tube
     :after elfeed
@@ -1148,7 +1149,12 @@ the new tags to entries already in the DB.
   (expand-file-name (concat id ".jpg") (expand-file-name "~/.cache/yt-feed/")))
 
 (defun my/yt--thumb-url (id)
-  (format "https://i.ytimg.com/vi/%s/hqdefault.jpg" id))
+  ;; maxresdefault = 1280×720 when available; YouTube serves hqdefault as fallback.
+  (format "https://i.ytimg.com/vi/%s/maxresdefault.jpg" id))
+
+(defun my/yt--gui-p ()
+  "Non-nil when running in a graphical frame."
+  (condition-case nil (display-graphic-p) (error nil)))
 
 (defun my/yt--channel (entry)
   (let ((feed (elfeed-entry-feed entry)))
@@ -1194,7 +1200,7 @@ Run once after adding category tags to elfeed.org."
 ;; ── Drawing ────────────────────────────────────────────────────────────────
 
 (defun my/yt--draw-list ()
-  "Erase and redraw *YouTube List* in single-column layout. Returns the buffer."
+  "Erase and redraw *YouTube List*. Each entry: thumbnail left, text right. Returns buffer."
   (setq my/yt--all-entries (my/yt--entries))
   (let* ((buf      (get-buffer-create my/yt--list-buf))
          (cat-name (or (car (rassq my/yt--category my/yt-categories)) "All"))
@@ -1204,6 +1210,7 @@ Run once after adding category tags to elfeed.org."
                                (frame-width)
                                80)))
          (sep      (propertize (make-string width ?─) 'face 'shadow))
+         (gui      (my/yt--gui-p))
          positions)
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -1221,18 +1228,25 @@ Run once after adding category tags to elfeed.org."
                  (unread  (memq 'unread (elfeed-entry-tags entry)))
                  (dot     (if unread
                               (propertize "○" 'face 'font-lock-keyword-face)
-                            (propertize "●" 'face 'shadow))))
+                            (propertize "●" 'face 'shadow)))
+                 ;; indent for line 2 matches the thumbnail width
+                 (indent  (if gui
+                              (propertize " " 'display '(space :width (640)))
+                            (make-string 70 ? ))))
             (push (point) positions)
-            (if (and path (file-exists-p path)
-                     (condition-case nil (display-graphic-p) (error nil)))
-                (insert-image (create-image path 'jpeg nil
-                                            :width 640 :height 360) " ")
+            ;; line 1: thumbnail (or placeholder) + dot + title on same line
+            (if (and path (file-exists-p path) gui)
+                (insert-image (create-image path 'jpeg nil :width 640 :height 360) " ")
               (insert (propertize (make-string 70 ?░) 'face 'shadow)))
-            (insert "\n")
-            (insert " " dot " "
+            (insert "  " dot " "
                     (propertize title 'face (if unread 'bold 'shadow))
                     "\n")
-            (insert (propertize (format "    %s · %s\n" channel date) 'face 'shadow))))
+            ;; line 2: indented channel · date, aligned with title
+            (insert indent "     "
+                    (propertize (format "%s  ·  %s" channel date) 'face 'shadow)
+                    "\n")
+            ;; two blank lines between entries
+            (insert "\n\n")))
         (read-only-mode 1)))
     (setq my/yt--positions (nreverse positions))
     (setq my/yt--cursor-idx
@@ -1244,7 +1258,7 @@ Run once after adding category tags to elfeed.org."
 ;; ── Navigation ────────────────────────────────────────────────────────────
 
 (defun my/yt--highlight-current ()
-  "Highlight the current entry's title row; show keybind footer below it."
+  "hl-line on image+title row; footer hint after channel·date row."
   (when-let ((buf (get-buffer my/yt--list-buf)))
     (with-current-buffer buf
       (when my/yt--hl-overlay
@@ -1256,16 +1270,17 @@ Run once after adding category tags to elfeed.org."
       (when-let ((pos (nth my/yt--cursor-idx my/yt--positions)))
         (save-excursion
           (goto-char pos)
-          (forward-line 1)
+          ;; line 1: image+title — highlight the text portion after the image
           (let ((beg (point))
                 (end (line-end-position)))
             (setq my/yt--hl-overlay (make-overlay beg end))
             (overlay-put my/yt--hl-overlay 'face 'hl-line))
+          ;; line 2: channel·date — footer as after-string at EOL
           (forward-line 1)
           (let ((eol (line-end-position)))
             (setq my/yt--footer-overlay (make-overlay eol eol))
             (overlay-put my/yt--footer-overlay 'after-string
-                         (propertize "\n  RET play  o browser  c category  u refresh  q quit"
+                         (propertize "\n  RET play  o browser  c category  u refresh  M rebuild-cache  q quit"
                                      'face 'shadow))))))))
 
 (defun my/yt--goto-idx (idx)
@@ -1275,8 +1290,7 @@ Run once after adding category tags to elfeed.org."
   (when-let* ((pos (nth my/yt--cursor-idx my/yt--positions))
               (win (get-buffer-window my/yt--list-buf t)))
     (with-selected-window win
-      (goto-char pos)
-      (forward-line 1)))
+      (goto-char pos)))
   (my/yt--highlight-current))
 
 (defun my/yt--next ()
@@ -1363,6 +1377,16 @@ Each completed download debounces a redraw: the last finish triggers it."
       (run-with-timer 60 nil fn))
     (elfeed-update)))
 
+(defun my/yt--rebuild-cache ()
+  "Delete all cached thumbnails and re-fetch at maxresdefault quality."
+  (interactive)
+  (let ((cache-dir (expand-file-name "~/.cache/yt-feed/")))
+    (when (file-directory-p cache-dir)
+      (dolist (f (directory-files cache-dir t "\\.jpg\\'"))
+        (delete-file f))))
+  (message "Thumbnail cache cleared — rebuilding…")
+  (my/yt--fetch-missing-thumbs))
+
 (defun my/yt--quit ()
   "Kill the YouTube buffer and restore the previous window layout."
   (interactive)
@@ -1399,6 +1423,7 @@ Each completed download debounces a redraw: the last finish triggers it."
   (evil-local-set-key 'normal (kbd "o")   #'my/yt--open-browser)
   (evil-local-set-key 'normal (kbd "c")   #'my/yt--pick-category)
   (evil-local-set-key 'normal (kbd "u")   #'my/yt--refresh)
+  (evil-local-set-key 'normal (kbd "M")   #'my/yt--rebuild-cache)
   (evil-local-set-key 'normal (kbd "q")   #'my/yt--quit))
 #+end_src
 
