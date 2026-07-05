@@ -5,6 +5,23 @@
 
 ---
 
+## Session notes [2026-07-05]
+
+### Fixed this session
+
+- **Retangle broken**: `org-babel-tangle` (no args) only tangles blocks with explicit `:tangle` headers — our blocks have none. Fixed to `org-babel-tangle-file` which tangles all blocks of a language. Both `my/config-retangle` (after-save-hook) and `my/reload-config` (SPC q r) updated. Saving config.org now reliably regenerates config.el.
+- **Font shrinking on save**: was caused by stale config.el (retangle was broken, so the old 14pt anonymous lambda code was reloading). Fixed by fixing retangle.
+- **Theme setup**: replaced anonymous lambda on `after-make-frame-functions` with named `my/setup-frame`. Anonymous lambdas accumulate on hot-reload (each save adds another). Named function avoids this.
+- **Ukiyo palette wrong**: `ukiyo-theme.el` had base08=#c72626 (red), base0B=#9aad6e (green), base0C=#7ab5a0 (teal). Canonical `ukiyo.nix` has base08=#ce631c, base0B=#da7b5f, base0C=#da9517. Strings were green, builtins were teal. Fixed in `/etc/nixos/home/dotfiles/emacs/ukiyo-theme.el` + rebuilt (gen 176).
+- **elfeed update timer ordering**: timer was in `elfeed` `:config`, firing before `elfeed-org` populated the feed list. Moved to `elfeed-org` `:config` with 5 s delay. Feeds now registered before first fetch.
+- **Shorts thumbnails missing**: `my/yt--id` regex didn't match `/shorts/VIDEO_ID` URLs. Fixed.
+
+### Known issues / deferred
+
+- `my/yt-view` performance is noticeably worse than before the thumbnail rewrite. Not investigated yet. Likely cause: large inline images (640×360) cause Emacs to spend significant time on display rendering/redraw. Worth profiling with `M-x profiler-start` before the next session.
+
+---
+
 ## New plans and notes from using emacs for a bit longer: [2026-07-04]
 
 ### Open problems
@@ -107,8 +124,8 @@ The key gotchas from the old config that still apply:
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Evil + evil-collection + evil-goggles | ✅ | SPC leader via general.el |
-| Ukiyo theme | ✅ | From `~/.config/emacs/themes/ukiyo-theme.el` |
-| Font | ✅ | CMU Typewriter Text 14 |
+| Ukiyo theme | ✅ | From `~/.config/emacs/themes/ukiyo-theme.el`; palette fixed 2026-07-05 (base08/0B/0C were wrong — green strings, teal builtins) |
+| Font | ✅ | CMU Typewriter Text 16 (was 14) |
 | Auto-revert (inotify) | ✅ | No polling; buffers sync with external changes instantly |
 | Server/daemon | ✅ | Systemd user service; `emacsclient -c` connects in ~100ms |
 | which-key | ✅ | 0.4s delay |
@@ -165,7 +182,7 @@ All implemented in the `* Dashboard` section of config.org.
 | `my/uni-course-view` | ✅ | Summary, assignments, lectures per course |
 | `my/news-view` | X | One headline per country from elfeed; 16 countries; org-mode, news update not working yet |
 | `my/render-md-table` | X | Box-drawing table renderer; table is wider than window |
-| `my/yt-view` | ✅ | Single-column YouTube viewer: inline thumbnails (GUI) / ░ placeholders (terminal); index-based j/k; hl-line highlight; o=browser, c=category, u=hook-refresh, q=quit; auto-fetches missing thumbs async |
+| `my/yt-view` | ✅ | Single-column YouTube viewer. Thumbnail left, dot+title+channel·date right (side-by-side). Index-based nav (j/k), hl-line on current row, keybind footer as after-string overlay on selected entry only. RET=mpv, o=browser, c=category, u=hook-refresh, M=rebuild-cache, q=quit. Thumbnails: maxresdefault.jpg (1280×720; hqdefault fallback), forced display at 640×360. Olivetti body-width 200. Async curl per thumb, debounced redraw. Shorts URLs supported. |
 | Planning table | ✅ | Reads `# Planning` from Uni MOC.md; renders as box-drawing via `my/render-md-table` |
 | `my/uni-new-lecture` | ✅ | Creates from template or default YAML |
 | Auto-open on client frame | ✅ | `server-after-make-frame-hook` opens dashboard in new client |
