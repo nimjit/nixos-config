@@ -1323,9 +1323,9 @@ Each completed download debounces a redraw: the last finish triggers it."
          :noquery t
          :command (list "curl" "-s" "-L" "-o" path (my/yt--thumb-url id))
          :sentinel (lambda (_proc _event)
-                     ;; Pre-scale to display size so Emacs renders at native resolution
+                     ;; Pre-scale to display size so Emacs renders at native resolution (async)
                      (when (file-exists-p path)
-                       (call-process "mogrify" nil nil nil "-resize" "640x360>" path))
+                       (start-process "yt-mogrify" nil "mogrify" "-resize" "640x360>" path))
                      (when my/yt--redraw-timer
                        (cancel-timer my/yt--redraw-timer))
                      (setq my/yt--redraw-timer
@@ -1364,23 +1364,27 @@ Each completed download debounces a redraw: the last finish triggers it."
     (my/yt--draw-list)
     (my/yt--goto-idx 0)))
 
+(defvar my/yt--refresh-timer nil "Debounce timer for yt-view redraw after elfeed-update.")
+
+(defun my/yt--on-feed-update (_url)
+  "Hook fn: debounce yt-view redraw after each feed finishes."
+  (when my/yt--refresh-timer (cancel-timer my/yt--refresh-timer))
+  (setq my/yt--refresh-timer
+        (run-with-timer 2 nil
+          (lambda ()
+            (remove-hook 'elfeed-update-hooks #'my/yt--on-feed-update)
+            (setq my/yt--refresh-timer nil)
+            (when (get-buffer my/yt--list-buf)
+              (my/yt--draw-list)
+              (my/yt--fetch-missing-thumbs))
+            (message "YouTube: updated.")))))
+
 (defun my/yt--refresh ()
-  "Fetch new entries; redraw once all feeds finish (debounced via elfeed-update-hooks)."
+  "Fetch new entries; redraw once all feeds finish."
   (interactive)
   (message "Fetching YouTube feeds…")
-  (let (timer)
-    (letrec ((fn (lambda (_url)
-                   (when timer (cancel-timer timer))
-                   (setq timer
-                         (run-with-timer 2 nil
-                           (lambda ()
-                             (remove-hook 'elfeed-update-hooks fn)
-                             (when (get-buffer my/yt--list-buf)
-                               (my/yt--draw-list)
-                               (my/yt--fetch-missing-thumbs))
-                             (message "YouTube: updated.")))))))
-      (add-hook 'elfeed-update-hooks fn)
-      (elfeed-update))))
+  (add-hook 'elfeed-update-hooks #'my/yt--on-feed-update)
+  (elfeed-update))
 
 (defun my/yt--rebuild-cache ()
   "Delete all cached thumbnails and re-fetch at maxresdefault quality."
@@ -3003,6 +3007,19 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
 =g= to refresh, =u= to trigger elfeed-update, =q= to close.
 
 #+begin_src emacs-lisp
+(defvar my/news--refresh-timer nil "Debounce timer for news-view redraw after elfeed-update.")
+
+(defun my/news--on-feed-update (_url)
+  "Hook fn: debounce news-view redraw after each feed finishes."
+  (when my/news--refresh-timer (cancel-timer my/news--refresh-timer))
+  (setq my/news--refresh-timer
+        (run-with-timer 2 nil
+          (lambda ()
+            (remove-hook 'elfeed-update-hooks #'my/news--on-feed-update)
+            (setq my/news--refresh-timer nil)
+            (my/news-view)
+            (message "News: updated.")))))
+
 (defun my/news-view ()
   "Show one recent headline per country from elfeed."
   (interactive)
@@ -3059,22 +3076,13 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
       (read-only-mode 1)
       (goto-char (point-min))
       (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
-      (evil-local-set-key 'normal (kbd "g g") #'my/news-view)
+      (evil-local-set-key 'normal (kbd "g") #'my/news-view)
       (evil-local-set-key 'normal (kbd "u")
                           (lambda ()
                             (interactive)
                             (message "Fetching news feeds…")
-                            (let (timer)
-                              (letrec ((fn (lambda (_url)
-                                             (when timer (cancel-timer timer))
-                                             (setq timer
-                                                   (run-with-timer 2 nil
-                                                     (lambda ()
-                                                       (remove-hook 'elfeed-update-hooks fn)
-                                                       (my/news-view)
-                                                       (message "News: updated.")))))))
-                                (add-hook 'elfeed-update-hooks fn)
-                                (elfeed-update))))))
+                            (add-hook 'elfeed-update-hooks #'my/news--on-feed-update)
+                            (elfeed-update))))
     (switch-to-buffer buf)))
 
 (spc! "N" '(my/news-view :wk "world news"))
