@@ -69,7 +69,6 @@ in
     zip
     khal          # terminal calendar (multi-calendar, ikhal TUI)
     vdirsyncer    # syncs Google Calendar collections to local filesystem
-    imagemagick   # mogrify: pre-scale yt-view thumbnails before Emacs renders them
     ghostscript   # required by ImageMagick (used by image.nvim)
     poppler-utils # pdftoppm + pdfinfo — terminal PDF rendering
     btop          # system monitor

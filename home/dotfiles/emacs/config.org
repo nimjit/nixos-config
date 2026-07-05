@@ -1149,8 +1149,8 @@ the new tags to entries already in the DB.
   (expand-file-name (concat id ".jpg") (expand-file-name "~/.cache/yt-feed/")))
 
 (defun my/yt--thumb-url (id)
-  ;; maxresdefault = 1280×720 when available; YouTube serves hqdefault as fallback.
-  (format "https://i.ytimg.com/vi/%s/maxresdefault.jpg" id))
+  ;; hqdefault = 480×360; always available; native display size = no Emacs scaling.
+  (format "https://i.ytimg.com/vi/%s/hqdefault.jpg" id))
 
 (defun my/yt--gui-p ()
   "Non-nil when running in a graphical frame."
@@ -1231,13 +1231,13 @@ Run once after adding category tags to elfeed.org."
                             (propertize "●" 'face 'shadow)))
                  ;; indent for line 2 matches the thumbnail width
                  (indent  (if gui
-                              (propertize " " 'display '(space :width (640)))
-                            (make-string 70 ? ))))
+                              (propertize " " 'display '(space :width (480)))
+                            (make-string 53 ? ))))
             (push (point) positions)
             ;; line 1: thumbnail (or placeholder) + dot + title on same line
             (if (and path (file-exists-p path) gui)
-                (insert-image (create-image path 'jpeg nil :width 640 :height 360) " ")
-              (insert (propertize (make-string 70 ?░) 'face 'shadow)))
+                (insert-image (create-image path 'jpeg nil :width 480) " ")
+              (insert (propertize (make-string 53 ?░) 'face 'shadow)))
             (insert "  " dot " "
                     (propertize title 'face (if unread 'bold 'shadow))
                     "\n")
@@ -1323,9 +1323,6 @@ Each completed download debounces a redraw: the last finish triggers it."
          :noquery t
          :command (list "curl" "-s" "-L" "-o" path (my/yt--thumb-url id))
          :sentinel (lambda (_proc _event)
-                     ;; Pre-scale to display size so Emacs renders at native resolution (async)
-                     (when (file-exists-p path)
-                       (start-process "yt-mogrify" nil "mogrify" "-resize" "640x360>" path))
                      (when my/yt--redraw-timer
                        (cancel-timer my/yt--redraw-timer))
                      (setq my/yt--redraw-timer

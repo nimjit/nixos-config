@@ -336,7 +336,9 @@ is lost. Each .md file explains what the feature was and how to reactivate it.
 
 1. Edit `.nix` files here
 2. Commit the changes: `git add`, `git commit` with a descriptive message
-3. Rebuild: `sudo nixos-rebuild switch --flake /etc/nixos#desktop` (or use the `rebuild` alias)
+3. Rebuild: `sudo nixos-rebuild switch --flake /etc/nixos#desktop --impure` (or use the `rebuild` alias)
+   **`--impure` is required** because `home/email.nix` imports `~/.config/nixos-secrets.nix` — an
+   absolute path outside the Nix store. The `rebuild` alias already includes it.
 4. After a successful rebuild, append a row to `generations.md`:
    `| <gen> | <date> <time> | <short-hash> | <what this generation adds> |`
    Get the current gen number from `ls /nix/var/nix/profiles/system` (it's a symlink like `system-98-link`).
