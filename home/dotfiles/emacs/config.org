@@ -239,6 +239,7 @@ Comma (,) is a secondary local leader used for mode-specific commands.
 (use-package general
   :after evil
   :config
+  (general-auto-unbind-keys)
   (general-create-definer spc!
     :keymaps '(normal visual motion)
     :prefix "SPC"
@@ -311,8 +312,9 @@ Comma (,) is a secondary local leader used for mode-specific commands.
   "nD"  'org-roam-dailies-goto-date
 
   ;; Agenda
-  "a"   'org-agenda
-  "as"  '(my/toggle-agenda-panel :wk "side agenda")
+  "a"   '(:ignore t :wk "agenda")
+  "aa"  '(org-agenda             :wk "org-agenda")
+  "as"  '(my/toggle-agenda-panel :wk "side panel")
   "aw"  '(my/open-week-calendar  :wk "week calendar")
 
   ;; RSS / elfeed
@@ -857,7 +859,7 @@ Uses posframe so the main window is not resized.
 #+begin_src emacs-lisp
 (use-package calfw
   :config
-  (setq cfw:display-calendar-holidays nil))
+  (setq calfw-display-calendar-holidays nil))
 
 (use-package calfw-org
   :after calfw
@@ -865,8 +867,8 @@ Uses posframe so the main window is not resized.
   (defun my/open-week-calendar ()
     "Open calfw week view showing org-agenda + gcal events."
     (interactive)
-    (cfw:open-org-calendar)
-    (cfw:change-view-week)))
+    (calfw-org-open-calendar)
+    (calfw-change-view-week)))
 #+end_src
 
 ** Org Capture Templates
