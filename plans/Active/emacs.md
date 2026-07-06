@@ -457,7 +457,7 @@ All implemented in the `* Dashboard` section of config.org.
 | `my/vault-dashboard` | ✅ | Birthdays, recent folders, projects, daily notes, knowledge dir counts; org-mode rendering with clickable links |
 | `my/uni-dashboard` | ✅ | Deadlines, assignments, courses, planning table; org-mode rendering |
 | `my/uni-course-view` | ✅ | Summary, assignments, lectures per course |
-| `my/news-view` | X | One headline per country from elfeed; 16 countries; org-mode, news update not working yet |
+| `my/news-view` | ✅ | One headline per country from elfeed; 16 countries; org-mode. `u` fetches news feeds via rmh-elfeed-org-process; hook redraws on completion |
 | `my/render-md-table` | X | Box-drawing table renderer; table is wider than window |
 | `my/yt-view` | ✅ | Single-column YouTube viewer. Thumbnail left, dot+title+channel·date right (side-by-side). Index-based nav (j/k), hl-line on current row, keybind footer as after-string overlay on selected entry only. RET=mpv, o=browser, c=category, u=hook-refresh, M=rebuild-cache, q=quit. Thumbnails: maxresdefault.jpg (1280×720; hqdefault fallback), forced display at 640×360. Olivetti body-width 200. Async curl per thumb, debounced redraw. Shorts URLs supported. |
 | Planning table | ✅ | Reads `# Planning` from Uni MOC.md; renders as box-drawing via `my/render-md-table` |
