@@ -64,6 +64,31 @@
 
 ---
 
+## config.org conventions
+
+### Code block structure
+
+Large `#+begin_src emacs-lisp` blocks should be split into smaller, named sections
+with their own `**` or `***` subheadings. Each subheading should cover one
+coherent concern (one package, one feature, one logical group of settings).
+
+**Why:** The literate format only pays off if the headings act as real navigation
+landmarks. A 200-line block under a single `** Dashboard` heading is harder to
+read and edit than five 40-line blocks under `** Dashboard: greeting`, `** Dashboard:
+weight chart`, etc. It also makes it easier to fold/unfold just the part being worked
+on (`TAB` on the heading).
+
+**Apply this when:** editing a section that currently has a single large block —
+split it then, not in a separate cleanup pass. Don't restructure sections that
+aren't being touched.
+
+**Naming pattern:** use the package or feature name as the subheading, e.g.:
+- `** Org-gcal` not `** Google Calendar Sync (org-gcal)`
+- `** Dashboard: greeting` / `** Dashboard: weight chart` / `** Dashboard: news`
+- `** Side panels: agenda` / `** Side panels: helper`
+
+---
+
 ## Dashboard audit [2026-07-06]
 
 Notes per dashboard from a live review session. Ordered by priority.
@@ -271,11 +296,37 @@ org vault has enough content to make backlinks meaningful.
 
 All side panels should:
 - Use `posframe-show` (not `display-buffer-in-side-window`) to avoid resizing olivetti
-- Track open/closed state with a `defvar` boolean (posframe-visible-p is not available)
+- Track open/closed state with a `defvar` boolean (`posframe-visible-p` is not available)
 - Toggle with a `SPC a *` binding for agenda-related panels, `SPC n *` for notes panels
 - Width: calculated from actual margin width at call time, not hardcoded
 
-The right panel is the template. Copy its structure for any new panel.
+### Extract a reusable `my/posframe-toggle` helper
+
+Rather than duplicating the open/close/state-flag logic in every panel, extract it
+into a single generic function:
+
+```elisp
+(defun my/posframe-toggle (buf-or-name state-var show-fn)
+  "Toggle a posframe for BUF-OR-NAME.
+STATE-VAR is a symbol whose value tracks visibility.
+SHOW-FN is a zero-argument function that calls posframe-show with the
+correct position/size for this panel."
+  (if (symbol-value state-var)
+      (progn
+        (when-let ((buf (get-buffer buf-or-name)))
+          (posframe-hide buf))
+        (set state-var nil))
+    (funcall show-fn)
+    (set state-var t)))
+```
+
+Each panel then becomes two things: a `defvar` for the state flag, and a small
+`defun` that calls `my/posframe-toggle` with the right buffer name and
+`show-fn` lambda. The right-margin agenda panel and any future left-margin panel
+both shrink to ~5 lines of actual panel-specific code.
+
+When implementing the left-side panel, refactor `my/toggle-agenda-panel` to use
+this helper at the same time.
 
 ---
 
