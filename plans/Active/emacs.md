@@ -14,17 +14,41 @@ Notes per dashboard from a live review session. Ordered by priority.
 **Problem:** Daily note doesn't use the correct template on creation.
 The template was added at some point but is no longer in the config.
 
-**Fix:** In the `** Org-roam` section of config.org, `org-roam-dailies-capture-templates`
-needs a `:head` entry with the desired YAML/org frontmatter. Check whether it was removed
-during a retangle or paren-fix. Example:
+**Source template (neovim/markdown):**
+`~/...Vault/Templates/Daily Note.md` — substitutes `{{date}}` with the ISO date.
+```markdown
+# {{date}}
+
+## Schedule
+<!-- HH:MM Task name -->
+
+## ToDo
+
+## Inbox
+
+## Italian
+
+## Notes
+```
+
+**Org-mode adaptation:**
+The equivalent for org-roam dailies. The `:head` string is the file header (written
+once on creation); the `:template` string is the initial cursor position.
 ```elisp
 (setq org-roam-dailies-capture-templates
-      '(("d" "default" entry "* %?"
+      '(("d" "default" plain
+         "* Schedule\n\n* ToDo\n\n* Inbox\n\n* Italian\n\n* Notes\n"
          :target (file+head "%<%Y-%m-%d>.org"
-                            "#+title: %<%Y-%m-%d>\n#+date: %<%Y-%m-%d>\n\n"))))
+                            "#+title: %<%Y-%m-%d>\n#+filetags: :daily:\n\n")
+         :unnarrowed t)))
 ```
-Adjust the `:head` string to whatever template is wanted. Find what template was
-intended by checking git log on config.org or the plan files.
+
+**Dashboard read-back:**
+If `my/vault-dashboard` shows today's daily note content (e.g., the ToDo or
+Schedule section), it needs to open the org file and extract that heading's
+subtree. The cleanest approach is `org-element-parse-buffer` or a regex on the
+heading. Defer this until the template itself is wired up and working — the
+template is the prerequisite.
 
 ---
 
