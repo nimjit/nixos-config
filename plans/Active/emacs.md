@@ -201,26 +201,41 @@ theme. If colours clash, skip it.
 
 ---
 
-### centaur-tabs — probably not yet
+### centaur-tabs — worth trying
 
-A tab bar showing open buffers per workspace/perspective. The `[personal|uni]`
-style bar it adds does look polished. The concern: without a defined "scope"
-per tab bar it fills with every buffer quickly. Works best alongside
-`perspective.el` (already in use) with tab scope set to per-perspective.
+A tab bar showing open buffers scoped per perspective. The `[personal|uni]`
+style is exactly the kind of ambient context indicator that makes a setup feel
+complete. Perspectives are already settled, so set `:custom (centaur-tabs-set-tab-bar-groups nil)`
+and `centaur-tabs-group-by-projectile-project` or tie directly to perspective names.
 
-Hold off until the perspective workflow is more settled. Worth revisiting then.
+Add `centaur-tabs` to emacs.nix. In config.org:
+```elisp
+(use-package centaur-tabs
+  :demand t
+  :custom
+  (centaur-tabs-style "bar")
+  (centaur-tabs-height 28)
+  (centaur-tabs-set-icons nil)        ; enable later if nerd-icons is added
+  (centaur-tabs-gray-out-icons 'background)
+  (centaur-tabs-set-bar 'over)
+  :config
+  (centaur-tabs-mode t)
+  (centaur-tabs-group-by-projectile-project))
+```
 
 ---
 
-### treemacs — probably not
+### treemacs — fills negative space only
 
-A sidebar file tree. The Ukiyo aesthetic is already at odds with a persistent
-sidebar panel. More importantly: yazi (via `SPC f` or `leader-f`) already covers
-the file-navigation use case better. treemacs would duplicate that.
+A sidebar file tree. It would not add meaningful navigation capability —
+`SPC f f` (dired) already covers file browsing. The honest reason to add it
+is aesthetic: olivetti centres the text body and leaves empty columns on both
+sides. A treemacs panel on the left would fill that space and give the layout
+a more deliberate feel.
 
-The alternative for "something on the left" in uni/vault dashboards is a narrow
-org buffer — e.g., a filtered org-agenda for today's deadlines. That fits the
-intentional-computing philosophy better than a file tree.
+That's a valid reason. Worth trying. The alternative for "something on the left"
+that also carries information would be a narrow org-agenda or deadline list —
+but a file tree is simpler to set up and doesn't require new data.
 
 ---
 
