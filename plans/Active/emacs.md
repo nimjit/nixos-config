@@ -1,7 +1,50 @@
 # Emacs — Current State
 
-*Last updated: 2026-07-06*
+*Last updated: 2026-07-07*
 
+
+---
+
+## Session notes [2026-07-07]
+
+### Fixed this session
+
+- **org-gcal group calendars empty**: oauth2-auto was treating each Google Calendar
+  ID as a separate OAuth user — group calendar IDs like
+  `3cglgpg5e90ir3hkb1pm7an6o8@...` would trigger a "Log in to your account"
+  browser prompt. Fixed by advising `org-gcal--get-access-token` to always use
+  `tidemanus@gmail.com` as the user, routing all calendars through the single
+  cached token. `work.org` now has 3 events (recurring "lenzen vervangen" for
+  Jul/Aug/Sep); group calendars are empty because they have no events in the
+  current −30/+60 day window.
+
+- **Stale sync token**: A token from June 26 was persisted in-memory, causing
+  incremental fetches to return 0 events even after re-auth. Cleared with
+  `M-x org-gcal-sync-tokens-clear` + `M-x org-gcal--sync-unlock` before the
+  fixed fetch.
+
+- **Side panel toggle broken (`posframe-visible-p` void)**: The installed posframe
+  version does not export `posframe-visible-p`. Replaced with `defvar
+  my/agenda-panel-visible nil` as a state flag. `SPC a s` now correctly opens and
+  closes the panel.
+
+- **calfw hardcoded colours**: Replaced 15 `set-face-attribute` calls using Ukiyo
+  hex values with `custom-set-faces` using `:inherit` from `font-lock-*`,
+  `org-level-1`, `hl-line`, `mode-line` — all faces Stylix already styles.
+
+### New issues noted this session
+
+- **youtube-mpv opens windowless**: mpv plays audio but shows no video window.
+  Was working in a previous session; something changed. Likely the `--gpu-api=opengl`
+  flag or the NVIDIA Wayland path broke again. Check `my/yt--play` in config.org
+  and compare against the working kitty mpv alias.
+
+- **Weight graph too wide + readability**: The vault dashboard weight chart is
+  slightly wider than the olivetti body. Also: DPI is too high (small chart),
+  no horizontal grid lines, legend and axes are hard to read. Fix in
+  `my/dash--insert-weight-chart` / the python matplotlib call: set `dpi=80` (or
+  similar), add `ax.yaxis.grid(True, alpha=0.3)`, enlarge tick labels, move legend
+  inside or below the chart.
 
 ---
 
@@ -177,8 +220,62 @@ replace) org-agenda.
 
 ### YouTube / weight / news
 
-For some reason mpv didn't open a window, but just played in the background when I just tested it.
-Shuold look into why that happens.
+**mpv windowless** (2026-07-07): mpv plays audio but shows no video window. Was
+working previously. The `--gpu-api=opengl` flag in `my/yt--play` was the original
+fix for the NVIDIA Wayland DMA-buf path. Check if that flag is still present and
+whether it's still effective. Possible cause: Wayland compositor or driver update
+changed the preferred presentation path.
+
+**Weight graph readability** (2026-07-07): Chart is slightly wider than olivetti body,
+DPI too high (chart appears small), no horizontal grid lines, legend/axis labels
+hard to read. Fix: lower `dpi=80`, add `ax.yaxis.grid(True, alpha=0.3)`, increase
+`fontsize` on tick labels.
+
+---
+
+## Side panel visual design
+
+Olivetti centres the text body at 200 chars. At a typical terminal width (say 260+
+columns), this leaves ~30 chars of empty margin on each side. The goal is to use
+that space for ambient information — the panel should **float over** the margin and
+never cause the olivetti body to shift.
+
+### Right side — agenda panel (done)
+
+`SPC a s` toggles a posframe showing the org-agenda day view in the right margin.
+Implemented with `posframe-show` at pixel position `(x=body_right_edge, y=0)`.
+Width = `(max 28 (- right-margin-cols 2))`. Does not affect window layout.
+
+### Left side — open
+
+The left margin is still empty. Options, roughly in order of fit:
+
+**1. Narrow deadline/todo posframe (most useful)**
+A second posframe showing upcoming org-agenda deadlines or `org-ql` results — e.g.
+the next 7 days' scheduled items. Symmetric with the right-side agenda panel.
+Binding candidate: `SPC a d`. Same posframe approach; position at `x=0`.
+
+**2. Treemacs (file tree)**
+Fills the left margin with a file browser. Mostly aesthetic — `SPC f f` (dired)
+already handles navigation. Worth trying purely for the visual completeness.
+Set `treemacs-width` to match the left margin width. Caveat: treemacs may fight
+olivetti by requesting its own window (not a posframe), which would push the body.
+Test whether it can be constrained to a side-window that olivetti ignores.
+
+**3. org-roam backlinks posframe**
+Show backlinks to the current node in a left-margin posframe. Useful during writing
+sessions. Could toggle with `SPC n b`. Not time-sensitive; implement after the
+org vault has enough content to make backlinks meaningful.
+
+### General posframe approach
+
+All side panels should:
+- Use `posframe-show` (not `display-buffer-in-side-window`) to avoid resizing olivetti
+- Track open/closed state with a `defvar` boolean (posframe-visible-p is not available)
+- Toggle with a `SPC a *` binding for agenda-related panels, `SPC n *` for notes panels
+- Width: calculated from actual margin width at call time, not hardcoded
+
+The right panel is the template. Copy its structure for any new panel.
 
 ---
 
@@ -438,7 +535,7 @@ The key gotchas from the old config that still apply:
 | Org-roam | ✅ | `~/org/` root; dailies in `~/org/daily/` |
 | Org-roam-ui | ✅ | Graph view via `SPC n g` |
 | Org-ql | ✅ | Loaded; used for deadline queries |
-| Org-gcal | ✅ | 10 Google calendars syncing to `~/org/calendars/`; auto-syncs every 10min |
+| Org-gcal | ✅ | 10 calendars → `~/org/calendars/`; all routed through `tidemanus@gmail.com` token; auto-syncs every 10min |
 | Org capture templates | ✅ | Personal (concept, essay, book, paper, person ×2) + uni (class, lecture, assignment) + inbox |
 | Org-modern | ✅ | Custom stars, modern tag/table rendering |
 | Org-transclusion | ✅ | `SPC t t` toggle; used for lecture→summary workflow |
@@ -454,7 +551,7 @@ The key gotchas from the old config that still apply:
 | elfeed + elfeed-org + elfeed-tube | ✅ | Feeds in `~/.config/emacs/elfeed.org`; YouTube UULF URLs included; category tags on all headings |
 | Music (mpdel) | ✅ | `SPC m m` two-panel view (dir browser left, cover art right); `SPC m s` slim side player; `SPC m SPC` play/pause; cover art from `~/Music/Artist/Album/cover.jpg` |
 | Email (mu4e) | ✅ configured | Reads `~/Mail/`; msmtp send; 3 accounts; evil keybindings. **Needs `mu init` + `mu index` first time** |
-| Calendar | ✅ | `SPC a` → org-agenda (org-gcal keeps it synced) |
+| Calendar | ✅ | `SPC aa` org-agenda; `SPC as` posframe day panel (right margin); `SPC aw` calfw week grid |
 | PDF tools | ✅ | `pdf-tools-install`; evil keybindings (hjkl, H/W fit, +/- zoom) |
 
 ### Dashboard system
@@ -544,12 +641,35 @@ When ready to pursue: research the repo coords, write `home/wuzapi.nix` with a
 `trivialBuild` for wasabi, add a `use-package wasabi` block to config.org with evil
 keybindings.
 
-### org vault (`~/org/`)
+### org vault (`~/org/`) — migration planned
 
 The config has full org-roam, org-ql, org-gcal, and capture templates wired up, but
-`~/org/` is mostly empty.
+`~/org/` is mostly empty. Currently the markdown vault is still used, but the intent
+is to populate `~/org/` incrementally and eventually make it the primary structure.
 
-Currently the markdown vault is still used, but the ~/org/ directory is a possible future direction.
+**Migration plan (2026-07-08):**
+
+Use `pandoc -f markdown -t org` for bulk conversion. Start with the three low-risk
+categories:
+
+1. **Daily notes** — `~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies/*.md`
+   → `~/org/daily/`. Names are already `YYYY-MM-DD.md`; rename to `YYYY-MM-DD.org`.
+   Add `#+title: YYYY-MM-DD` and `#+filetags: :daily:` headers after conversion.
+
+2. **Todo/task notes** — unclear what the current structure is; inspect before migrating.
+
+3. **Uni notes** — `~/Documents/BACKUP/Uni/Obsidian/Uni/` → `~/org/uni/`.
+   These are guaranteed safe (no org-roam IDs to conflict with). Classes, Lectures,
+   Assignments subdirs can map 1:1.
+
+**What to check first:**
+- Run `ls ~/org/` to see current state (may be emptier than expected).
+- Check if any org-roam nodes already exist in `~/org/` that would conflict.
+- Pandoc handles wikilinks `[[Note]]` → `[[file:Note.org][Note]]` with
+  `--from markdown+wikilinks` but the exact flag varies by version; test one file first.
+
+**Not yet**: personal vault notes (Concepts, Essays, Knowledge/) — these contain
+wikilinks and YAML frontmatter that need closer review before mass-converting.
 
 ### nouwens.org email
 
@@ -608,15 +728,6 @@ the buffer is first loaded:
 ```
 
 One-liner in the existing `** Typst Math Preview` section of config.org.
-
-### calfw — visual calendar
-
-A week/month calendar grid (like a normal calendar app) to complement org-agenda.
-
-- Nix packages to add to `home/emacs.nix`: `calfw` + `calfw-org`
-- use-package block with `calfw-org`
-- Integrates with org-gcal automatically (same agenda files)
-- Suggested binding: `SPC a c` for the calfw week view
 
 ### Google Calendar frequent re-auth
 
