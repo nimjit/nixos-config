@@ -818,7 +818,15 @@ After that, syncs happen automatically when =org-agenda= opens.
             ("cp7ljbsac30lakkm39rsdht0m0@group.calendar.google.com"
              . "~/org/calendars/misc.org")))
     (run-with-idle-timer 600 t #'org-gcal-sync)
-    (setq plstore-encrypt-to nil))
+    (setq plstore-encrypt-to nil)
+    ;; plstore-encrypt-to nil still uses symmetric GPG; advise plstore-put to
+    ;; store everything as public (unencrypted) when no key is configured.
+    (advice-add 'plstore-put :around
+      (lambda (orig-fn plstore key alist properties)
+        (if (null plstore-encrypt-to)
+            (funcall orig-fn plstore key (append alist properties) nil)
+          (funcall orig-fn plstore key alist properties)))
+      '((name . plstore-no-encrypt))))
 #+end_src
 ** Org Agenda Panel
 
@@ -834,7 +842,7 @@ Uses posframe so the main window is not resized.
     (if (and buf (posframe-visible-p buf))
         (posframe-hide buf)
       (save-window-excursion
-        (org-agenda nil "d"))
+        (org-agenda-list nil nil 'day))
       (let* ((margins  (window-margins))
              (left-m   (or (car margins) 0))
              (right-m  (or (cdr margins) 0))
@@ -859,7 +867,23 @@ Uses posframe so the main window is not resized.
 #+begin_src emacs-lisp
 (use-package calfw
   :config
-  (setq calfw-display-calendar-holidays nil))
+  (setq calfw-display-calendar-holidays nil)
+  ;; Ukiyo palette overrides
+  (set-face-attribute 'calfw-title-face          nil :foreground "#e0ba86" :weight 'bold   :height 1.1)
+  (set-face-attribute 'calfw-header-face         nil :foreground "#da9517" :weight 'bold)
+  (set-face-attribute 'calfw-sunday-face         nil :foreground "#ce631c")
+  (set-face-attribute 'calfw-saturday-face       nil :foreground "#e77a59")
+  (set-face-attribute 'calfw-holiday-face        nil :foreground "#da7b5f")
+  (set-face-attribute 'calfw-grid-face           nil :foreground "#504431")
+  (set-face-attribute 'calfw-default-content-face nil :foreground "#ccc2b7")
+  (set-face-attribute 'calfw-periods-face        nil :foreground "#da9517")
+  (set-face-attribute 'calfw-day-title-face      nil :foreground "#b2a699")
+  (set-face-attribute 'calfw-today-title-face    nil :foreground "#da9517" :weight 'bold)
+  (set-face-attribute 'calfw-today-face          nil :background "#413632")
+  (set-face-attribute 'calfw-annotation-face     nil :foreground "#868074")
+  (set-face-attribute 'calfw-toolbar-face        nil :background "#413632" :foreground "#b2a699")
+  (set-face-attribute 'calfw-toolbar-button-off-face nil :foreground "#868074")
+  (set-face-attribute 'calfw-toolbar-button-on-face  nil :foreground "#da9517" :weight 'bold))
 
 (use-package calfw-org
   :after calfw
