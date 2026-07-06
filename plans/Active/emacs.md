@@ -1,7 +1,245 @@
 # Emacs — Current State
 
-*Last updated: 2026-07-04*
+*Last updated: 2026-07-06*
 
+
+---
+
+## Dashboard audit [2026-07-06]
+
+Notes per dashboard from a live review session. Ordered by priority.
+
+### Today (my/dashboard — the greeting)
+
+**Problem:** Daily note doesn't use the correct template on creation.
+The template was added at some point but is no longer in the config.
+
+**Fix:** In the `** Org-roam` section of config.org, `org-roam-dailies-capture-templates`
+needs a `:head` entry with the desired YAML/org frontmatter. Check whether it was removed
+during a retangle or paren-fix. Example:
+```elisp
+(setq org-roam-dailies-capture-templates
+      '(("d" "default" entry "* %?"
+         :target (file+head "%<%Y-%m-%d>.org"
+                            "#+title: %<%Y-%m-%d>\n#+date: %<%Y-%m-%d>\n\n"))))
+```
+Adjust the `:head` string to whatever template is wanted. Find what template was
+intended by checking git log on config.org or the plan files.
+
+---
+
+### Vault (my/vault-dashboard)
+
+**Problem:** Weight graph only opens when `w` (log weight) is pressed. Should always
+be visible when the vault dashboard loads.
+
+**Fix:** Call `my/dash--insert-weight-chart` unconditionally at the end of
+`my/vault-dashboard`, after the buffer is populated and read-only is restored.
+The function is async (spawns python3); it inserts the chart PNG at point-max via
+a sentinel — so just call it at the end of the function body. It already works this
+way in `my/dashboard` after a weight is logged.
+
+---
+
+### Uni (my/uni-dashboard)
+
+**Problem:** Table (the planning table rendered by `my/render-md-table`) is wider
+than expected. Text starts at the far left edge.
+
+**Fix:** Change `olivetti-body-width` in `my/uni-dashboard` from whatever it
+currently is to `200`. This is consistent with yt-view and will also push the
+table body inward, which should help with the perceived width issue. If the table
+is genuinely wider than 200 chars, the underlying `# Planning` section in
+`Uni_MOC.md` may need trimming or column dropping.
+
+**Longer-term:** After setting olivetti 200, reassess whether a sidebar makes
+sense. Something like a narrow org-agenda or deadline list on the left is a
+natural companion to the uni planning table. But this can wait until the centering
+is fixed and the layout feels right.
+
+---
+
+### Messages (my/dash-messages)
+
+**Status:** WhatsApp integration is not set up.
+
+**Current state:** nchat runs in the terminal (kitty tab), but desktop notifications
+sometimes fail. wuzapi (the HTTP bridge) is installed as a systemd service; the
+Emacs-side `my/wuzapi-create-user` hits a 404.
+
+**Path forward:** Two separate tracks:
+
+1. **Fix wuzapi 404** (already noted in Queued improvements): compare the admin
+   token in config.org with `cat ~/.local/share/wuzapi/.env`. The 404 is almost
+   certainly a token mismatch.
+
+2. **Wasabi** (`codeberg.org/vifon/wasabi`): Emacs-native conversation view on top
+   of wuzapi. Not in nixpkgs; needs a `trivialBuild` derivation in `home/emacs.nix`.
+   Once wuzapi is connected and QR-scanned, wasabi gives a proper buffer-based
+   WhatsApp UI with evil keybindings. Worth pursuing because nchat's notification
+   reliability is a recurring issue.
+
+For now the `m` dashboard key opens the wuzapi connect flow. Keep that binding;
+extend it to open a wasabi buffer once wasabi is packaged.
+
+---
+
+### Email (mu4e)
+
+**Problem 1:** How to switch between email accounts is not obvious.
+mu4e supports "contexts" — one context per account, each with its own `mu4e-sent-folder`,
+`mu4e-trash-folder`, and `user-mail-address`. With contexts set up:
+- `SPC e c` (or `,c` in mu4e) cycles contexts
+- The header list auto-filters to the active account's inbox
+
+The current config may not have `mu4e-contexts` declared. Check the `** Email (mu4e)`
+section of config.org for a `mu4e-contexts` defcustom or `setq`.
+
+**Problem 2:** Possible key mapping overlap (not yet narrowed down). Note which
+key conflicts when they appear and record here.
+
+---
+
+### Music (my/music-view — not yet built)
+
+**Goal:** A text-based frontend for MPD, similar in style to yt-view.
+The MPD backend (mpd + mpc + rmpc) stays unchanged. This is a new Emacs buffer.
+
+**Desired features:**
+- Browse and play albums (artist → album → tracks)
+- Playlists: list, load, play
+- Play all (full library shuffle or queue)
+- Random toggle
+- Album art shown inline (same approach as yt-view: `create-image` + kitty icat,
+  or just a standard image insert — the cover.jpg files are already in the music
+  library at `~/Music/Artist/Album/cover.jpg`)
+
+**Suggested design:**
+- Two-column layout: left panel = album/playlist browser, right panel = now-playing
+  with cover art
+- Use `mpc` CLI calls for all MPD interaction (already installed; no new deps)
+- Same olivetti + evil-local-set-key pattern as yt-view and news-view
+- Bindings: `j`/`k` navigate, `RET` play, `a` add to queue, `r` toggle random,
+  `SPC m v` to open
+
+This is a non-trivial build (likely 200–300 lines). Design it as a separate session
+once the smaller dashboard fixes are done.
+
+---
+
+### cal (calfw week view)
+
+Already in Queued improvements. Add `calfw` + `calfw-org` to `home/emacs.nix`,
+wire to org-gcal's agenda files. Bind to `SPC a c`. This supplements (doesn't
+replace) org-agenda.
+
+---
+
+### YouTube / weight / news
+
+Working well. No changes needed.
+
+---
+
+## UI polish ideas [2026-07-06]
+
+Packages seen in polished distributions, assessed for fit with the Ukiyo setup.
+
+### ligature.el — do this
+
+JetBrains Mono Nerd Font (already in use) ships ligatures for `->`, `=>`, `!=`,
+`>=`, `<=`, `//`, `/*`, etc. ligature.el activates them in Emacs.
+
+Already present in kitty and (implicitly) in neovim's font rendering. In Emacs
+ligatures require explicit activation because PGTK composites them via Harfbuzz
+but the Emacs display engine needs a hint about which sequences to compose.
+
+Add to `home/emacs.nix` extraPackages: `ligature`. Then in config.org:
+```elisp
+(use-package ligature
+  :config
+  (ligature-set-ligatures 't '("www"))
+  (ligature-set-ligatures 'prog-mode
+    '("->" "=>" "!=" ">=" "<=" "//" "/*" "*/" "..." "--" "==" "||" "&&"))
+  (global-ligature-mode t))
+```
+Adjust the list to taste. Low risk, immediate visual payoff.
+
+---
+
+### doom-modeline — worth trying
+
+A polished mode line with file path, major mode, vc branch, error count. The
+default Emacs mode line works but looks dated. doom-modeline is well-maintained,
+respects theme colours, and has been stable for years.
+
+Add `doom-modeline` to emacs.nix. In config.org:
+```elisp
+(use-package doom-modeline
+  :init (doom-modeline-mode 1)
+  :custom
+  (doom-modeline-height 22)
+  (doom-modeline-bar-width 4)
+  (doom-modeline-icon nil)          ; no icons unless nerd-icons is also added
+  (doom-modeline-buffer-file-name-style 'truncate-from-project))
+```
+The main trade-off: it pulls in `nerd-icons` as a soft dependency for the icons.
+Icons can be disabled (as above) to avoid adding a new package for now.
+
+---
+
+### solaire-mode — probably worth trying
+
+Makes "real" file-visiting buffers slightly lighter/darker than special buffers
+(minibuffer, sidebars, popups). With the Ukiyo warm-brown palette this could
+reinforce the sense of which buffer is the "active work surface".
+
+One potential issue: Stylix injects the Ukiyo colours into Emacs faces. solaire
+remaps `default` background slightly, which might fight Stylix. Test first with
+`:custom (solaire-global-mode +1)` and see if it looks right or fights the
+theme. If colours clash, skip it.
+
+---
+
+### centaur-tabs — probably not yet
+
+A tab bar showing open buffers per workspace/perspective. The `[personal|uni]`
+style bar it adds does look polished. The concern: without a defined "scope"
+per tab bar it fills with every buffer quickly. Works best alongside
+`perspective.el` (already in use) with tab scope set to per-perspective.
+
+Hold off until the perspective workflow is more settled. Worth revisiting then.
+
+---
+
+### treemacs — probably not
+
+A sidebar file tree. The Ukiyo aesthetic is already at odds with a persistent
+sidebar panel. More importantly: yazi (via `SPC f` or `leader-f`) already covers
+the file-navigation use case better. treemacs would duplicate that.
+
+The alternative for "something on the left" in uni/vault dashboards is a narrow
+org buffer — e.g., a filtered org-agenda for today's deadlines. That fits the
+intentional-computing philosophy better than a file tree.
+
+---
+
+### Additional suggestions
+
+**nerd-icons** (`nerd-icons` + `nerd-icons-dired`): Adds file-type icons in dired,
+completion, and the mode line. Low effort, looks good if doom-modeline is added
+(which uses them). One `M-x nerd-icons-install-fonts` after adding the package.
+
+**indent-bars**: Vertical indent guide lines in code and org. More subtle than
+highlight-indent-guides. Works well with deep org structure. Worth trying alongside
+ligature.el — both are lightweight and instantly visible.
+
+**rainbow-delimiters**: Color-coded bracket depth in elisp/lisp. Not essential
+but very useful when editing config.org. Low cost.
+
+**olivetti consistency across all views**: Target `200` everywhere. Currently
+yt-view uses 200, dashboard uses 180, uni uses something else. Standardise. The
+uni table width problem is partly caused by this.
 
 ---
 
