@@ -826,7 +826,13 @@ After that, syncs happen automatically when =org-agenda= opens.
         (if (null plstore-encrypt-to)
             (funcall orig-fn plstore key (append alist properties) nil)
           (funcall orig-fn plstore key alist properties)))
-      '((name . plstore-no-encrypt))))
+      '((name . plstore-no-encrypt)))
+    ;; Group calendar IDs share the same Google account; route all token
+    ;; lookups through the main account so oauth2-auto doesn't prompt for each.
+    (advice-add 'org-gcal--get-access-token :override
+      (lambda (_calendar-id)
+        (aio-wait-for (oauth2-auto-access-token "tidemanus@gmail.com" 'org-gcal)))
+      '((name . org-gcal-use-main-account))))
 #+end_src
 ** Org Agenda Panel
 
@@ -834,30 +840,36 @@ After that, syncs happen automatically when =org-agenda= opens.
 Uses posframe so the main window is not resized.
 
 #+begin_src emacs-lisp
+(defvar my/agenda-panel-visible nil
+  "Non-nil when the posframe agenda panel is currently shown.")
+
 (defun my/toggle-agenda-panel ()
   "Toggle org-agenda day view as a posframe in the olivetti right margin."
   (interactive)
   (require 'posframe)
-  (let ((buf (get-buffer "*Org Agenda*")))
-    (if (and buf (posframe-visible-p buf))
-        (posframe-hide buf)
-      (save-window-excursion
-        (org-agenda-list nil nil 'day))
-      (let* ((margins  (window-margins))
-             (left-m   (or (car margins) 0))
-             (right-m  (or (cdr margins) 0))
-             (char-w   (frame-char-width))
-             (x        (* (+ (window-left-column) left-m
-                             (or olivetti-body-width 200) 1)
-                          char-w))
-             (panel-w  (max 28 (- right-m 2)))
-             (panel-h  (window-body-height)))
-        (posframe-show (get-buffer "*Org Agenda*")
-                       :position (cons x 0)
-                       :width    panel-w
-                       :height   panel-h
-                       :internal-border-width 0
-                       :border-width 0)))))
+  (if my/agenda-panel-visible
+      (progn
+        (when-let ((buf (get-buffer "*Org Agenda*")))
+          (posframe-hide buf))
+        (setq my/agenda-panel-visible nil))
+    (save-window-excursion
+      (org-agenda-list nil nil 'day))
+    (let* ((margins  (window-margins))
+           (left-m   (or (car margins) 0))
+           (right-m  (or (cdr margins) 0))
+           (char-w   (frame-char-width))
+           (x        (* (+ (window-left-column) left-m
+                           (or olivetti-body-width 200) 1)
+                        char-w))
+           (panel-w  (max 28 (- right-m 2)))
+           (panel-h  (window-body-height)))
+      (posframe-show (get-buffer "*Org Agenda*")
+                     :position (cons x 0)
+                     :width    panel-w
+                     :height   panel-h
+                     :internal-border-width 0
+                     :border-width 0)
+      (setq my/agenda-panel-visible t))))
 #+end_src
 
 ** Calendar (calfw)
@@ -868,22 +880,22 @@ Uses posframe so the main window is not resized.
 (use-package calfw
   :config
   (setq calfw-display-calendar-holidays nil)
-  ;; Ukiyo palette overrides
-  (set-face-attribute 'calfw-title-face          nil :foreground "#e0ba86" :weight 'bold   :height 1.1)
-  (set-face-attribute 'calfw-header-face         nil :foreground "#da9517" :weight 'bold)
-  (set-face-attribute 'calfw-sunday-face         nil :foreground "#ce631c")
-  (set-face-attribute 'calfw-saturday-face       nil :foreground "#e77a59")
-  (set-face-attribute 'calfw-holiday-face        nil :foreground "#da7b5f")
-  (set-face-attribute 'calfw-grid-face           nil :foreground "#504431")
-  (set-face-attribute 'calfw-default-content-face nil :foreground "#ccc2b7")
-  (set-face-attribute 'calfw-periods-face        nil :foreground "#da9517")
-  (set-face-attribute 'calfw-day-title-face      nil :foreground "#b2a699")
-  (set-face-attribute 'calfw-today-title-face    nil :foreground "#da9517" :weight 'bold)
-  (set-face-attribute 'calfw-today-face          nil :background "#413632")
-  (set-face-attribute 'calfw-annotation-face     nil :foreground "#868074")
-  (set-face-attribute 'calfw-toolbar-face        nil :background "#413632" :foreground "#b2a699")
-  (set-face-attribute 'calfw-toolbar-button-off-face nil :foreground "#868074")
-  (set-face-attribute 'calfw-toolbar-button-on-face  nil :foreground "#da9517" :weight 'bold))
+  (custom-set-faces
+   '(calfw-title-face          ((t (:inherit org-level-1 :height 1.1))))
+   '(calfw-header-face         ((t (:inherit font-lock-keyword-face :weight bold))))
+   '(calfw-sunday-face         ((t (:inherit font-lock-warning-face))))
+   '(calfw-saturday-face       ((t (:inherit font-lock-string-face))))
+   '(calfw-holiday-face        ((t (:inherit font-lock-warning-face))))
+   '(calfw-grid-face           ((t (:inherit shadow))))
+   '(calfw-default-content-face ((t (:inherit default))))
+   '(calfw-periods-face        ((t (:inherit font-lock-constant-face))))
+   '(calfw-day-title-face      ((t (:inherit font-lock-comment-face))))
+   '(calfw-today-title-face    ((t (:inherit font-lock-keyword-face :weight bold))))
+   '(calfw-today-face          ((t (:inherit hl-line))))
+   '(calfw-annotation-face     ((t (:inherit font-lock-comment-face))))
+   '(calfw-toolbar-face        ((t (:inherit mode-line))))
+   '(calfw-toolbar-button-off-face ((t (:inherit shadow))))
+   '(calfw-toolbar-button-on-face  ((t (:inherit font-lock-keyword-face :weight bold))))))
 
 (use-package calfw-org
   :after calfw
