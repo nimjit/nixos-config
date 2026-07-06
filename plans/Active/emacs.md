@@ -5,6 +5,22 @@
 
 ---
 
+## Session notes [2026-07-06]
+
+### Fixed this session
+
+- **elfeed feeds always empty**: elfeed-org 20250219 uses advice-based lazy loading — `(elfeed-org)` only installs a `before` hook on the `elfeed` command; it does not populate `elfeed-feeds` itself. Both `my/yt--refresh` and the news-view `u` lambda were calling `(elfeed-org)` and then immediately reading `elfeed-feed-list`, which was always empty. Fix: call `(rmh-elfeed-org-process rmh-elfeed-org-files rmh-elfeed-org-tree-id)` directly. Confirmed 55 feeds, 40 YouTube.
+- **news-view paren imbalance**: `(switch-to-buffer buf)` had 4 closing parens instead of 3, causing `org-babel-load-file` to consume everything after `my/news-view` as part of its body. Email, dashboard, and other config silently failed to load. Fixed by counting with a Python paren-depth script and editing with surrounding context as anchor.
+
+### Discussed / planned this session
+
+- Full dashboard audit written into plan (each view: today, vault, uni, messages, email, music, cal).
+- UI polish section written: ligature.el (do it), doom-modeline, solaire-mode, centaur-tabs (worth trying — perspectives settled), treemacs (fills olivetti negative space only, no nav benefit), nerd-icons, indent-bars, rainbow-delimiters.
+- Daily note template documented from neovim source (`Schedule / ToDo / Inbox / Italian / Notes`); org-mode capture template equivalent written into plan.
+- Clarified: yazi is a terminal app, not in Emacs — `SPC f f` opens dired. Centaur-tabs assessment was too conservative given perspectives are already settled.
+
+---
+
 ## Dashboard audit [2026-07-06]
 
 Notes per dashboard from a live review session. Ordered by priority.
