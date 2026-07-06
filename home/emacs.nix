@@ -59,6 +59,11 @@
       elfeed-org           # manage feed list in an org file
       elfeed-tube          # YouTube metadata + mpv playback
 
+      # ── Calendar / agenda ─────────────────────────────────────────────────
+      posframe             # floating child frames (agenda side panel)
+      calfw                # visual calendar grid
+      calfw-org            # calfw org-agenda source
+
       # ── Terminal ──────────────────────────────────────────────────────────
       ghostel              # libghostty-vt terminal: Kitty graphics, mouse passthrough, fast
       # vterm              # fallback: C/libvterm, no Kitty graphics, slower

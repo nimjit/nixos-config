@@ -312,6 +312,8 @@ Comma (,) is a secondary local leader used for mode-specific commands.
 
   ;; Agenda
   "a"   'org-agenda
+  "as"  '(my/toggle-agenda-panel :wk "side agenda")
+  "aw"  '(my/open-week-calendar  :wk "week calendar")
 
   ;; RSS / elfeed
   "r"   'elfeed)
@@ -694,7 +696,7 @@ open summary on right, lecture on left, transclude lecture sections into summary
   :ensure nil
   :custom
   (org-directory          "~/org")
-  (org-agenda-files       '("~/org/agenda.org" "~/org/inbox.org" "~/org/uni/"))
+  (org-agenda-files       '("~/org/agenda.org" "~/org/inbox.org" "~/org/uni/" "~/org/calendars/"))
   (org-default-notes-file "~/org/inbox.org")
   (org-log-done           'time)
   (org-return-follows-link t)
@@ -814,9 +816,59 @@ After that, syncs happen automatically when =org-agenda= opens.
             ("cp7ljbsac30lakkm39rsdht0m0@group.calendar.google.com"
              . "~/org/calendars/misc.org")))
     (run-with-idle-timer 600 t #'org-gcal-sync)
-    ;; Cache plstore passphrase so OAuth token persists without browser re-auth
-    (setq plstore-cache-passphrase-for-symmetric-encryption t))
+    (setq plstore-encrypt-to nil))
 #+end_src
+** Org Agenda Panel
+
+=SPC a s= toggles a floating org-agenda day view in the olivetti right-margin space.
+Uses posframe so the main window is not resized.
+
+#+begin_src emacs-lisp
+(defun my/toggle-agenda-panel ()
+  "Toggle org-agenda day view as a posframe in the olivetti right margin."
+  (interactive)
+  (require 'posframe)
+  (let ((buf (get-buffer "*Org Agenda*")))
+    (if (and buf (posframe-visible-p buf))
+        (posframe-hide buf)
+      (save-window-excursion
+        (org-agenda nil "d"))
+      (let* ((margins  (window-margins))
+             (left-m   (or (car margins) 0))
+             (right-m  (or (cdr margins) 0))
+             (char-w   (frame-char-width))
+             (x        (* (+ (window-left-column) left-m
+                             (or olivetti-body-width 200) 1)
+                          char-w))
+             (panel-w  (max 28 (- right-m 2)))
+             (panel-h  (window-body-height)))
+        (posframe-show (get-buffer "*Org Agenda*")
+                       :position (cons x 0)
+                       :width    panel-w
+                       :height   panel-h
+                       :internal-border-width 0
+                       :border-width 0)))))
+#+end_src
+
+** Calendar (calfw)
+
+=SPC a w= opens a calfw week view. Reads from org-agenda-files including gcal calendars.
+
+#+begin_src emacs-lisp
+(use-package calfw
+  :config
+  (setq cfw:display-calendar-holidays nil))
+
+(use-package calfw-org
+  :after calfw
+  :config
+  (defun my/open-week-calendar ()
+    "Open calfw week view showing org-agenda + gcal events."
+    (interactive)
+    (cfw:open-org-calendar)
+    (cfw:change-view-week)))
+#+end_src
+
 ** Org Capture Templates
 
 Templates for org-roam nodes. Captures go to the correct folder automatically.
@@ -1614,11 +1666,27 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 ;; Each one is the Emacs equivalent of the matching zsh shell function.
 
 (defun my/dash-today ()
-  "Open today's personal vault daily note."
+  "Open today's personal vault daily note, creating it from template if new."
   (interactive)
-  (find-file (expand-file-name
-              (concat "Dailies/" (format-time-string "%Y-%m-%d") ".md")
-              my/dash-vault)))
+  (let* ((date-str (format-time-string "%Y-%m-%d"))
+         (f    (expand-file-name (concat "Dailies/" date-str ".md") my/dash-vault))
+         (tmpl (expand-file-name "Templates/Daily Note.md" my/dash-vault)))
+    (unless (file-exists-p f)
+      (when (file-exists-p tmpl)
+        (write-region
+         (with-temp-buffer
+           (insert-file-contents tmpl)
+           (goto-char (point-min))
+           (while (search-forward "{{date}}" nil t)
+             (replace-match date-str t t))
+           (buffer-string))
+         nil f)))
+    (find-file f)))
+
+(defun my/dash-today-org ()
+  "Open today's org-roam daily note, creating from template if new."
+  (interactive)
+  (org-roam-dailies-goto-today))
 
 (defun my/dash-vault-work ()
   "Open personal vault dashboard."
@@ -1776,6 +1844,48 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                   line))
             (push (cons (match-string 1 line) (match-string 2 line))
                   results))))
+        (nreverse results)))))
+
+(defun my/dash--org-daily-file ()
+  "Path to today's org-roam daily note."
+  (expand-file-name
+   (concat "daily/" (format-time-string "%Y-%m-%d") ".org")
+   org-roam-directory))
+
+(defun my/dash--org-section (file heading)
+  "List items from org * HEADING in FILE."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let (results in-sec)
+        (dolist (line (split-string (buffer-string) "\n"))
+          (cond
+           ((string-match (concat "^\\* " (regexp-quote heading) "$") line)
+            (setq in-sec t))
+           ((and in-sec (string-match "^\\*+ " line)) (setq in-sec nil))
+           ((and in-sec
+                 (string-match "^[[:space:]]*-[[:space:]]\\(.*\\)" line))
+            (push (match-string 1 line) results))))
+        (nreverse results)))))
+
+(defun my/dash--org-schedule-events (file)
+  "Return ((TIME . TITLE) ...) from * Schedule in an org FILE."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let (results in-sec)
+        (dolist (line (split-string (buffer-string) "\n"))
+          (cond
+           ((string-match "^\\* Schedule$" line) (setq in-sec t))
+           ((and in-sec (string-match "^\\*+ " line)) (setq in-sec nil))
+           ((and in-sec
+                 (string-match
+                  "^\\([0-9]\\{2\\}:[0-9]\\{2\\}\\)[[:space:]]+\\(.*\\)" line))
+            (push (cons (match-string 1 line) (match-string 2 line)) results))
+           ((and in-sec
+                 (string-match
+                  "<[^>]+\\([0-9]\\{2\\}:[0-9]\\{2\\}\\)>[[:space:]]*\\(.*\\)" line))
+            (push (cons (match-string 1 line) (match-string 2 line)) results))))
         (nreverse results)))))
 
 (defun my/dash--deadlines ()
@@ -1951,6 +2061,7 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
          (w-px  (or (and win (window-body-width win t))
                     (* 120 (frame-char-width))))
          (w-px  (if my/weight-chart-max-px (min w-px my/weight-chart-max-px) w-px))
+         (w-px  (round (* 1.8 w-px)))
          (cols  (max 40 (/ w-px 9))))
     (make-process
      :name    "plot-weights"
@@ -1976,9 +2087,15 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                            (message "weight chart: pos=%s pw=%d img-type=%s"
                                     (if pos (marker-position pos) "nil")
                                     pw (car img))
+                           ;; Use overlay, not text property — font-lock
+                           ;; refontification strips display text props in
+                           ;; org-mode buffers, but overlays survive.
                            (goto-char (or pos (point-max)))
-                           (insert-image img)
-                           (insert "\n"))))
+                           (let ((beg (point)))
+                             (insert " \n")
+                             (let ((ov (make-overlay beg (1+ beg) buf)))
+                               (overlay-put ov 'display img)
+                               (overlay-put ov 'evaporate t))))))
                    (error (message "weight chart error: %s" err)))))))
 
 
@@ -2209,26 +2326,93 @@ When MAX-WIDTH is set, shrink widest columns so total fits."
        lines))))
 
 (defun my/dash--uni-planning ()
-  "Read # Planning from Uni MOC.md; return box-drawing table lines."
-  (let ((moc (expand-file-name "Uni MOC.md" my/dash-uni))
-        lines in-section)
-    (when (file-exists-p moc)
+  "Return org table lines from Planning section; prefers ~/org/uni/Uni MOC.org."
+  (let* ((org-f   (expand-file-name "~/org/uni/Uni MOC.org"))
+         (md-f    (expand-file-name "Uni MOC.md" my/dash-uni))
+         (use-org (file-exists-p org-f))
+         (source  (if use-org org-f md-f))
+         (start-re (if use-org "^\\*+ Planning" "^# Planning"))
+         (end-re   (if use-org "^\\*+ " "^# "))
+         lines in-section)
+    (when (file-exists-p source)
       (with-temp-buffer
-        (insert-file-contents moc)
+        (insert-file-contents source)
         (goto-char (point-min))
         (while (not (eobp))
           (let ((line (buffer-substring-no-properties
                        (line-beginning-position) (line-end-position))))
             (cond
-             ((string-match "^# Planning" line) (setq in-section t))
-             ((and in-section (string-match "^# " line)
-                   (not (string-match "^# Planning" line))) (setq in-section nil))
+             ((string-match-p start-re line) (setq in-section t))
+             ((and in-section (string-match-p end-re line)) (setq in-section nil))
              (in-section (push line lines))))
           (forward-line))))
     (setq lines (nreverse lines))
     (while (and lines (string-blank-p (car lines))) (setq lines (cdr lines)))
     (while (and lines (string-blank-p (car (last lines)))) (setq lines (butlast lines)))
-    (my/render-md-table lines 130)))
+    lines))
+
+(defun my/uni-dash--parse-table-lines (lines)
+  "Return (clean-lines . face-map) stripping org emphasis markers from table LINES.
+face-map entries: (ridx cidx face-plist), ridx/cidx 0-indexed."
+  (let* ((rules `(("\\*\\([^*\n|]+\\)\\*"  . (:weight bold   :foreground "#da9517"))
+                  ("/\\([^/\n|]+\\)/"        . (:slant italic  :foreground "#ce631c"))
+                  ("\\+\\([^+\n|]+\\)\\+"    . (:strike-through t))))
+         face-map clean-lines (ridx 0))
+    (dolist (line lines)
+      (if (not (string-match-p "^[[:space:]]*|" line))
+          (push line clean-lines)
+        (let* ((parts (split-string line "|"))
+               (n (length parts))
+               new-parts)
+          (dotimes (i n)
+            (let ((part (nth i parts)))
+              (if (or (= i 0) (= i (1- n)))
+                  (push part new-parts)
+                (let ((cidx (1- i))
+                      (cell part))
+                  (dolist (rule rules)
+                    (when (string-match (car rule) cell)
+                      (push (list ridx cidx (cdr rule)) face-map)
+                      (setq cell (replace-regexp-in-string
+                                  (car rule) "\\1" cell))))
+                  (push cell new-parts)))))
+          (push (string-join (nreverse new-parts) "|") clean-lines)))
+      (setq ridx (1+ ridx)))
+    (cons (nreverse clean-lines) (nreverse face-map))))
+
+(defun my/uni-dash--apply-table-faces (tbl-start face-map)
+  "Apply face overlays to table cells after org-table-align.
+TBL-START: position or marker at first table line.
+FACE-MAP: list of (ridx cidx face-plist)."
+  (save-excursion
+    (dolist (entry face-map)
+      (let* ((ridx (nth 0 entry))
+             (cidx (nth 1 entry))
+             (face (nth 2 entry)))
+        (goto-char tbl-start)
+        (forward-line ridx)
+        (let ((bol (line-beginning-position))
+              (eol (line-end-position))
+              (pipe-count 0)
+              found)
+          (goto-char bol)
+          (while (and (< (point) eol) (not found))
+            (when (eq (char-after) ?|)
+              (setq pipe-count (1+ pipe-count))
+              (when (= pipe-count (1+ cidx))
+                (setq found t)))
+            (unless found (forward-char)))
+          (when found
+            (forward-char)
+            (skip-chars-forward " ")
+            (let ((cell-beg (point)))
+              (skip-chars-forward "^|")
+              (skip-chars-backward " ")
+              (let ((cell-end (point)))
+                (when (< cell-beg cell-end)
+                  (let ((ov (make-overlay cell-beg cell-end)))
+                    (overlay-put ov 'face face)
+                    (overlay-put ov 'evaporate t)))))))))))
 
 (defun my/uni-new-lecture ()
   "Create a lecture note from template and open it."
@@ -2270,9 +2454,10 @@ When MAX-WIDTH is set, shrink widest columns so total fits."
   (let* ((buf      (get-buffer-create "*Dashboard*"))
          (win-w    (window-width))
          (todo-f   (expand-file-name "Misc/ToDo.md" my/dash-vault))
-         (daily-f  (expand-file-name
-                    (concat "Dailies/" (format-time-string "%Y-%m-%d") ".md")
-                    my/dash-vault))
+         (daily-f     (expand-file-name
+                      (concat "Dailies/" (format-time-string "%Y-%m-%d") ".md")
+                      my/dash-vault))
+         (daily-org-f (my/dash--org-daily-file))
          ;; Gather data
          (date-str  (format-time-string "%A %-d %B %Y"))
          (weather   (my/dash--weather))
@@ -2282,7 +2467,8 @@ When MAX-WIDTH is set, shrink widest columns so total fits."
          (khal-timed (seq-filter
                       (lambda (l) (string-match "^[0-9]\\{2\\}:[0-9]\\{2\\}" l))
                       today-ev))
-         (sched-ev  (my/dash--schedule-events daily-f))
+         (sched-ev  (or (my/dash--schedule-events daily-f)
+                        (my/dash--org-schedule-events daily-org-f)))
          (all-ev    (sort
                      (append
                       (mapcar (lambda (l)
@@ -2292,7 +2478,8 @@ When MAX-WIDTH is set, shrink widest columns so total fits."
                       sched-ev)
                      (lambda (a b) (string< (car a) (car b)))))
          (deadlines (my/dash--deadlines))
-         (todo-d    (my/dash--parse-section daily-f "ToDo"))
+         (todo-d    (or (my/dash--parse-section daily-f "ToDo")
+                        (my/dash--org-section daily-org-f "ToDo")))
          (todo-p    (my/dash--parse-section todo-f  "ToDo"))
          (projects  (my/dash--parse-section todo-f  "Projects"))
          (proj-idx  (when projects
@@ -2309,7 +2496,7 @@ When MAX-WIDTH is set, shrink widest columns so total fits."
         (erase-buffer)
         (setq-local cursor-type nil)
         (olivetti-mode 1)
-        (setq-local olivetti-body-width 180)
+        (setq-local olivetti-body-width 200)
 
         ;; ── Header ────────────────────────────────────────────────────────
         (insert "\n")
@@ -2805,17 +2992,19 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
         (insert "\n")
 
         (insert "** Weight\n\n")
-        (setq-local my/weight-chart-marker (point-marker))
-
         (insert "-----\n")
         (insert "[ d ] daily   [ w ] weight   [ f ] files   [ g ] refresh   [ q ] close\n")
 
         (org-mode)
         (setq-local org-hide-emphasis-markers t)
         (olivetti-mode 1)
-        (setq-local olivetti-body-width 180)
+        (setq-local olivetti-body-width 200)
         (org-show-all))
 
+      ;; Re-set chart marker after org-mode (kill-all-local-variables wipes it)
+      (goto-char (point-min))
+      (when (re-search-forward "\\*+ Weight\n\n" nil t)
+        (setq-local my/weight-chart-marker (point-marker)))
       (face-remap-add-relative 'org-link '(:underline nil :weight normal))
       (read-only-mode 1)
       (goto-char (point-min))
@@ -2851,7 +3040,11 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
          (deadlines   (my/dash--uni-deadlines))
          (assignments (my/dash--uni-assignments))
          (courses     (my/dash--uni-courses))
-         (planning    (my/dash--uni-planning)))
+         (planning    (my/dash--uni-planning))
+         (parsed      (my/uni-dash--parse-table-lines planning))
+         (clean-plan  (car parsed))
+         (face-map    (cdr parsed))
+         tbl-marker)
 
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -2887,8 +3080,10 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (insert "\n")
 
         (insert "** Planning  (from Uni MOC)\n\n")
-        (if planning
-            (dolist (l planning) (insert l "\n"))
+        (setq tbl-marker (point-marker))
+        (set-marker-insertion-type tbl-marker nil)
+        (if clean-plan
+            (dolist (l clean-plan) (insert l "\n"))
           (insert "/none/\n"))
         (insert "\n")
 
@@ -2898,9 +3093,26 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (org-mode)
         (setq-local org-hide-emphasis-markers t)
         (olivetti-mode 1)
-        (setq-local olivetti-body-width 140)
-        (org-show-all))
+        (setq-local olivetti-body-width 200)
+        (org-show-all)
+        (org-table-map-tables #'org-table-align t))
 
+      ;; Apply emphasis colours to planning table cells
+      (when face-map
+        (my/uni-dash--apply-table-faces tbl-marker face-map))
+
+      ;; Scale planning table to ~14pt (2pt smaller than body font)
+      (when tbl-marker
+        (let* ((beg (marker-position tbl-marker))
+               (end (save-excursion
+                      (goto-char beg)
+                      (or (and (re-search-forward "^-----" nil t)
+                               (line-beginning-position))
+                          (point-max))))
+               (ov  (make-overlay beg end)))
+          (overlay-put ov 'face '((:family "CMU Typewriter Text" :height 130)))
+          (overlay-put ov 'evaporate t)))
+      (face-remap-add-relative 'org-table '(:family "CMU Typewriter Text" :height 130))
       (face-remap-add-relative 'org-link '(:underline nil :weight normal))
       (read-only-mode 1)
       (goto-char (point-min))
@@ -2995,7 +3207,7 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
           (org-mode)
           (setq-local org-hide-emphasis-markers t)
           (olivetti-mode 1)
-          (setq-local olivetti-body-width 180)
+          (setq-local olivetti-body-width 200)
           (org-show-all))
 
         (read-only-mode 1)
@@ -3075,7 +3287,7 @@ One headline per country, sourced from elfeed. Requires elfeed-update to have ru
         (org-mode)
         (setq-local org-hide-emphasis-markers t)
         (olivetti-mode 1)
-        (setq-local olivetti-body-width 140)
+        (setq-local olivetti-body-width 200)
         (org-show-all))
       (read-only-mode 1)
       (goto-char (point-min))
