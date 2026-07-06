@@ -83,14 +83,14 @@ way in `my/dashboard` after a weight is logged.
 
 ### Uni (my/uni-dashboard)
 
-**Problem:** Table (the planning table rendered by `my/render-md-table`) is wider
-than expected. Text starts at the far left edge.
-
-**Fix:** Change `olivetti-body-width` in `my/uni-dashboard` from whatever it
-currently is to `200`. This is consistent with yt-view and will also push the
-table body inward, which should help with the perceived width issue. If the table
-is genuinely wider than 200 chars, the underlying `# Planning` section in
-`Uni_MOC.md` may need trimming or column dropping.
+**Done [2026-07-06]:**
+- `olivetti-body-width 200` applied globally across all dashboards.
+- Planning table converted from `my/render-md-table` (box-drawing renderer) to native
+  org `|`-table. Source file `~/org/uni/Uni MOC.org` cleaned up (bold year headers,
+  `|-` separators between Y1/Y2/Y3, fixed broken markup). `my/dash--uni-planning` now
+  reads directly from the org file and returns raw `|`-lines; `org-table-map-tables`
+  called after buffer population so org aligns columns natively. Face overlay
+  (`:height 0.875`) retained since the 8-column table is wide.
 
 **Longer-term:** After setting olivetti 200, reassess whether a sidebar makes
 sense. Something like a narrow org-agenda or deadline list on the left is a
@@ -177,7 +177,8 @@ replace) org-agenda.
 
 ### YouTube / weight / news
 
-Working well. No changes needed.
+For some reason mpv didn't open a window, but just played in the background when I just tested it.
+Shuold look into why that happens.
 
 ---
 
