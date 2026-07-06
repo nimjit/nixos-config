@@ -1,123 +1,52 @@
-# Emacs — Current State
+# Emacs — config plan
 
 *Last updated: 2026-07-07*
-
-
----
-
-## Session notes [2026-07-07]
-
-### Fixed this session
-
-- **org-gcal group calendars empty**: oauth2-auto was treating each Google Calendar
-  ID as a separate OAuth user — group calendar IDs like
-  `3cglgpg5e90ir3hkb1pm7an6o8@...` would trigger a "Log in to your account"
-  browser prompt. Fixed by advising `org-gcal--get-access-token` to always use
-  `tidemanus@gmail.com` as the user, routing all calendars through the single
-  cached token. `work.org` now has 3 events (recurring "lenzen vervangen" for
-  Jul/Aug/Sep); group calendars are empty because they have no events in the
-  current −30/+60 day window.
-
-- **Stale sync token**: A token from June 26 was persisted in-memory, causing
-  incremental fetches to return 0 events even after re-auth. Cleared with
-  `M-x org-gcal-sync-tokens-clear` + `M-x org-gcal--sync-unlock` before the
-  fixed fetch.
-
-- **Side panel toggle broken (`posframe-visible-p` void)**: The installed posframe
-  version does not export `posframe-visible-p`. Replaced with `defvar
-  my/agenda-panel-visible nil` as a state flag. `SPC a s` now correctly opens and
-  closes the panel.
-
-- **calfw hardcoded colours**: Replaced 15 `set-face-attribute` calls using Ukiyo
-  hex values with `custom-set-faces` using `:inherit` from `font-lock-*`,
-  `org-level-1`, `hl-line`, `mode-line` — all faces Stylix already styles.
-
-### New issues noted this session
-
-- **youtube-mpv opens windowless**: mpv plays audio but shows no video window.
-  Was working in a previous session; something changed. Likely the `--gpu-api=opengl`
-  flag or the NVIDIA Wayland path broke again. Check `my/yt--play` in config.org
-  and compare against the working kitty mpv alias.
-
-- **Weight graph too wide + readability**: The vault dashboard weight chart is
-  slightly wider than the olivetti body. Also: DPI is too high (small chart),
-  no horizontal grid lines, legend and axes are hard to read. Fix in
-  `my/dash--insert-weight-chart` / the python matplotlib call: set `dpi=80` (or
-  similar), add `ax.yaxis.grid(True, alpha=0.3)`, enlarge tick labels, move legend
-  inside or below the chart.
+*Config lives at `~/.config/emacs/config.org` (edit directly; saved → auto-retangles to `config.el`).*
+*Nix packages: `home/emacs.nix`. Rebuild only when adding/removing packages.*
 
 ---
 
-## Session notes [2026-07-06]
+## Priorities
 
-### Fixed this session
+Ordered. Do these before anything else.
 
-- **elfeed feeds always empty**: elfeed-org 20250219 uses advice-based lazy loading — `(elfeed-org)` only installs a `before` hook on the `elfeed` command; it does not populate `elfeed-feeds` itself. Both `my/yt--refresh` and the news-view `u` lambda were calling `(elfeed-org)` and then immediately reading `elfeed-feed-list`, which was always empty. Fix: call `(rmh-elfeed-org-process rmh-elfeed-org-files rmh-elfeed-org-tree-id)` directly. Confirmed 55 feeds, 40 YouTube.
-- **news-view paren imbalance**: `(switch-to-buffer buf)` had 4 closing parens instead of 3, causing `org-babel-load-file` to consume everything after `my/news-view` as part of its body. Email, dashboard, and other config silently failed to load. Fixed by counting with a Python paren-depth script and editing with surrounding context as anchor.
+### 1. org/ migration (2026-07-08)
 
-### Discussed / planned this session
+`~/org/` is mostly empty. The plan is to use pandoc to populate it from the markdown vaults. Start with the three safe categories:
 
-- Full dashboard audit written into plan (each view: today, vault, uni, messages, email, music, cal).
-- UI polish section written: ligature.el (do it), doom-modeline, solaire-mode, centaur-tabs (worth trying — perspectives settled), treemacs (fills olivetti negative space only, no nav benefit), nerd-icons, indent-bars, rainbow-delimiters.
-- Daily note template documented from neovim source (`Schedule / ToDo / Inbox / Italian / Notes`); org-mode capture template equivalent written into plan.
-- Clarified: yazi is a terminal app, not in Emacs — `SPC f f` opens dired. Centaur-tabs assessment was too conservative given perspectives are already settled.
+1. **Daily notes** — `~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies/*.md` → `~/org/daily/`. Names are already `YYYY-MM-DD.md`; rename to `.org`. Add `#+title:` and `#+filetags: :daily:` after conversion.
+2. **Uni notes** — `~/Documents/BACKUP/Uni/Obsidian/Uni/` → `~/org/uni/`. Guaranteed safe; no conflicting org-roam IDs. Subdirs (Classes, Lectures, Assignments) map 1:1.
+3. **Todo/task notes** — unclear structure; inspect before migrating.
 
----
+**Before starting:** run `ls ~/org/` and check for existing nodes that could conflict. Test pandoc on one file first — wikilinks need `--from markdown+wikilinks` (flag availability varies by version).
 
-## config.org conventions
-
-### Code block structure
-
-Large `#+begin_src emacs-lisp` blocks should be split into smaller, named sections
-with their own `**` or `***` subheadings. Each subheading should cover one
-coherent concern (one package, one feature, one logical group of settings).
-
-**Why:** The literate format only pays off if the headings act as real navigation
-landmarks. A 200-line block under a single `** Dashboard` heading is harder to
-read and edit than five 40-line blocks under `** Dashboard: greeting`, `** Dashboard:
-weight chart`, etc. It also makes it easier to fold/unfold just the part being worked
-on (`TAB` on the heading).
-
-**Apply this when:** editing a section that currently has a single large block —
-split it then, not in a separate cleanup pass. Don't restructure sections that
-aren't being touched.
-
-**Naming pattern:** use the package or feature name as the subheading, e.g.:
-- `** Org-gcal` not `** Google Calendar Sync (org-gcal)`
-- `** Dashboard: greeting` / `** Dashboard: weight chart` / `** Dashboard: news`
-- `** Side panels: agenda` / `** Side panels: helper`
+**Not yet:** personal vault (Concepts, Essays, Knowledge/) — wikilinks and YAML frontmatter need closer review.
 
 ---
 
-## Dashboard audit [2026-07-06]
+### 2. mpv opens windowless
 
-Notes per dashboard from a live review session. Ordered by priority.
+mpv plays audio but no video window. Was working; something broke. The `--gpu-api=opengl` flag in `my/yt--play` was the original fix for the NVIDIA Wayland DMA-buf path. Check that flag is still present in config.org and test whether it's still effective.
 
-### Today (my/dashboard — the greeting)
+---
 
-**Problem:** Daily note doesn't use the correct template on creation.
-The template was added at some point but is no longer in the config.
+### 3. Weight graph readability
 
-**Source template (neovim/markdown):**
-`~/...Vault/Templates/Daily Note.md` — substitutes `{{date}}` with the ISO date.
-```markdown
-# {{date}}
+The vault dashboard weight chart is slightly wider than the olivetti body, DPI is too high (chart appears small), no horizontal grid lines, legend and axes are hard to read.
 
-## Schedule
-<!-- HH:MM Task name -->
+Fix in `my/dash--insert-weight-chart` (the matplotlib call):
+- `dpi=80` (was higher)
+- `ax.yaxis.grid(True, alpha=0.3)`
+- Increase `fontsize` on tick labels
+- Move legend inside or below chart
 
-## ToDo
+---
 
-## Inbox
+### 4. Daily note template missing
 
-## Italian
+The org-roam daily capture template is not in config.org. When a new daily is created it gets no structure.
 
-## Notes
-```
-
-**Org-mode adaptation:**
-The equivalent for org-roam dailies. The `:head` string is the file header (written
-once on creation); the `:template` string is the initial cursor position.
+Add to the `** Org-roam` section:
 ```elisp
 (setq org-roam-dailies-capture-templates
       '(("d" "default" plain
@@ -127,190 +56,18 @@ once on creation); the `:template` string is the initial cursor position.
          :unnarrowed t)))
 ```
 
-**Dashboard read-back:**
-If `my/vault-dashboard` shows today's daily note content (e.g., the ToDo or
-Schedule section), it needs to open the org file and extract that heading's
-subtree. The cleanest approach is `org-element-parse-buffer` or a regex on the
-heading. Defer this until the template itself is wired up and working — the
-template is the prerequisite.
-
 ---
 
-### Vault (my/vault-dashboard)
+### 5. Side panels: left margin + posframe helper refactor
 
-**Problem:** Weight graph only opens when `w` (log weight) is pressed. Should always
-be visible when the vault dashboard loads.
+The right-side posframe agenda panel works (`SPC a s`). Two things left:
 
-**Fix:** Call `my/dash--insert-weight-chart` unconditionally at the end of
-`my/vault-dashboard`, after the buffer is populated and read-only is restored.
-The function is async (spawns python3); it inserts the chart PNG at point-max via
-a sentinel — so just call it at the end of the function body. It already works this
-way in `my/dashboard` after a weight is logged.
-
----
-
-### Uni (my/uni-dashboard)
-
-**Done [2026-07-06]:**
-- `olivetti-body-width 200` applied globally across all dashboards.
-- Planning table converted from `my/render-md-table` (box-drawing renderer) to native
-  org `|`-table. Source file `~/org/uni/Uni MOC.org` cleaned up (bold year headers,
-  `|-` separators between Y1/Y2/Y3, fixed broken markup). `my/dash--uni-planning` now
-  reads directly from the org file and returns raw `|`-lines; `org-table-map-tables`
-  called after buffer population so org aligns columns natively. Face overlay
-  (`:height 0.875`) retained since the 8-column table is wide.
-
-**Longer-term:** After setting olivetti 200, reassess whether a sidebar makes
-sense. Something like a narrow org-agenda or deadline list on the left is a
-natural companion to the uni planning table. But this can wait until the centering
-is fixed and the layout feels right.
-
----
-
-### Messages (my/dash-messages)
-
-**Status:** WhatsApp integration is not set up.
-
-**Current state:** nchat runs in the terminal (kitty tab), but desktop notifications
-sometimes fail. wuzapi (the HTTP bridge) is installed as a systemd service; the
-Emacs-side `my/wuzapi-create-user` hits a 404.
-
-**Path forward:** Two separate tracks:
-
-1. **Fix wuzapi 404** (already noted in Queued improvements): compare the admin
-   token in config.org with `cat ~/.local/share/wuzapi/.env`. The 404 is almost
-   certainly a token mismatch.
-
-2. **Wasabi** (`codeberg.org/vifon/wasabi`): Emacs-native conversation view on top
-   of wuzapi. Not in nixpkgs; needs a `trivialBuild` derivation in `home/emacs.nix`.
-   Once wuzapi is connected and QR-scanned, wasabi gives a proper buffer-based
-   WhatsApp UI with evil keybindings. Worth pursuing because nchat's notification
-   reliability is a recurring issue.
-
-For now the `m` dashboard key opens the wuzapi connect flow. Keep that binding;
-extend it to open a wasabi buffer once wasabi is packaged.
-
----
-
-### Email (mu4e)
-
-**Problem 1:** How to switch between email accounts is not obvious.
-mu4e supports "contexts" — one context per account, each with its own `mu4e-sent-folder`,
-`mu4e-trash-folder`, and `user-mail-address`. With contexts set up:
-- `SPC e c` (or `,c` in mu4e) cycles contexts
-- The header list auto-filters to the active account's inbox
-
-The current config may not have `mu4e-contexts` declared. Check the `** Email (mu4e)`
-section of config.org for a `mu4e-contexts` defcustom or `setq`.
-
-**Problem 2:** Possible key mapping overlap (not yet narrowed down). Note which
-key conflicts when they appear and record here.
-
----
-
-### Music (my/music-view — not yet built)
-
-**Goal:** A text-based frontend for MPD, similar in style to yt-view.
-The MPD backend (mpd + mpc + rmpc) stays unchanged. This is a new Emacs buffer.
-
-**Desired features:**
-- Browse and play albums (artist → album → tracks)
-- Playlists: list, load, play
-- Play all (full library shuffle or queue)
-- Random toggle
-- Album art shown inline (same approach as yt-view: `create-image` + kitty icat,
-  or just a standard image insert — the cover.jpg files are already in the music
-  library at `~/Music/Artist/Album/cover.jpg`)
-
-**Suggested design:**
-- Two-column layout: left panel = album/playlist browser, right panel = now-playing
-  with cover art
-- Use `mpc` CLI calls for all MPD interaction (already installed; no new deps)
-- Same olivetti + evil-local-set-key pattern as yt-view and news-view
-- Bindings: `j`/`k` navigate, `RET` play, `a` add to queue, `r` toggle random,
-  `SPC m v` to open
-
-This is a non-trivial build (likely 200–300 lines). Design it as a separate session
-once the smaller dashboard fixes are done.
-
----
-
-### cal (calfw week view)
-
-Already in Queued improvements. Add `calfw` + `calfw-org` to `home/emacs.nix`,
-wire to org-gcal's agenda files. Bind to `SPC a c`. This supplements (doesn't
-replace) org-agenda.
-
----
-
-### YouTube / weight / news
-
-**mpv windowless** (2026-07-07): mpv plays audio but shows no video window. Was
-working previously. The `--gpu-api=opengl` flag in `my/yt--play` was the original
-fix for the NVIDIA Wayland DMA-buf path. Check if that flag is still present and
-whether it's still effective. Possible cause: Wayland compositor or driver update
-changed the preferred presentation path.
-
-**Weight graph readability** (2026-07-07): Chart is slightly wider than olivetti body,
-DPI too high (chart appears small), no horizontal grid lines, legend/axis labels
-hard to read. Fix: lower `dpi=80`, add `ax.yaxis.grid(True, alpha=0.3)`, increase
-`fontsize` on tick labels.
-
----
-
-## Side panel visual design
-
-Olivetti centres the text body at 200 chars. At a typical terminal width (say 260+
-columns), this leaves ~30 chars of empty margin on each side. The goal is to use
-that space for ambient information — the panel should **float over** the margin and
-never cause the olivetti body to shift.
-
-### Right side — agenda panel (done)
-
-`SPC a s` toggles a posframe showing the org-agenda day view in the right margin.
-Implemented with `posframe-show` at pixel position `(x=body_right_edge, y=0)`.
-Width = `(max 28 (- right-margin-cols 2))`. Does not affect window layout.
-
-### Left side — open
-
-The left margin is still empty. Options, roughly in order of fit:
-
-**1. Narrow deadline/todo posframe (most useful)**
-A second posframe showing upcoming org-agenda deadlines or `org-ql` results — e.g.
-the next 7 days' scheduled items. Symmetric with the right-side agenda panel.
-Binding candidate: `SPC a d`. Same posframe approach; position at `x=0`.
-
-**2. Treemacs (file tree)**
-Fills the left margin with a file browser. Mostly aesthetic — `SPC f f` (dired)
-already handles navigation. Worth trying purely for the visual completeness.
-Set `treemacs-width` to match the left margin width. Caveat: treemacs may fight
-olivetti by requesting its own window (not a posframe), which would push the body.
-Test whether it can be constrained to a side-window that olivetti ignores.
-
-**3. org-roam backlinks posframe**
-Show backlinks to the current node in a left-margin posframe. Useful during writing
-sessions. Could toggle with `SPC n b`. Not time-sensitive; implement after the
-org vault has enough content to make backlinks meaningful.
-
-### General posframe approach
-
-All side panels should:
-- Use `posframe-show` (not `display-buffer-in-side-window`) to avoid resizing olivetti
-- Track open/closed state with a `defvar` boolean (`posframe-visible-p` is not available)
-- Toggle with a `SPC a *` binding for agenda-related panels, `SPC n *` for notes panels
-- Width: calculated from actual margin width at call time, not hardcoded
-
-### Extract a reusable `my/posframe-toggle` helper
-
-Rather than duplicating the open/close/state-flag logic in every panel, extract it
-into a single generic function:
+**a) Extract `my/posframe-toggle` helper** — the open/close/state-flag pattern should be a single reusable function. Do this when implementing the left panel so both get cleaned up together:
 
 ```elisp
 (defun my/posframe-toggle (buf-or-name state-var show-fn)
-  "Toggle a posframe for BUF-OR-NAME.
-STATE-VAR is a symbol whose value tracks visibility.
-SHOW-FN is a zero-argument function that calls posframe-show with the
-correct position/size for this panel."
+  "Toggle a posframe. STATE-VAR is a symbol tracking visibility.
+SHOW-FN is called with no args to show the frame."
   (if (symbol-value state-var)
       (progn
         (when-let ((buf (get-buffer buf-or-name)))
@@ -320,344 +77,22 @@ correct position/size for this panel."
     (set state-var t)))
 ```
 
-Each panel then becomes two things: a `defvar` for the state flag, and a small
-`defun` that calls `my/posframe-toggle` with the right buffer name and
-`show-fn` lambda. The right-margin agenda panel and any future left-margin panel
-both shrink to ~5 lines of actual panel-specific code.
-
-When implementing the left-side panel, refactor `my/toggle-agenda-panel` to use
-this helper at the same time.
+**b) Left panel** — most useful option is a narrow posframe showing the next 7 days' deadlines/scheduled items via `org-ql`. Position at `x=0`. Binding: `SPC a d`. Same posframe approach as the right panel; position formula is symmetric.
 
 ---
 
-## UI polish ideas [2026-07-06]
+### 6. Typst auto-render on load
 
-Packages seen in polished distributions, assessed for fit with the Ukiyo setup.
-
-### ligature.el — do this
-
-JetBrains Mono Nerd Font (already in use) ships ligatures for `->`, `=>`, `!=`,
-`>=`, `<=`, `//`, `/*`, etc. ligature.el activates them in Emacs.
-
-Already present in kitty and (implicitly) in neovim's font rendering. In Emacs
-ligatures require explicit activation because PGTK composites them via Harfbuzz
-but the Emacs display engine needs a hint about which sequences to compose.
-
-Add to `home/emacs.nix` extraPackages: `ligature`. Then in config.org:
+One-liner. In the `** Typst Math Preview` section of config.org:
 ```elisp
-(use-package ligature
-  :config
-  (ligature-set-ligatures 't '("www"))
-  (ligature-set-ligatures 'prog-mode
-    '("->" "=>" "!=" ">=" "<=" "//" "/*" "*/" "..." "--" "==" "||" "&&"))
-  (global-ligature-mode t))
-```
-Adjust the list to taste. Low risk, immediate visual payoff.
-
----
-
-### doom-modeline — worth trying
-
-A polished mode line with file path, major mode, vc branch, error count. The
-default Emacs mode line works but looks dated. doom-modeline is well-maintained,
-respects theme colours, and has been stable for years.
-
-Add `doom-modeline` to emacs.nix. In config.org:
-```elisp
-(use-package doom-modeline
-  :init (doom-modeline-mode 1)
-  :custom
-  (doom-modeline-height 22)
-  (doom-modeline-bar-width 4)
-  (doom-modeline-icon nil)          ; no icons unless nerd-icons is also added
-  (doom-modeline-buffer-file-name-style 'truncate-from-project))
-```
-The main trade-off: it pulls in `nerd-icons` as a soft dependency for the icons.
-Icons can be disabled (as above) to avoid adding a new package for now.
-
----
-
-### solaire-mode — probably worth trying
-
-Makes "real" file-visiting buffers slightly lighter/darker than special buffers
-(minibuffer, sidebars, popups). With the Ukiyo warm-brown palette this could
-reinforce the sense of which buffer is the "active work surface".
-
-One potential issue: Stylix injects the Ukiyo colours into Emacs faces. solaire
-remaps `default` background slightly, which might fight Stylix. Test first with
-`:custom (solaire-global-mode +1)` and see if it looks right or fights the
-theme. If colours clash, skip it.
-
----
-
-### centaur-tabs — worth trying
-
-A tab bar showing open buffers scoped per perspective. The `[personal|uni]`
-style is exactly the kind of ambient context indicator that makes a setup feel
-complete. Perspectives are already settled, so set `:custom (centaur-tabs-set-tab-bar-groups nil)`
-and `centaur-tabs-group-by-projectile-project` or tie directly to perspective names.
-
-Add `centaur-tabs` to emacs.nix. In config.org:
-```elisp
-(use-package centaur-tabs
-  :demand t
-  :custom
-  (centaur-tabs-style "bar")
-  (centaur-tabs-height 28)
-  (centaur-tabs-set-icons nil)        ; enable later if nerd-icons is added
-  (centaur-tabs-gray-out-icons 'background)
-  (centaur-tabs-set-bar 'over)
-  :config
-  (centaur-tabs-mode t)
-  (centaur-tabs-group-by-projectile-project))
+(add-hook 'org-mode-hook #'org-typst-preview-mode)
 ```
 
 ---
 
-### treemacs — fills negative space only
+### 7. mu4e first-time init
 
-A sidebar file tree. It would not add meaningful navigation capability —
-`SPC f f` (dired) already covers file browsing. The honest reason to add it
-is aesthetic: olivetti centres the text body and leaves empty columns on both
-sides. A treemacs panel on the left would fill that space and give the layout
-a more deliberate feel.
-
-That's a valid reason. Worth trying. The alternative for "something on the left"
-that also carries information would be a narrow org-agenda or deadline list —
-but a file tree is simpler to set up and doesn't require new data.
-
----
-
-### Additional suggestions
-
-**nerd-icons** (`nerd-icons` + `nerd-icons-dired`): Adds file-type icons in dired,
-completion, and the mode line. Low effort, looks good if doom-modeline is added
-(which uses them). One `M-x nerd-icons-install-fonts` after adding the package.
-
-**indent-bars**: Vertical indent guide lines in code and org. More subtle than
-highlight-indent-guides. Works well with deep org structure. Worth trying alongside
-ligature.el — both are lightweight and instantly visible.
-
-**rainbow-delimiters**: Color-coded bracket depth in elisp/lisp. Not essential
-but very useful when editing config.org. Low cost.
-
-**olivetti consistency across all views**: Target `200` everywhere. Currently
-yt-view uses 200, dashboard uses 180, uni uses something else. Standardise. The
-uni table width problem is partly caused by this.
-
----
-
-## Session notes [2026-07-05]
-
-### Fixed this session
-
-- **Retangle broken**: `org-babel-tangle` (no args) only tangles blocks with explicit `:tangle` headers — our blocks have none. Fixed to `org-babel-tangle-file` which tangles all blocks of a language. Both `my/config-retangle` (after-save-hook) and `my/reload-config` (SPC q r) updated. Saving config.org now reliably regenerates config.el.
-- **Font shrinking on save**: was caused by stale config.el (retangle was broken, so the old 14pt anonymous lambda code was reloading). Fixed by fixing retangle.
-- **Theme setup**: replaced anonymous lambda on `after-make-frame-functions` with named `my/setup-frame`. Anonymous lambdas accumulate on hot-reload (each save adds another). Named function avoids this.
-- **Ukiyo palette wrong**: `ukiyo-theme.el` had base08=#c72626 (red), base0B=#9aad6e (green), base0C=#7ab5a0 (teal). Canonical `ukiyo.nix` has base08=#ce631c, base0B=#da7b5f, base0C=#da9517. Strings were green, builtins were teal. Fixed in `/etc/nixos/home/dotfiles/emacs/ukiyo-theme.el` + rebuilt (gen 176).
-- **elfeed update timer ordering**: timer was in `elfeed` `:config`, firing before `elfeed-org` populated the feed list. Moved to `elfeed-org` `:config` with 5 s delay. Feeds now registered before first fetch.
-- **Shorts thumbnails missing**: `my/yt--id` regex didn't match `/shorts/VIDEO_ID` URLs. Fixed.
-
-### Known issues / deferred
-
-- `my/yt-view` performance is noticeably worse than before the thumbnail rewrite. Not investigated yet. Likely cause: large inline images (640×360) cause Emacs to spend significant time on display rendering/redraw. Worth profiling with `M-x profiler-start` before the next session.
-
----
-
-## New plans and notes from using emacs for a bit longer: [2026-07-04]
-
-### Open problems
-
-There are still a few open problems in the current state of the emacs configuration.
-1. Client/Server relation
-    The client server relation in emacs is working correctly, however it creates it's own problems sometimes.
-    - Restarting is not as trivial as it would be without a client server relation.
-    - Sometimes the config state is still the older version of the emacs configuration, after I updated config.org
-2. Config.org not always loaded correctly
-    - The font and typography I defined in config.org is not set correctly on startup.
-3. Youtube feed is not quite where I want it.
-    - The feed does not update, I think it could be the same issue as the config.org not retangling.
-    - The feed itself does work, but I think I prefer the visual styling of my terminal setup. A single column with the thumbnail, details and the subscript. Instead of a list on the left and a single instance of the thumbnail and details on the right.
-4. Performance
-    - This is not a huge worry or big difference, but I do notice the difference moving from emacs into my terminal or neovim. It's just faster. I think a big part of this is the hold delay, which seems slower in emacs.
-5. ESC to exist
-    - This is not so much a problem as it is something I find confusing. When I accidentally type a leader key, any leader key, it waits for the next keypress. But I'm used to just pressing ESC then to escape, but it just registers this as any other key. There is also no timeout. So each time I accidentally press a space, control, meta, I have to press escape at least twice to escape the sequence.
-6. Google calendar prompt
-    Google calendar still prompts me personally very often to log in and it is very inconvenient. Emacs fully stops when the prompt opens and I have to hunt for it in an open browser.
-7. The whatsapp emacs client is still not set up correctly.
-
-### Improvement ideas
-
-1. I have looked into the typst inline math problem and I have a few ideas.
-    I understand now that there are no current larger projects that do what I want.
-    Most people who write inline maths in org files just use latex, because they know it. 
-    I know it too, but I prefer the typst syntax. It's speed is not so relevant for this, as it is for .typ files.
-    But I do think it is possible to make a typst preview handler that works well, given that this exact thing exists in obsidian.
-    - I essentially want to transpile the typst-mate plugin from obsidian into emacs for org-mode.
-    If this is really not possible, I may need to consider moving to latex again, though I find the typing experience quite bad.
-2. Org-mode and Org-agenda
-    I was just setting up the tasks plugin for my girlfriend in obsidian, and realised that most, if not all, of its features exist in org-mode. 
-    Then I realised how I might use it. 
-    I don't really need org-mode for this, as I've created a system to do all of it for me, but I currently don't have a good tasks setup and org-mode would do this for me.
-    - So I want to create a tasks system in org-mode which can for now sit on its own.
-    - Maybe this will be a reason to fully switch to .org files. Then I would need to recheck and recompile my markdown into org-mode files.
-    This is almost fully done, but I would want to update this.
-3. I want to incorporate my graph views more into emacs. They are currently a bit out of date, and ugly too, so I want to improve them. But they can just be static as they are now, as I prefer this.
-4. The terminal
-    - The terminal experience in emacs is a bit slow, especially compared to kitty. Though I did learn there are some integrations between emacs and kitty, so I want to figure those out. Then I could continue to gain the GPU performance of kitty when I want terminal applications.
-    - I also currently have claude code running in a terminal inside emacs (and neovim). In neovim this worked well, but in emacs, it feels a bit off for some reason. So I want to implement a claude-code window without needing the full terminal emulation layer below it. Like agent-shell
-5. Youtube -> mpv inside emacs
-    Currently the youtube feed opens mpv, which opens in a seperate instance. 
-    - I would like this to open inside an emacs window on the side.
-6. Auto detect changes in files
-    This is something which I've gotten quite used to and feels really cool. Whenever you update something here, it gets seen and is immediately visible everywhere in your system.
-    I want emacs to have this too.
-7. org-cal
-    I find the current mini-buffer look a little confusing, especially because it is still empty for now.
-    - I think something more like a week column view, like other calendars would look good. Probably not to replace the mini-buffer, but to ammend it.
-8. Line numbers
-    - I think I want line numbers in org files too, what is the consensus on this? If there is one.
-
-### Inspirations
-- Vulpea
-I read about this, and it seems to add a number of things that are native in obsidian into emacs. This seems to make sense to me as I now see obsidian as a more modern, but less powerful version of emacs.
-- Obsidian.el
-The links jumping and such would be quite nice for me, coming from obsidian. Though I wonder what exactly it adds if I don't use obsidian alongside emacs. May be insteresting to take further inspiration from this though. Just take a couple of functions from it.
-- ERC/mastodon/etc.
-I've read about this and I'm interested in whether I'd use anything like this. I don't really use social media at all, but maybe if it's convenient and actually adds anything, it could be fun to have access to it.
-- I want to dive slightly deeper into distributions and how they do their visuals. I've seen some with sidebar file structures and sidebar tasks, they all have some kind of dashboard. I want to take inspiration from this.
-    - nano emacs and others looked really nice and I think the aesthetics of emacs + moving around files and inside files are probably the two most important aspects for me.
-- Some reddit posters who seem really knowlegable
-    - Nicholas-Gougier
-    - WassupMahFelloG
-    - tarsius_
-
-### Fun things I saw that could be a fun addition in my spare time
-- Lichess.el
-
----
-
-## History
-
-A previous AI-generated config was built with evil, doom-style leader bindings,
-org-roam, magit, and a full package set. It was opaque — I didn't understand what
-any of it did. At 4K resolution (200% scaling) it was also slow because Cairo CPU
-rasterization in emacs-pgtk can't GPU-accelerate at that scale. Both issues together
-led to never using it.
-
-That config is no longer in the repo. At 100% scaling the performance bottleneck
-disappears (Cairo scales linearly with pixel count, not screen size). The new
-approach: build incrementally, understand each piece before adding the next.
-
-The key gotchas from the old config that still apply:
-- `(setq evil-want-keybinding nil)` must be in `:init`, before evil-collection loads
-- Unbind SPC from evil-motion-state AFTER `(evil-mode 1)` in `:config`
-- Never byte-compile config.el — `general-create-definer` macros resolve at runtime
-- `xdg.configFile."emacs/init.el".source = ...` bypasses Stylix; use standalone `ukiyo-theme.el`
-- If adding org-roam later: `(setq org-roam-directory ...)` must come BEFORE the `use-package` form
-- `org-typst-preview--render` had a missing `)` that nested all subsequent defuns inside it — fixed 2026-06-29. Always check config.el paren balance directly, not config.org src blocks.
-
----
-
-## What is built and working
-
-### Core
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Evil + evil-collection + evil-goggles | ✅ | SPC leader via general.el |
-| Ukiyo theme | ✅ | From `~/.config/emacs/themes/ukiyo-theme.el`; palette fixed 2026-07-05 (base08/0B/0C were wrong — green strings, teal builtins) |
-| Font | ✅ | CMU Typewriter Text 16 (was 14) |
-| Auto-revert (inotify) | ✅ | No polling; buffers sync with external changes instantly |
-| Server/daemon | ✅ | Systemd user service; `emacsclient -c` connects in ~100ms |
-| which-key | ✅ | 0.4s delay |
-| Backup/lockfiles | ✅ | `make-backup-files nil`, `create-lockfiles nil` — no scattered files |
-| Completion stack | ✅ | vertico + marginalia + orderless + consult + embark |
-| Avy + projectile | ✅ | `C-;` for char jump |
-| Jinx spell check | ✅ | en_UK + nl_NL via enchant2/hunspell |
-| Dired | ✅ | Reasonable defaults set |
-| recentf | ✅ | 200 items |
-
-### Writing / Notes
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Org-mode | ✅ | Full config: todo keywords, agenda, babel, folding |
-| Org-roam | ✅ | `~/org/` root; dailies in `~/org/daily/` |
-| Org-roam-ui | ✅ | Graph view via `SPC n g` |
-| Org-ql | ✅ | Loaded; used for deadline queries |
-| Org-gcal | ✅ | 10 calendars → `~/org/calendars/`; all routed through `tidemanus@gmail.com` token; auto-syncs every 10min |
-| Org capture templates | ✅ | Personal (concept, essay, book, paper, person ×2) + uni (class, lecture, assignment) + inbox |
-| Org-modern | ✅ | Custom stars, modern tag/table rendering |
-| Org-transclusion | ✅ | `SPC t t` toggle; used for lecture→summary workflow |
-| Citar + org-roam-bibtex | ✅ | BibTeX at `~/org/library.bib`; fuzzy search |
-| Typst math preview | ✅ | `$...$` renders as inline SVG overlay; `SPC t p` toggle mode |
-| Markdown reading mode | ✅ | `SPC t r` in markdown: hides markup, read-only, `q` to exit |
-| Magit + diff-hl | ✅ | `SPC g g` for status; gutter indicators in prog-mode |
-
-### Media / External tools
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| elfeed + elfeed-org + elfeed-tube | ✅ | Feeds in `~/.config/emacs/elfeed.org`; YouTube UULF URLs included; category tags on all headings |
-| Music (mpdel) | ✅ | `SPC m m` two-panel view (dir browser left, cover art right); `SPC m s` slim side player; `SPC m SPC` play/pause; cover art from `~/Music/Artist/Album/cover.jpg` |
-| Email (mu4e) | ✅ configured | Reads `~/Mail/`; msmtp send; 3 accounts; evil keybindings. **Needs `mu init` + `mu index` first time** |
-| Calendar | ✅ | `SPC aa` org-agenda; `SPC as` posframe day panel (right margin); `SPC aw` calfw week grid |
-| PDF tools | ✅ | `pdf-tools-install`; evil keybindings (hjkl, H/W fit, +/- zoom) |
-
-### Dashboard system
-
-All implemented in the `* Dashboard` section of config.org.
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| `my/dashboard` (greeting) | ✅ | Date/weather/fortune header; today/tomorrow khal events; timetable 09–22; birthdays/deadlines/todo/mail/messages right column; footer with all shortcuts |
-| Olivetti centering | ✅ | 180 char body width |
-| Evil keybindings (greeting) | ✅ | Set after `switch-to-buffer` to avoid evil reinit clobber |
-| Weight chart (async PNG) | ✅ | `my/dash--insert-weight-chart`; sentinel fixed with `condition-case`; inserts at point-max after async plot |
-| Weight logging | ✅ | `my/dash-log-weight` (`w`); computes 7/21/30 day moving averages |
-| Birthday reader | ✅ | Parses People/ YAML frontmatter; YYYY-MM-DD and DD-MM-YYYY |
-| Mail count | ✅ | Scans `~/Mail/*/INBOX/new/`; shows sender names |
-| Messages count | ✅ | Reads `/tmp/nchat-unread` |
-| `my/vault-dashboard` | ✅ | Birthdays, recent folders, projects, daily notes, knowledge dir counts; org-mode rendering with clickable links |
-| `my/uni-dashboard` | ✅ | Deadlines, assignments, courses, planning table; org-mode rendering |
-| `my/uni-course-view` | ✅ | Summary, assignments, lectures per course |
-| `my/news-view` | ✅ | One headline per country from elfeed; 16 countries; org-mode. `u` fetches news feeds via rmh-elfeed-org-process; hook redraws on completion |
-| `my/render-md-table` | X | Box-drawing table renderer; table is wider than window |
-| `my/yt-view` | ✅ | Single-column YouTube viewer. Thumbnail left, dot+title+channel·date right (side-by-side). Index-based nav (j/k), hl-line on current row, keybind footer as after-string overlay on selected entry only. RET=mpv, o=browser, c=category, u=hook-refresh, M=rebuild-cache, q=quit. Thumbnails: maxresdefault.jpg (1280×720; hqdefault fallback), forced display at 640×360. Olivetti body-width 200. Async curl per thumb, debounced redraw. Shorts URLs supported. |
-| Planning table | ✅ | Reads `# Planning` from Uni MOC.md; renders as box-drawing via `my/render-md-table` |
-| `my/uni-new-lecture` | ✅ | Creates from template or default YAML |
-| Auto-open on client frame | ✅ | `server-after-make-frame-hook` opens dashboard in new client |
-
-### Workspaces
-
-| Perspective | Status | Notes |
-|-------------|--------|-------|
-| personal | ✅ | `TAB p` → switches to "personal" + opens `my/vault-dashboard` |
-| uni | ✅ | `TAB u` → switches to "uni" + opens `my/uni-dashboard` |
-| emacs-conf | ✅ | `TAB e` → vterm (claude) left + config.org right |
-| nixos-conf | ✅ | `TAB n` → dired + vterm (claude) + magit |
-
-### WhatsApp (wuzapi)
-
-wuzapi runs as a user systemd service (`home/wuzapi.nix`). Emacs has the setup flow:
-
-| Step | Status | Notes |
-|------|--------|-------|
-| wuzapi user service | ✅ | Port 8089; data at `~/.local/share/wuzapi/`; `.env` auto-loaded |
-| `my/wuzapi-create-user` | X | `M-x my/wuzapi-create-user` — run once; saves token to `my/wuzapi-token`, gives 404 Error. |
-| `my/wuzapi-connect` | ✅ | `M-x my/wuzapi-connect` — renders QR PNG via `find-file` |
-| `my/dash-messages` | ✅ | `m` in dashboard: calls create-user if no token, else connect |
-| WhatsApp linked | ❌ | QR scan not done yet. Run setup flow (see below). |
-
----
-
-## First-time setup still needed
-
-These are one-time commands, not config changes.
-
-### 1. mu4e — `mu init` + `mu index`
-
+`mu init` + `mu index` have never been run. Until they are, `M-x mu4e` won't open. Run once:
 ```bash
 mu init --maildir=~/Mail \
         --my-address=tidemanus@gmail.com \
@@ -665,144 +100,264 @@ mu init --maildir=~/Mail \
         --my-address=thijmen@nouwens-lindemans.nl
 mu index
 ```
-
-After that, `M-x mu4e` should open to inbox. mbsync already runs on a 5-minute timer so subsequent syncs are automatic.
-
-### 2. wuzapi — QR scan
-
-```
-M-x my/wuzapi-create-user    ; creates user, saves token (run once)
-M-x my/wuzapi-connect        ; fetches QR code PNG, opens it in Emacs
-```
-
-Scan the QR code in WhatsApp → Linked Devices. Session persists in `~/.local/share/wuzapi/`.
+mbsync already runs on a 5-minute timer; subsequent syncs are automatic.
 
 ---
 
-## What's still missing or deferred
+### 8. wuzapi 404 (WhatsApp)
 
-### Wasabi (WhatsApp Emacs client)
-
-`codeberg.org/vifon/wasabi` is a native Emacs WhatsApp frontend that sits on top of
-wuzapi. Not in nixpkgs. Packaging it requires a `trivialBuild` derivation. The current
-wuzapi functions (`my/wuzapi-create-user`, `my/wuzapi-connect`) are a minimal bridge
-for initial setup only — they don't provide a conversation view.
-
-When ready to pursue: research the repo coords, write `home/wuzapi.nix` with a
-`trivialBuild` for wasabi, add a `use-package wasabi` block to config.org with evil
-keybindings.
-
-### org vault (`~/org/`) — migration planned
-
-The config has full org-roam, org-ql, org-gcal, and capture templates wired up, but
-`~/org/` is mostly empty. Currently the markdown vault is still used, but the intent
-is to populate `~/org/` incrementally and eventually make it the primary structure.
-
-**Migration plan (2026-07-08):**
-
-Use `pandoc -f markdown -t org` for bulk conversion. Start with the three low-risk
-categories:
-
-1. **Daily notes** — `~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure/Dailies/*.md`
-   → `~/org/daily/`. Names are already `YYYY-MM-DD.md`; rename to `YYYY-MM-DD.org`.
-   Add `#+title: YYYY-MM-DD` and `#+filetags: :daily:` headers after conversion.
-
-2. **Todo/task notes** — unclear what the current structure is; inspect before migrating.
-
-3. **Uni notes** — `~/Documents/BACKUP/Uni/Obsidian/Uni/` → `~/org/uni/`.
-   These are guaranteed safe (no org-roam IDs to conflict with). Classes, Lectures,
-   Assignments subdirs can map 1:1.
-
-**What to check first:**
-- Run `ls ~/org/` to see current state (may be emptier than expected).
-- Check if any org-roam nodes already exist in `~/org/` that would conflict.
-- Pandoc handles wikilinks `[[Note]]` → `[[file:Note.org][Note]]` with
-  `--from markdown+wikilinks` but the exact flag varies by version; test one file first.
-
-**Not yet**: personal vault notes (Concepts, Essays, Knowledge/) — these contain
-wikilinks and YAML frontmatter that need closer review before mass-converting.
-
-### nouwens.org email
-
-The third email account (`thijmen@nouwens-lindemans.nl`) is declared in mu4e's
-`mu4e-user-mail-address-list` but the actual mbsync sync for it needs verification
-(`ls ~/Mail/Lindemans/INBOX/`). Check `home/email.nix` for the mbsync config.
-
-### Email quality of life
-
-mu4e is configured but not yet used daily — no muscle memory. Gaps to address when
-it becomes a friction point:
-- `h` key in headers mode (currently unbound — should go back or prev-unread)
-- `gg` / first-message binding (omitted to avoid mapping complexity)
-- HTML rendering via w3m — test with real messages
-- no persistent side bar for different email addresses.
+`my/wuzapi-create-user` returns 404. Almost certainly a token mismatch.
+Debug: `cat ~/.local/share/wuzapi/.env` and compare the admin token to `my/wuzapi-admin` in config.org.
 
 ---
 
-## Hardware note
+## Current state
 
-```
-card2 = Nvidia GTX 1060, PCI:1:0:0
-Driver: legacy_535
-KWIN_DRM_DEVICES fix is in hosts/desktop/default.nix — do NOT change
-```
+### Core
 
-Monitors at 100% scaling → performance acceptable for Cairo/PGTK.
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Evil + evil-collection + evil-goggles | ✅ | SPC leader via general.el |
+| Ukiyo theme | ✅ | `~/.config/emacs/themes/ukiyo-theme.el`; palette corrected 2026-07-05 |
+| Font | ✅ | CMU Typewriter Text 16pt |
+| Auto-revert (inotify) | ✅ | No polling; buffers sync with external file changes |
+| Server/daemon | ✅ | Systemd user service; `emacsclient -c` connects in ~100ms |
+| which-key | ✅ | 0.4s delay |
+| Completion stack | ✅ | vertico + marginalia + orderless + consult + embark |
+| Avy + projectile | ✅ | `C-;` for char jump |
+| Jinx spell check | ✅ | en_UK + nl_NL |
+| Backup/lockfiles disabled | ✅ | No scattered `~` files |
+
+### Notes / writing
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Org-mode | ✅ | todo keywords, agenda, babel, folding |
+| Org-roam | ✅ | root `~/org/`; dailies `~/org/daily/` |
+| Org-gcal | ✅ | 10 calendars → `~/org/calendars/`; all use `tidemanus@gmail.com` token; auto-syncs every 10min |
+| Org capture templates | ✅ | Personal (concept, essay, book, paper, person ×2) + uni (class, lecture, assignment) + inbox |
+| Org-ql / org-transclusion / org-modern | ✅ | loaded and configured |
+| Citar + org-roam-bibtex | ✅ | BibTeX at `~/org/library.bib` |
+| Typst math preview | ✅ | `$...$` inline SVG overlay; `SPC t p` toggle; auto-render on load missing (see priorities) |
+| Markdown reading mode | ✅ | `SPC t r`: hides markup, read-only, `q` exit |
+| Magit + diff-hl | ✅ | `SPC g g`; gutter indicators in prog-mode |
+| Daily note template | ❌ | Template not in config; new dailies have no structure (see priorities) |
+
+### Media
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| elfeed + elfeed-org + elfeed-tube | ✅ | 55 feeds (40 YouTube); `~/.config/emacs/elfeed.org` |
+| YouTube view (`my/yt-view`) | ✅ | Single-column; thumbnail + title/channel/date; `RET` mpv, `o` browser, `u` refresh |
+| mpv playback | ❌ | Opens windowless (audio only); `--gpu-api=opengl` fix may need reinstating |
+| Music (mpdel) | ✅ | `SPC m m` browser + cover art; `SPC m s` slim side player; `SPC m SPC` play/pause |
+| Email (mu4e) | ⚠️ | Configured; `mu init` not yet run (see priorities) |
+| Calendar | ✅ | `SPC aa` org-agenda; `SPC as` posframe day panel; `SPC aw` calfw week grid |
+| PDF tools | ✅ | evil keybindings (hjkl, H/W fit, +/- zoom) |
+
+### Dashboard system
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `my/dashboard` (greeting) | ✅ | Date/weather/fortune; khal events; timetable; birthdays/deadlines/mail/messages; weight logging |
+| Weight chart (async PNG) | ⚠️ | Shows on vault dashboard; readability issues (see priorities) |
+| `my/vault-dashboard` | ✅ | Birthdays, recent folders, projects, daily notes, knowledge counts |
+| `my/uni-dashboard` | ✅ | Deadlines, assignments, courses, planning table (native org table) |
+| `my/uni-course-view` | ✅ | Per-course summary, assignments, lectures |
+| `my/news-view` | ✅ | One headline per country from elfeed; `u` refreshes |
+| `my/yt-view` | ✅ | See media table above |
+| Right-side agenda panel | ✅ | `SPC as` posframe; left panel empty (see priorities) |
+| Left-side panel | ❌ | Not yet implemented (see priorities) |
+| Auto-open on new frame | ✅ | `server-after-make-frame-hook` |
+
+### Workspaces
+
+| Perspective | Binding | Opens |
+|-------------|---------|-------|
+| personal | `TAB p` | `my/vault-dashboard` |
+| uni | `TAB u` | `my/uni-dashboard` |
+| emacs-conf | `TAB e` | ghostel (claude) left + config.org right |
+| nixos-conf | `TAB n` | dired + ghostel (claude) + magit |
+
+### WhatsApp (wuzapi)
+
+| Step | Status |
+|------|--------|
+| wuzapi user service | ✅ port 8089 |
+| `my/wuzapi-create-user` | ❌ 404 error (token mismatch — see priorities) |
+| `my/wuzapi-connect` | ✅ renders QR PNG |
+| WhatsApp QR scanned | ❌ not yet done |
+| Wasabi (conversation UI) | ❌ not packaged yet |
 
 ---
 
-## Known annoyances
+## Backlog
 
+Items not urgent but worth doing eventually. Ordered roughly by effort.
 
-### 1. elfeed feeds automatic settings are quite difficult to parse
+### UI polish (small effort, visible payoff)
 
-Currently (after fixing elfeed), I just see a large list of entries.
-Nothing to identify them. 
-The youtube feed is now a single-column layout with inline thumbnails — done 2026-07-05.
-
----
-
-## Queued improvements
-
-*Noted 2026-07-05 — not yet implemented. Implement one at a time.*
-
-### Typst auto-render on buffer load
-
-The typst math preview (`org-typst-preview-mode`) works when toggled manually.
-To match Obsidian's behaviour, add a hook so all `$...$` fragments render when
-the buffer is first loaded:
-
+**ligature.el** — JetBrains Mono ships ligatures; Emacs needs explicit activation. Add `ligature` to `home/emacs.nix`:
 ```elisp
-(add-hook 'org-mode-hook #'org-typst-preview-mode)
-;; optionally for markdown too:
-;; (add-hook 'markdown-mode-hook #'org-typst-preview-mode)
+(use-package ligature
+  :config
+  (ligature-set-ligatures 'prog-mode
+    '("->" "=>" "!=" ">=" "<=" "//" "/*" "*/" "..." "--" "==" "||" "&&"))
+  (global-ligature-mode t))
 ```
 
-One-liner in the existing `** Typst Math Preview` section of config.org.
+**nerd-icons** (`nerd-icons` + `nerd-icons-dired`) — file-type icons in dired and the mode line. One `M-x nerd-icons-install-fonts` after adding the package.
 
-### Google Calendar frequent re-auth
+**indent-bars** — vertical indent guides in code and org. Lightweight.
 
-org-gcal prompts for re-auth every few minutes when the plstore passphrase
-is not cached across sessions. Two options:
+**rainbow-delimiters** — color-coded bracket depth in elisp. Useful when editing config.org.
 
-1. **Longer gpg-agent TTL**: add to `~/.gnupg/gpg-agent.conf`:
-   `default-cache-ttl 86400` (24h) and `max-cache-ttl 86400`
-   Then restart: `gpgconf --kill gpg-agent`
+**Line numbers in org** — add `(add-hook 'org-mode-hook #'display-line-numbers-mode)`. Low cost.
 
-2. **Plain authinfo**: move credentials from `~/.authinfo.gpg` to `~/.authinfo`
-   (unencrypted). Acceptable given full-disk encryption on this machine.
+**doom-modeline** — polished mode line; respects theme colours. Pulls in nerd-icons as soft dep (can disable icons). Worth trying:
+```elisp
+(use-package doom-modeline
+  :init (doom-modeline-mode 1)
+  :custom
+  (doom-modeline-height 22)
+  (doom-modeline-icon nil)
+  (doom-modeline-buffer-file-name-style 'truncate-from-project))
+```
 
-### wuzapi 404 on create-user
+**centaur-tabs** — tab bar scoped per perspective. Worth trying once doom-modeline is settled:
+```elisp
+(use-package centaur-tabs
+  :demand t
+  :custom
+  (centaur-tabs-style "bar")
+  (centaur-tabs-height 28)
+  (centaur-tabs-set-icons nil)
+  :config
+  (centaur-tabs-mode t)
+  (centaur-tabs-group-by-projectile-project))
+```
 
-`my/wuzapi-create-user` returns 404. Likely the admin token in `my/wuzapi-admin`
-in config.org does not match what is in `~/.local/share/wuzapi/.env`.
-Debug: `cat ~/.local/share/wuzapi/.env` and compare.
+**solaire-mode** — makes file buffers slightly lighter/darker than special buffers. May fight Stylix; test before committing.
 
-### Key repeat rate (hold-delay)
+---
 
-The perceived hold-delay difference between Emacs and kitty/neovim is a
-system-level keyboard repeat rate, not an Emacs variable.
-Fix: KDE → System Settings → Input Devices → Keyboard → Delay / Rate.
-Reducing the delay (ms before repeat starts) will make held keys feel snappier.
+### ESC / leader key escape
 
+When a leader key (SPC, C-, M-) is pressed accidentally, Emacs waits for completion and ESC doesn't abort it cleanly — requires pressing ESC twice. This is an evil + which-key interaction. Investigate `(setq evil-escape-key-sequence ...)` or a `keyboard-quit` binding on single ESC in normal state.
 
+---
+
+### YouTube mpv inside Emacs
+
+Currently `RET` in yt-view opens mpv as a separate OS window. Goal: open it in an Emacs side window. Options: ghostel (already installed), or a posframe showing an mpv embed. Longer project; requires understanding how ghostel handles mpv passthrough.
+
+---
+
+### mu4e quality of life
+
+After `mu init` is done and mu4e is in daily use:
+- `mu4e-contexts` for per-account switching (`SPC e c`)
+- `h` binding in headers mode (back/prev-unread)
+- HTML rendering via w3m
+- Persistent sidebar per account
+- Verify nouwens-lindemans.nl mbsync config (`ls ~/Mail/Lindemans/INBOX/`)
+
+---
+
+### Wasabi (WhatsApp conversation UI)
+
+`codeberg.org/vifon/wasabi` — native Emacs buffer UI on top of wuzapi. Not in nixpkgs; needs a `trivialBuild` derivation in `home/emacs.nix`. Prerequisite: wuzapi 404 fixed + QR scanned.
+
+---
+
+### Music view in Emacs
+
+A text-based MPD frontend similar to yt-view. The MPD backend (mpd + rmpc) stays unchanged. Desired: artist → album → tracks browser, playlists, inline cover art, random toggle. Two-column layout with `mpc` CLI calls. Roughly 200–300 lines; design as a separate session after smaller items are done.
+
+---
+
+### Key repeat rate
+
+The perceived snappiness gap between Emacs and kitty/neovim is mostly the system keyboard repeat rate. KDE → System Settings → Input Devices → Keyboard → Delay / Rate.
+
+---
+
+### Graph views
+
+The snowflake visualizers and dashboard graphs are slightly out of date. Currently static PNGs generated by a systemd timer. Improve matplotlib charts for readability (same direction as the weight chart fix).
+
+---
+
+### Inspirations to investigate
+
+- **Vulpea** — adds obsidian-style features to org-roam (daily note metadata, tags, links). Worth reading the source for ideas.
+- **Obsidian.el** — wikilink jumping and backlinks. Unclear what it adds if obsidian isn't used alongside; may be worth cherry-picking a function or two.
+- **Nicholas Rougier's work** — consistently polished Emacs UIs; good source for layout and rendering ideas.
+- **Lichess.el** — fun, no priority.
+
+---
+
+## Reference
+
+### config.org conventions
+
+**Tangle:** `org-babel-load-file` is called from `init.el`; saving config.org auto-retangles via `my/config-retangle` (after-save hook). Uses `org-babel-tangle-file` — blocks have no explicit `:tangle` header, so `org-babel-tangle` (no args) would tangle 0 blocks.
+
+**Block structure:** Split large `#+begin_src` blocks into smaller sections with their own `**`/`***` subheadings — one coherent concern per block. Apply when editing a section, not as a separate pass. Naming pattern: `** Org-gcal`, `** Dashboard: greeting`, `** Side panels: agenda`.
+
+**Reload without restart:** `SPC q r` calls `my/reload-config` which runs `org-babel-load-file`. Saves a daemon restart for most config changes.
+
+---
+
+### Gotchas
+
+- `(setq evil-want-keybinding nil)` must be in `:init`, before evil-collection loads — not in `:config`.
+- Unbind SPC from `evil-motion-state` **after** `(evil-mode 1)` in `:config`, not before.
+- Never byte-compile config.el — `general-create-definer` macros resolve at runtime.
+- `xdg.configFile."emacs/init.el".source = ...` in Nix bypasses Stylix's theme injection; use a standalone `ukiyo-theme.el` instead.
+- `(setq org-roam-directory ...)` must come **before** the `use-package org-roam` form.
+- Use **named functions** (not anonymous lambdas) on hooks that fire at startup (`after-make-frame-functions`, etc.) — anonymous lambdas accumulate on hot-reload and run multiple times.
+- `elfeed-org`: call `(rmh-elfeed-org-process rmh-elfeed-org-files rmh-elfeed-org-tree-id)` directly — `(elfeed-org)` only installs a hook and does not populate the feed list immediately.
+- `posframe-visible-p` does not exist in the installed version — use a `defvar` boolean to track panel state.
+- org-gcal group calendars: advise `org-gcal--get-access-token` to always use `tidemanus@gmail.com`; oauth2-auto otherwise treats each calendar ID as a separate user requiring its own OAuth flow.
+- If org-gcal fetches 0 events after re-auth, check for a stale sync token: `M-x org-gcal-sync-tokens-clear` then `M-x org-gcal--sync-unlock`.
+- calfw uses the `calfw-` function prefix, not the older `cfw:` prefix.
+- `general-auto-unbind-keys` is needed when promoting a leaf keybinding to a prefix group — add it to the `use-package general :config` block.
+- Always verify paren balance in config.el after editing config.org — a missing `)` can silently nest all subsequent defuns inside the broken form.
+
+---
+
+### Hardware
+
+```
+card2 = Nvidia GTX 1060  Driver: legacy_535
+KWIN_DRM_DEVICES fix is in hosts/desktop/default.nix — do NOT edit that file
+Monitors at 100% scaling → Cairo/PGTK performance acceptable
+```
+
+---
+
+## Log (session notes)
+
+Old session notes for reference. Not needed for normal work.
+
+### 2026-07-07
+
+- **org-gcal group calendars**: oauth2-auto treated each calendar ID as a separate OAuth user. Fixed by advising `org-gcal--get-access-token` to route all through `tidemanus@gmail.com`. Stale sync token (June 26) cleared; `work.org` now has 3 events.
+- **Posframe toggle**: `posframe-visible-p` void in installed version. Replaced with `defvar my/agenda-panel-visible`.
+- **calfw colours**: replaced 15 hardcoded hex values with `:inherit` from `font-lock-*`, `org-level-1`, `hl-line`, `mode-line`.
+
+### 2026-07-06
+
+- **elfeed always empty**: `(elfeed-org)` only installs a hook; call `rmh-elfeed-org-process` directly.
+- **news-view paren imbalance**: 4 closing parens instead of 3 after `switch-to-buffer`; caused everything after `my/news-view` to be silently swallowed.
+- uni dashboard: olivetti 200, planning table converted to native org table.
+
+### 2026-07-05
+
+- Retangle fixed: `org-babel-tangle-file` not `org-babel-tangle`.
+- Font shrinking on save: was stale config.el from broken retangle.
+- Named `my/setup-frame` function replaces anonymous lambda (avoids accumulation).
+- Ukiyo palette corrected: base08/0B/0C were wrong (red/green/teal instead of orange/salmon/gold).
+- elfeed timer moved to `elfeed-org :config` with 5s delay.
+- Shorts thumbnail fix: `my/yt--id` regex extended for `/shorts/` URLs.
