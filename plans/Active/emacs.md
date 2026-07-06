@@ -18,9 +18,15 @@ Ordered. Do these before anything else.
 2. **Uni notes** — `~/Documents/BACKUP/Uni/Obsidian/Uni/` → `~/org/uni/`. Guaranteed safe; no conflicting org-roam IDs. Subdirs (Classes, Lectures, Assignments) map 1:1.
 3. **Todo/task notes** — unclear structure; inspect before migrating.
 
-**Before starting:** run `ls ~/org/` and check for existing nodes that could conflict. Test pandoc on one file first — wikilinks need `--from markdown+wikilinks` (flag availability varies by version).
+**Before starting:** 
+1. Run `ls ~/org/` and check for existing nodes that could conflict. 
+2. Read a few files from each directory to see what has already been transfered and what has not. (Some files are made, but are just skeletons, some are empty, some are non-existant, and some a fully populated already.)
+3. Test pandoc on one file first — wikilinks need `--from markdown+wikilinks` (flag availability varies by version).
+4. Discuss what to do about dataview code blocks. (org-ql is available but may work differently. Many dataview sections are not meant as runnable options, but categorised or processed tables or lists)
 
 **Not yet:** personal vault (Concepts, Essays, Knowledge/) — wikilinks and YAML frontmatter need closer review.
+Wikilinks need to work in org-mode i.e. be able to be clicked on.
+front matter needs to be read by other files. (And by the dashboards, which currently rely on the markdown frontmatter)
 
 ---
 
@@ -38,27 +44,11 @@ Fix in `my/dash--insert-weight-chart` (the matplotlib call):
 - `dpi=80` (was higher)
 - `ax.yaxis.grid(True, alpha=0.3)`
 - Increase `fontsize` on tick labels
-- Move legend inside or below chart
+- Move legend inside
 
 ---
 
-### 4. Daily note template missing
-
-The org-roam daily capture template is not in config.org. When a new daily is created it gets no structure.
-
-Add to the `** Org-roam` section:
-```elisp
-(setq org-roam-dailies-capture-templates
-      '(("d" "default" plain
-         "* Schedule\n\n* ToDo\n\n* Inbox\n\n* Italian\n\n* Notes\n"
-         :target (file+head "%<%Y-%m-%d>.org"
-                            "#+title: %<%Y-%m-%d>\n#+filetags: :daily:\n\n")
-         :unnarrowed t)))
-```
-
----
-
-### 5. Side panels: left margin + posframe helper refactor
+### 4. Side panels: left margin + posframe helper refactor
 
 The right-side posframe agenda panel works (`SPC a s`). Two things left:
 
@@ -81,30 +71,7 @@ SHOW-FN is called with no args to show the frame."
 
 ---
 
-### 6. Typst auto-render on load
-
-One-liner. In the `** Typst Math Preview` section of config.org:
-```elisp
-(add-hook 'org-mode-hook #'org-typst-preview-mode)
-```
-
----
-
-### 7. mu4e first-time init
-
-`mu init` + `mu index` have never been run. Until they are, `M-x mu4e` won't open. Run once:
-```bash
-mu init --maildir=~/Mail \
-        --my-address=tidemanus@gmail.com \
-        --my-address=thijmen.nouwens@gmail.com \
-        --my-address=thijmen@nouwens-lindemans.nl
-mu index
-```
-mbsync already runs on a 5-minute timer; subsequent syncs are automatic.
-
----
-
-### 8. wuzapi 404 (WhatsApp)
+### 5. wuzapi 404 (WhatsApp)
 
 `my/wuzapi-create-user` returns 404. Almost certainly a token mismatch.
 Debug: `cat ~/.local/share/wuzapi/.env` and compare the admin token to `my/wuzapi-admin` in config.org.
@@ -138,10 +105,10 @@ Debug: `cat ~/.local/share/wuzapi/.env` and compare the admin token to `my/wuzap
 | Org capture templates | ✅ | Personal (concept, essay, book, paper, person ×2) + uni (class, lecture, assignment) + inbox |
 | Org-ql / org-transclusion / org-modern | ✅ | loaded and configured |
 | Citar + org-roam-bibtex | ✅ | BibTeX at `~/org/library.bib` |
-| Typst math preview | ✅ | `$...$` inline SVG overlay; `SPC t p` toggle; auto-render on load missing (see priorities) |
+| Typst math preview | ✅ | `$...$` inline SVG overlay; `SPC t p` toggle; auto-renders on org/markdown buffer load |
 | Markdown reading mode | ✅ | `SPC t r`: hides markup, read-only, `q` exit |
 | Magit + diff-hl | ✅ | `SPC g g`; gutter indicators in prog-mode |
-| Daily note template | ❌ | Template not in config; new dailies have no structure (see priorities) |
+| Daily note template | ✅ | Schedule/ToDo/Inbox/Italian/Notes; `#+created` timestamp header |
 
 ### Media
 
@@ -151,7 +118,7 @@ Debug: `cat ~/.local/share/wuzapi/.env` and compare the admin token to `my/wuzap
 | YouTube view (`my/yt-view`) | ✅ | Single-column; thumbnail + title/channel/date; `RET` mpv, `o` browser, `u` refresh |
 | mpv playback | ❌ | Opens windowless (audio only); `--gpu-api=opengl` fix may need reinstating |
 | Music (mpdel) | ✅ | `SPC m m` browser + cover art; `SPC m s` slim side player; `SPC m SPC` play/pause |
-| Email (mu4e) | ⚠️ | Configured; `mu init` not yet run (see priorities) |
+| Email (mu4e) | ✅ | 4 accounts synced; `mu init` done; `~/Mail/` populated |
 | Calendar | ✅ | `SPC aa` org-agenda; `SPC as` posframe day panel; `SPC aw` calfw week grid |
 | PDF tools | ✅ | evil keybindings (hjkl, H/W fit, +/- zoom) |
 
