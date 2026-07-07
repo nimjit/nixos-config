@@ -1265,10 +1265,11 @@ then run the conversion script and reload: =M-x elfeed-update=.
       "C-m" (lambda ()
               (interactive)
               (when-let ((entry elfeed-show-entry))
-                (start-process "mpv-yt" nil "mpv"
-                               "--gpu-api=opengl"
-                               "--title=emacs-youtube"
-                               (elfeed-entry-link entry)))))
+                (let ((process-environment (my/mpv--display-env)))
+                  (start-process "mpv-yt" nil "mpv"
+                                 "--gpu-api=opengl"
+                                 "--title=emacs-youtube"
+                                 (elfeed-entry-link entry))))))
     (evil-define-key 'normal elfeed-search-mode-map
       "F" #'elfeed-tube-fetch))
 
@@ -1495,6 +1496,18 @@ Each completed download debounces a redraw: the last finish triggers it."
 
 ;; ── Actions ───────────────────────────────────────────────────────────────
 
+(defun my/mpv--display-env ()
+  "Return process-environment extended with the current Wayland/X display.
+Emacs may not inherit WAYLAND_DISPLAY or DISPLAY from the session when
+launched via systemd, so child processes (mpv) have no display to render to.
+We derive the socket name from the Emacs frame's own display parameter."
+  (let* ((disp (or (frame-parameter nil 'display) ""))
+         (var  (cond ((string-prefix-p "wayland" disp)
+                      (format "WAYLAND_DISPLAY=%s" disp))
+                     ((string-prefix-p ":" disp)
+                      (format "DISPLAY=%s" disp)))))
+    (if var (cons var process-environment) process-environment)))
+
 (defun my/yt--play ()
   "Play the current entry in mpv and mark it read."
   (interactive)
@@ -1502,10 +1515,11 @@ Each completed download debounces a redraw: the last finish triggers it."
               (url (elfeed-entry-link e)))
     (elfeed-untag e 'unread)
     (elfeed-db-save)
-    (start-process "mpv-yt" nil "mpv"
-                   "--gpu-api=opengl"
-                   "--title=emacs-youtube"
-                   url)))
+    (let ((process-environment (my/mpv--display-env)))
+      (start-process "mpv-yt" nil "mpv"
+                     "--gpu-api=opengl"
+                     "--title=emacs-youtube"
+                     url))))
 
 (defun my/yt--open-browser ()
   "Open the current entry in the default browser."
