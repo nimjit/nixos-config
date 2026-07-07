@@ -1804,9 +1804,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
   (my/vault-dashboard))
 
 (defun my/dash-uni-work ()
-  "Open uni dashboard."
+  "Open uni dashboard (org)."
   (interactive)
-  (my/uni-dashboard))
+  (my/uni-dashboard-org))
 
 (defun my/dash--term (name cmd)
   "Switch to *NAME* ansi-term if it exists, else open CMD in a new one."
@@ -1923,39 +1923,22 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
        (date-to-time (concat (my/dash--normalize-date dt) " 12:00:00")))
     (error nil)))
 
-(defun my/dash--parse-section (file section)
-  "List items from markdown ## SECTION in FILE."
-  (when (file-exists-p file)
-    (with-temp-buffer
-      (insert-file-contents file)
-      (let (results in-sec)
-        (dolist (line (split-string (buffer-string) "\n"))
-          (cond
-           ((string= line (concat "## " section)) (setq in-sec t))
-           ((and in-sec (string-prefix-p "## " line)) (setq in-sec nil))
-           ((and in-sec
-                 (string-match "^[[:space:]]*-[[:space:]]\\(.*\\)" line))
-            (push (match-string 1 line) results))))
-        (nreverse results)))))
+#+end_src
 
-(defun my/dash--schedule-events (file)
-  "Return ((TIME . TITLE) ...) from ## Schedule in FILE."
-  (when (file-exists-p file)
-    (with-temp-buffer
-      (insert-file-contents file)
-      (let (results in-sec)
-        (dolist (line (split-string (buffer-string) "\n"))
-          (cond
-           ((string= line "## Schedule") (setq in-sec t))
-           ((and in-sec (string-prefix-p "## " line)) (setq in-sec nil))
-           ((and in-sec
-                 (string-match
-                  "^\\([0-9]\\{2\\}:[0-9]\\{2\\}\\)[[:space:]]+\\(.*\\)"
-                  line))
-            (push (cons (match-string 1 line) (match-string 2 line))
-                  results))))
-        (nreverse results)))))
+*** Schedule helpers — org
 
+=my/dash--org-daily-file= returns the path to today's org-roam daily note under
+=org-roam-directory=.
+
+=my/dash--org-section= extracts bullet-list items from a named =* Heading= in an
+org file. Used for structured sections in daily notes.
+
+=my/dash--org-schedule-events= reads the =* Schedule= heading from an org daily
+file. Returns =((TIME . TITLE) ...)= pairs. Accepts both bare =HH:MM= timestamps
+and org active timestamps =<... HH:MM>=. Used by =my/dashboard= (org version) to
+populate the schedule column.
+
+#+begin_src emacs-lisp
 (defun my/dash--org-daily-file ()
   "Path to today's org-roam daily note."
   (expand-file-name
@@ -1997,6 +1980,49 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
                   "<[^>]+\\([0-9]\\{2\\}:[0-9]\\{2\\}\\)>[[:space:]]*\\(.*\\)" line))
             (push (cons (match-string 1 line) (match-string 2 line)) results))))
         (nreverse results)))))
+#+end_src
+
+*** Schedule helpers — markdown (not tangled)
+
+Original markdown-vault schedule readers. Kept as reference; superseded by the
+org versions above. Not loaded into Emacs.
+
+#+begin_src emacs-lisp :tangle no
+(defun my/dash--parse-section (file section)
+  "List items from markdown ## SECTION in FILE."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let (results in-sec)
+        (dolist (line (split-string (buffer-string) "\n"))
+          (cond
+           ((string= line (concat "## " section)) (setq in-sec t))
+           ((and in-sec (string-prefix-p "## " line)) (setq in-sec nil))
+           ((and in-sec
+                 (string-match "^[[:space:]]*-[[:space:]]\\(.*\\)" line))
+            (push (match-string 1 line) results))))
+        (nreverse results)))))
+
+(defun my/dash--schedule-events (file)
+  "Return ((TIME . TITLE) ...) from ## Schedule in FILE."
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let (results in-sec)
+        (dolist (line (split-string (buffer-string) "\n"))
+          (cond
+           ((string= line "## Schedule") (setq in-sec t))
+           ((and in-sec (string-prefix-p "## " line)) (setq in-sec nil))
+           ((and in-sec
+                 (string-match
+                  "^\\([0-9]\\{2\\}:[0-9]\\{2\\}\\)[[:space:]]+\\(.*\\)"
+                  line))
+            (push (cons (match-string 1 line) (match-string 2 line))
+                  results))))
+        (nreverse results)))))
+#+end_src
+
+#+begin_src emacs-lisp
 
 (defun my/dash--deadlines ()
   "Deadline strings within 21 days, sorted by proximity."
@@ -2314,77 +2340,6 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
               (seq-filter #'file-directory-p
                           (directory-files kdir t "^[^.]"))))))
 
-(defun my/dash--uni-deadlines ()
-  "Upcoming deadlines from UNI/Deadines/ (sorted, incomplete only)."
-  (let* ((dir (expand-file-name "Deadines" my/dash-uni))
-         results)
-    (when (file-directory-p dir)
-      (dolist (file (directory-files dir t "\\.md$"))
-        (let* ((completed (my/dash--fm-from-file file "completed"))
-               (date-str  (my/dash--fm-from-file file "date"))
-               (title     (my/dash--fm-from-file file "title"))
-               (class     (my/dash--fm-from-file file "class"))
-               (time-str  (my/dash--fm-from-file file "startTime")))
-          (when (and date-str
-                     (not (member completed '("true" "yes" "True" "Yes"))))
-            (let* ((ts   (float-time
-                          (date-to-time
-                           (concat (my/dash--normalize-date date-str) " 12:00:00"))))
-                   (diff (/ (- ts (float-time)) 86400)))
-              (when (>= diff 0)
-                (push (list :text (format "%-44s  %s%s   (%s)"
-                                          (if (and class title)
-                                              (concat class " — " title)
-                                            (or title (file-name-base file)))
-                                          date-str
-                                          (if (and time-str (not (string-empty-p time-str)))
-                                              (concat "  " time-str) "")
-                                          (if (< diff 1) "TODAY"
-                                            (format "in %d days" (ceiling diff))))
-                            :diff diff :path file)
-                      results))))))
-    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff)))))))
-
-(defun my/dash--uni-assignments ()
-  "Ungraded assignments from UNI/Assignments/ (sorted by deadline)."
-  (let* ((dir (expand-file-name "Assignments" my/dash-uni))
-         results)
-    (when (file-directory-p dir)
-      (dolist (file (directory-files dir t "\\.md$"))
-        (let* ((grade    (my/dash--fm-from-file file "grade"))
-               (deadline (my/dash--fm-from-file file "deadline"))
-               (class    (my/dash--fm-from-file file "class"))
-               (atype    (my/dash--fm-from-file file "type")))
-          (when (or (null grade) (string-empty-p (or grade "")))
-            (let* ((diff (and deadline (not (string-empty-p (or deadline "")))
-                               (my/dash--date-ts deadline)))
-                   (diff (when diff (/ (- diff (float-time)) 86400)))
-                   (when-str (cond ((null diff) "?")
-                                   ((< diff 1) "TODAY")
-                                   ((>= diff 1) (format "in %d days" (ceiling diff)))
-                                   (t (format "%dd ago" (floor (abs diff)))))))
-              (push (list :text  (format "%-35s  %-14s  %s   (%s)"
-                                         (file-name-base file)
-                                         (or atype "") (or deadline "") when-str)
-                          :diff  (or diff 9999) :path file)
-                    results))))))
-    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
-
-(defun my/dash--uni-courses ()
-  "All courses from UNI/Classes/, sorted by Q."
-  (let ((dir (expand-file-name "Classes" my/dash-uni)))
-    (when (file-directory-p dir)
-      (sort
-       (mapcar (lambda (file)
-                 (list :name      (file-name-base file)
-                       :Q         (or (my/dash--fm-from-file file "Q") "")
-                       :code      (or (my/dash--fm-from-file file "code") "")
-                       :shorthand (or (my/dash--fm-from-file file "shorthand")
-                                      (file-name-base file))
-                       :path      file))
-               (directory-files dir t "\\.md$"))
-       (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
-
 (defun my/render-md-table (lines &optional max-width)
   "Convert markdown pipe-table LINES to box-drawing unicode.
 When MAX-WIDTH is set, shrink widest columns so total fits."
@@ -2523,21 +2478,6 @@ FACE-MAP: list of (ridx cidx face-plist)."
                   (let ((ov (make-overlay cell-beg cell-end)))
                     (overlay-put ov 'face face)
                     (overlay-put ov 'evaporate t)))))))))))
-
-(defun my/uni-new-lecture ()
-  "Create a lecture note from template and open it."
-  (interactive)
-  (let* ((class   (read-string "Class shorthand: "))
-         (date    (format-time-string "%Y-%m-%d"))
-         (lec-dir (expand-file-name "Lecture" my/dash-uni))
-         (tmpl    (expand-file-name "Templates/Lecture.md" my/dash-uni))
-         (target  (expand-file-name (concat class " " date ".md") lec-dir))
-         (content (if (file-exists-p tmpl)
-                      (with-temp-buffer (insert-file-contents tmpl) (buffer-string))
-                    (format "---\nclass: %s\ndate: %s\n---\n\n# Lecture\n\n"
-                            class date))))
-    (with-temp-file target (insert content))
-    (find-file target)))
 
 ;; ── Rendering helpers ────────────────────────────────────────────────────
 
@@ -3138,12 +3078,426 @@ Called by =perspective-personal= and =SPC v= / =v= key in greeting dashboard.
 
 ** Uni dashboard
 
-Reads the markdown uni vault (Deadines/, Assignments/, Classes/, Uni MOC.md).
-Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
+Reads from =~/org/uni/= (deadlines, assignments, classes, Uni MOC planning table).
+Called by =my/dash-uni-work= and bound to =SPC u= / =u= in the greeting dashboard.
+
+*** Org property helpers
+
+=my/dash--prop-from-file= reads a =:PROP:= value from the PROPERTIES drawer of an
+org file. Reads only the first 3000 bytes for speed. Returns nil if the property
+is absent.
+
+=my/dash--org-title-from-file= returns the =#+title:= keyword value, falling back
+to =file-name-base= if the keyword is absent.
 
 #+begin_src emacs-lisp
+(defun my/dash--prop-from-file (file prop)
+  "Return :PROP: value from org PROPERTIES drawer in FILE, or nil."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 3000)
+    (goto-char (point-min))
+    (when (re-search-forward ":PROPERTIES:" nil t)
+      (let ((end (save-excursion (re-search-forward ":END:" nil t))))
+        (when end
+          (let ((block (buffer-substring-no-properties (point) end)))
+            (when (string-match
+                   (concat "^:" (regexp-quote prop) ":[[:space:]]*\\([^\n]*\\)")
+                   block)
+              (string-trim (match-string 1 block)))))))))
+
+(defun my/dash--org-title-from-file (file)
+  "Return #+title: value from FILE, or file-name-base if absent."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 3000)
+    (goto-char (point-min))
+    (if (re-search-forward "^#\\+title:[[:space:]]*\\(.*\\)$" nil t)
+        (string-trim (match-string 1))
+      (file-name-base file))))
+#+end_src
+
+*** Org data queries
+
+These three functions parallel the markdown =my/dash--uni-*= helpers. They return
+identical plist shapes so the rendering code in =my/uni-dashboard-org= is a
+near-exact copy of the markdown version.
+
+Deadline files (=~/org/uni/deadlines/*.org=) carry =:DATE:=, =:COMPLETED:=,
+=:STARTTIME:=. Title comes from =#+title:=.
+
+Assignment files (=~/org/uni/assignments/*.org=) carry =:GRADE:=, =:DEADLINE:=,
+=:CLASS:=, =:TYPE:=. Display name comes from =file-name-base=.
+
+Class files (=~/org/uni/classes/*.org=) carry =:Q:=, =:SHORTHAND:=. Name from
+=#+title:=.
+
+#+begin_src emacs-lisp
+(defun my/dash--uni-deadlines-org ()
+  "Upcoming deadlines from ~/org/uni/deadlines/ (sorted, incomplete only)."
+  (let* ((dir (expand-file-name "~/org/uni/deadlines/"))
+         results)
+    (when (file-directory-p dir)
+      (dolist (file (directory-files dir t "\\.org$"))
+        (let* ((completed (my/dash--prop-from-file file "COMPLETED"))
+               (date-str  (my/dash--prop-from-file file "DATE"))
+               (title     (my/dash--org-title-from-file file))
+               (time-str  (my/dash--prop-from-file file "STARTTIME")))
+          (when (and date-str
+                     (not (member (downcase (or completed "")) '("true" "yes"))))
+            (let* ((ts   (my/dash--date-ts date-str))
+                   (diff (when ts (/ (- ts (float-time)) 86400))))
+              (when (and diff (>= diff 0))
+                (push (list :text (format "%-44s  %s%s   (%s)"
+                                          title date-str
+                                          (if (and time-str
+                                                   (not (string-empty-p (or time-str ""))))
+                                              (concat "  " time-str) "")
+                                          (if (< diff 1) "TODAY"
+                                            (format "in %d days" (ceiling diff))))
+                            :diff diff :path file)
+                      results)))))))
+    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
+
+(defun my/dash--uni-assignments-org ()
+  "Ungraded assignments from ~/org/uni/assignments/ (sorted by deadline)."
+  (let* ((dir (expand-file-name "~/org/uni/assignments/"))
+         results)
+    (when (file-directory-p dir)
+      (dolist (file (directory-files dir t "\\.org$"))
+        (let* ((grade    (my/dash--prop-from-file file "GRADE"))
+               (deadline (my/dash--prop-from-file file "DEADLINE"))
+               (atype    (my/dash--prop-from-file file "TYPE")))
+          (when (or (null grade) (string-empty-p (or grade "")))
+            (let* ((ts      (and deadline
+                                 (not (string-empty-p (or deadline "")))
+                                 (my/dash--date-ts deadline)))
+                   (diff    (when ts (/ (- ts (float-time)) 86400)))
+                   (when-str (cond ((null diff) "?")
+                                   ((< diff 1) "TODAY")
+                                   ((>= diff 1) (format "in %d days" (ceiling diff)))
+                                   (t (format "%dd ago" (floor (abs diff)))))))
+              (push (list :text  (format "%-35s  %-14s  %s   (%s)"
+                                         (file-name-base file)
+                                         (or atype "") (or deadline "") when-str)
+                          :diff  (or diff 9999) :path file)
+                    results))))))
+    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
+
+(defun my/dash--uni-courses-org ()
+  "All courses from ~/org/uni/classes/, sorted by Q."
+  (let ((dir (expand-file-name "~/org/uni/classes/")))
+    (when (file-directory-p dir)
+      (sort
+       (mapcar (lambda (file)
+                 (list :name      (my/dash--org-title-from-file file)
+                       :Q         (or (my/dash--prop-from-file file "Q") "")
+                       :shorthand (or (my/dash--prop-from-file file "SHORTHAND")
+                                      (file-name-base file))
+                       :path      file))
+               (directory-files dir t "\\.org$"))
+       (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
+#+end_src
+
+*** Org views
+
+=my/uni-dashboard-org= is the primary uni entry point, called by =my/dash-uni-work=
+and bound to =SPC u= / =u= in the greeting dashboard.
+
+Layout: deadlines → active assignments → courses → planning table (from Uni MOC).
+Keybindings: =g= refresh, =f= open =~/org/uni/= in dired, =c= course detail view,
+=n= new lecture via =org-roam-capture=, =RET= follow link, =q= close.
+
+=my/uni--course-view-at-point= resolves the course plist from the link on the
+current line and delegates to =my/uni-course-view-org=.
+
+=my/uni-course-view-org= renders a per-course detail buffer: summary file link,
+assignments list, numbered lecture list sorted by date. Matches lectures by
+=:CLASS:= property against both the course shorthand and full name, which covers
+CLASS value mismatches between files (e.g. "C++" vs full name).
+
+#+begin_src emacs-lisp
+(defun my/uni-dashboard-org ()
+  "Open uni dashboard reading from ~/org/uni/."
+  (interactive)
+  (persp-switch "uni")
+  (let* ((buf         (get-buffer-create "*Uni*"))
+         (deadlines   (my/dash--uni-deadlines-org))
+         (assignments (my/dash--uni-assignments-org))
+         (courses     (my/dash--uni-courses-org))
+         (planning    (my/dash--uni-planning))
+         (parsed      (my/uni-dash--parse-table-lines planning))
+         (clean-plan  (car parsed))
+         (face-map    (cdr parsed))
+         tbl-marker)
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "#+options: toc:nil num:nil\n")
+        (insert "* Uni  ·  " (format-time-string "%A %-d %B %Y") "\n\n")
+
+        (insert "** Upcoming deadlines\n\n")
+        (if deadlines
+            (dolist (d deadlines)
+              (insert (format "- [[file:%s][%s]]\n"
+                              (plist-get d :path) (plist-get d :text))))
+          (insert "/none/\n"))
+        (insert "\n")
+
+        (insert "** Active assignments\n\n")
+        (if assignments
+            (dolist (a assignments)
+              (insert (format "- [[file:%s][%s]]\n"
+                              (plist-get a :path) (plist-get a :text))))
+          (insert "/none/\n"))
+        (insert "\n")
+
+        (insert "** Courses\n\n")
+        (if courses
+            (dolist (c courses)
+              (insert (format "- [[file:%s][%-40s  Q%s]]\n"
+                              (plist-get c :path)
+                              (plist-get c :name)
+                              (plist-get c :Q))))
+          (insert "/none/\n"))
+        (insert "\n")
+
+        (insert "** Planning  (from Uni MOC)\n\n")
+        (setq tbl-marker (point-marker))
+        (set-marker-insertion-type tbl-marker nil)
+        (if clean-plan
+            (dolist (l clean-plan) (insert l "\n"))
+          (insert "/none/\n"))
+        (insert "\n")
+
+        (insert "-----\n")
+        (insert "[ g ] refresh   [ f ] files   [ c ] course view   [ n ] new lecture   [ q ] close\n")
+
+        (org-mode)
+        (setq-local org-hide-emphasis-markers t)
+        (olivetti-mode 1)
+        (setq-local olivetti-body-width 200)
+        (org-show-all)
+        (org-table-map-tables #'org-table-align t))
+
+      (when face-map
+        (my/uni-dash--apply-table-faces tbl-marker face-map))
+
+      (when tbl-marker
+        (let* ((beg (marker-position tbl-marker))
+               (end (save-excursion
+                      (goto-char beg)
+                      (or (and (re-search-forward "^-----" nil t)
+                               (line-beginning-position))
+                          (point-max))))
+               (ov  (make-overlay beg end)))
+          (overlay-put ov 'face '((:family "CMU Typewriter Text" :height 130)))
+          (overlay-put ov 'evaporate t)))
+      (face-remap-add-relative 'org-table '(:family "CMU Typewriter Text" :height 130))
+      (face-remap-add-relative 'org-link '(:underline nil :weight normal))
+      (read-only-mode 1)
+      (goto-char (point-min))
+      (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
+      (evil-local-set-key 'normal (kbd "g") #'my/uni-dashboard-org)
+      (evil-local-set-key 'normal (kbd "f")
+                          (lambda () (interactive)
+                            (dired (expand-file-name "uni/" org-roam-directory))))
+      (evil-local-set-key 'normal (kbd "c") #'my/uni--course-view-at-point)
+      (evil-local-set-key 'normal (kbd "n") #'org-roam-capture)
+      (evil-local-set-key 'normal (kbd "RET") #'org-open-at-point))
+
+    (switch-to-buffer buf)))
+
+(defun my/uni--course-view-at-point ()
+  "Open course view for the course link on the current line."
+  (interactive)
+  (let* ((line (buffer-substring-no-properties
+                (line-beginning-position) (line-end-position)))
+         (path (and (string-match "\\[\\[file:\\([^]]+\\)\\]" line)
+                    (match-string 1 line)))
+         (course (when path
+                   (seq-find (lambda (c) (string= (plist-get c :path) path))
+                             (my/dash--uni-courses-org)))))
+    (if course
+        (my/uni-course-view-org course)
+      (org-open-at-point))))
+
+(defun my/uni-course-view-org (course)
+  "Buffer showing lectures, assignments, and summary for COURSE plist (org)."
+  (let* ((shorthand (plist-get course :shorthand))
+         (name      (plist-get course :name))
+         (lec-dir   (expand-file-name "~/org/uni/lecture/"))
+         (asn-dir   (expand-file-name "~/org/uni/assignments/"))
+         (sum-dir   (expand-file-name "~/org/uni/summary/"))
+         lectures assignments summary-file)
+
+    (when (file-directory-p lec-dir)
+      (dolist (file (directory-files lec-dir t "\\.org$"))
+        (let ((cls (my/dash--prop-from-file file "CLASS")))
+          (when (or (string= cls shorthand) (string= cls name))
+            (push (list :name  (my/dash--org-title-from-file file)
+                        :date  (or (my/dash--prop-from-file file "DATE") "")
+                        :path  file)
+                  lectures)))))
+    (setq lectures (sort lectures
+                         (lambda (a b) (string< (plist-get a :date)
+                                                 (plist-get b :date)))))
+
+    (when (file-directory-p asn-dir)
+      (dolist (file (directory-files asn-dir t "\\.org$"))
+        (let ((cls (my/dash--prop-from-file file "CLASS")))
+          (when (or (string= cls shorthand) (string= cls name))
+            (push (list :text (file-name-base file) :path file)
+                  assignments)))))
+
+    (dolist (cand (list (expand-file-name (concat name " Summary.org") sum-dir)
+                        (expand-file-name (concat shorthand " Summary.org") sum-dir)))
+      (when (and (file-exists-p cand) (null summary-file))
+        (setq summary-file cand)))
+
+    (let ((buf (get-buffer-create (format "*Course: %s*" name))))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert "#+options: toc:nil num:nil\n")
+          (insert (format "* %s\n\n" name))
+
+          (insert "** Summary\n\n")
+          (if summary-file
+              (insert (format "- [[file:%s][%s]]\n"
+                              summary-file (file-name-base summary-file)))
+            (insert "/none/\n"))
+          (insert "\n")
+
+          (insert "** Assignments\n\n")
+          (if assignments
+              (dolist (a assignments)
+                (insert (format "- [[file:%s][%s]]\n"
+                                (plist-get a :path) (plist-get a :text))))
+            (insert "/none/\n"))
+          (insert "\n")
+
+          (insert (format "** Lectures  (%d)\n\n" (length lectures)))
+          (if lectures
+              (let ((i 1))
+                (dolist (l lectures)
+                  (insert (format "%d. [[file:%s][%s  —  %s]]\n"
+                                  i (plist-get l :path)
+                                  (plist-get l :date) (plist-get l :name)))
+                  (setq i (1+ i))))
+            (insert "/none/\n"))
+          (insert "\n")
+
+          (insert "-----\n")
+          (insert "[ n ] new lecture   [ q ] close\n")
+
+          (org-mode)
+          (setq-local org-hide-emphasis-markers t)
+          (olivetti-mode 1)
+          (setq-local olivetti-body-width 200)
+          (org-show-all))
+
+        (read-only-mode 1)
+        (goto-char (point-min))
+        (evil-local-set-key 'normal (kbd "q") #'bury-buffer)
+        (evil-local-set-key 'normal (kbd "n") #'org-roam-capture)
+        (evil-local-set-key 'normal (kbd "RET") #'org-open-at-point))
+      (switch-to-buffer buf))))
+#+end_src
+
+*** Markdown fallbacks (not tangled)
+
+These functions read from the markdown vault. Preserved for rollback. To
+reactivate: remove =:tangle no=, retangle, and change =my/dash-uni-work= to call
+=my/uni-dashboard= again.
+
+#+begin_src emacs-lisp :tangle no
+(defun my/dash--uni-deadlines ()
+  "Upcoming deadlines from UNI/Deadines/ (sorted, incomplete only)."
+  (let* ((dir (expand-file-name "Deadines" my/dash-uni))
+         results)
+    (when (file-directory-p dir)
+      (dolist (file (directory-files dir t "\\.md$"))
+        (let* ((completed (my/dash--fm-from-file file "completed"))
+               (date-str  (my/dash--fm-from-file file "date"))
+               (title     (my/dash--fm-from-file file "title"))
+               (class     (my/dash--fm-from-file file "class"))
+               (time-str  (my/dash--fm-from-file file "startTime")))
+          (when (and date-str
+                     (not (member completed '("true" "yes" "True" "Yes"))))
+            (let* ((ts   (float-time
+                          (date-to-time
+                           (concat (my/dash--normalize-date date-str) " 12:00:00"))))
+                   (diff (/ (- ts (float-time)) 86400)))
+              (when (>= diff 0)
+                (push (list :text (format "%-44s  %s%s   (%s)"
+                                          (if (and class title)
+                                              (concat class " — " title)
+                                            (or title (file-name-base file)))
+                                          date-str
+                                          (if (and time-str (not (string-empty-p time-str)))
+                                              (concat "  " time-str) "")
+                                          (if (< diff 1) "TODAY"
+                                            (format "in %d days" (ceiling diff))))
+                            :diff diff :path file)
+                      results))))))
+    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff)))))))
+
+(defun my/dash--uni-assignments ()
+  "Ungraded assignments from UNI/Assignments/ (sorted by deadline)."
+  (let* ((dir (expand-file-name "Assignments" my/dash-uni))
+         results)
+    (when (file-directory-p dir)
+      (dolist (file (directory-files dir t "\\.md$"))
+        (let* ((grade    (my/dash--fm-from-file file "grade"))
+               (deadline (my/dash--fm-from-file file "deadline"))
+               (class    (my/dash--fm-from-file file "class"))
+               (atype    (my/dash--fm-from-file file "type")))
+          (when (or (null grade) (string-empty-p (or grade "")))
+            (let* ((diff (and deadline (not (string-empty-p (or deadline "")))
+                               (my/dash--date-ts deadline)))
+                   (diff (when diff (/ (- diff (float-time)) 86400)))
+                   (when-str (cond ((null diff) "?")
+                                   ((< diff 1) "TODAY")
+                                   ((>= diff 1) (format "in %d days" (ceiling diff)))
+                                   (t (format "%dd ago" (floor (abs diff)))))))
+              (push (list :text  (format "%-35s  %-14s  %s   (%s)"
+                                         (file-name-base file)
+                                         (or atype "") (or deadline "") when-str)
+                          :diff  (or diff 9999) :path file)
+                    results))))))
+    (sort results (lambda (a b) (< (plist-get a :diff) (plist-get b :diff))))))
+
+(defun my/dash--uni-courses ()
+  "All courses from UNI/Classes/, sorted by Q."
+  (let ((dir (expand-file-name "Classes" my/dash-uni)))
+    (when (file-directory-p dir)
+      (sort
+       (mapcar (lambda (file)
+                 (list :name      (file-name-base file)
+                       :Q         (or (my/dash--fm-from-file file "Q") "")
+                       :code      (or (my/dash--fm-from-file file "code") "")
+                       :shorthand (or (my/dash--fm-from-file file "shorthand")
+                                      (file-name-base file))
+                       :path      file))
+               (directory-files dir t "\\.md$"))
+       (lambda (a b) (string< (plist-get a :Q) (plist-get b :Q)))))))
+
+(defun my/uni-new-lecture ()
+  "Create a lecture note from markdown template and open it."
+  (interactive)
+  (let* ((class   (read-string "Class shorthand: "))
+         (date    (format-time-string "%Y-%m-%d"))
+         (lec-dir (expand-file-name "Lecture" my/dash-uni))
+         (tmpl    (expand-file-name "Templates/Lecture.md" my/dash-uni))
+         (target  (expand-file-name (concat class " " date ".md") lec-dir))
+         (content (if (file-exists-p tmpl)
+                      (with-temp-buffer (insert-file-contents tmpl) (buffer-string))
+                    (format "---\nclass: %s\ndate: %s\n---\n\n# Lecture\n\n"
+                            class date))))
+    (with-temp-file target (insert content))
+    (find-file target)))
+
 (defun my/uni-dashboard ()
-  "Open uni dashboard in the uni perspective."
+  "Open uni dashboard in the uni perspective (markdown vault version)."
   (interactive)
   (persp-switch "uni")
   (let* ((buf         (get-buffer-create "*Uni*"))
@@ -3207,11 +3561,9 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
         (org-show-all)
         (org-table-map-tables #'org-table-align t))
 
-      ;; Apply emphasis colours to planning table cells
       (when face-map
         (my/uni-dash--apply-table-faces tbl-marker face-map))
 
-      ;; Scale planning table to ~14pt (2pt smaller than body font)
       (when tbl-marker
         (let* ((beg (marker-position tbl-marker))
                (end (save-excursion
@@ -3235,14 +3587,8 @@ Called by =perspective-uni= and =SPC u= / =u= key in greeting dashboard.
 
     (switch-to-buffer buf)))
 
-(defun my/uni-dashboard-org ()
-  "Open uni dashboard (org version) — stub until ~/org/uni/ is populated."
-  (interactive)
-  (persp-switch "uni")
-  (message "org uni dashboard: implement as org migration proceeds"))
-
 (defun my/uni-course-view (course)
-  "Buffer listing lecture notes and assignments for COURSE plist."
+  "Buffer listing lecture notes and assignments for COURSE plist (markdown)."
   (let* ((shorthand (plist-get course :shorthand))
          (name      (plist-get course :name))
          (code      (plist-get course :code))
