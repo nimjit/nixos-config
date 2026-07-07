@@ -10,13 +10,13 @@
 
 Ordered. Do these before anything else.
 
-### 1. org/ migration — config changes still needed
+### 1. org/ migration — **complete (2026-07-09)**
 
-**File conversion complete (2026-07-08).** Files are done. The remaining work is updating the Emacs config to use org files instead of markdown. This section documents exactly what needs to change.
+**File conversion complete (2026-07-08). Config updated (2026-07-09).** The uni dashboard now reads from `~/org/uni/` entirely.
 
 ---
 
-#### What was done (2026-07-08)
+#### What was done (2026-07-08–09)
 
 - **Personal dailies**: all 80 converted. The 10 June–July 2026 files were missing; custom Python converter (no pandoc, handles YAML/H1 variation, strips HTML comments, fixes markdown horizontal rules).
 - **Uni daily notes**: deleted (4 files, all empty).
@@ -25,49 +25,13 @@ Ordered. Do these before anything else.
 - **Lecture capture template**: fixed path (`uni/lecture/`), fixed to use PROPERTIES drawers (`:CLASS:`, `:DATE:`, `:LECTURE_NUMBER:`) not `#+class:` keywords.
 - **`org-update-all-dblocks` hook**: added to org-ql config block — class files now auto-render their lecture/assignment tables on open.
 - **`org-dblock-write:my-ql`**: custom dynamic block writer in config.org. Extends `#+BEGIN: org-ql` with `:files` parameter for cross-file queries.
+- **Uni dashboard converted (2026-07-09)**: `my/uni-dashboard-org` is now a full implementation reading from `~/org/uni/`. `my/dash-uni-work` calls it. Helpers: `my/dash--prop-from-file`, `my/dash--org-title-from-file`. Data queries: `my/dash--uni-{deadlines,assignments,courses}-org`. Course view: `my/uni-course-view-org` (`c` key in dashboard). Markdown functions moved to `:tangle no` fallback blocks. Schedule helpers split into org (tangled) and markdown (`:tangle no`) sub-blocks.
 
 ---
 
-#### Config changes still needed (uni dashboard)
+#### Personal vault — on hold
 
-The uni dashboard functions still read from the **markdown vault** (`my/dash-uni` = `~/Documents/BACKUP/Uni/Obsidian/Uni/`). They need to be updated to read from `~/org/uni/`.
-
-The core issue: `my/dash--fm-from-file` reads YAML frontmatter. Org files have PROPERTIES drawers. A new helper is needed first:
-
-```elisp
-(defun my/dash--prop-from-file (file prop)
-  "Read PROP from the PROPERTIES drawer of FILE (first 2000 bytes)."
-  (with-temp-buffer
-    (insert-file-contents file nil 0 2000)
-    (goto-char (point-min))
-    (when (search-forward ":PROPERTIES:" nil t)
-      (let ((end (save-excursion (search-forward ":END:" nil t) (point))))
-        (goto-char (point-min))
-        (when (re-search-forward
-               (concat "^:" (upcase (regexp-quote prop)) ":[ \t]+\\(.+\\)$")
-               end t)
-          (string-trim (match-string 1)))))))
-```
-
-**Functions to update:**
-
-1. **`my/dash--uni-courses`** — scan `~/org/uni/classes/*.org`, read `:Q:`, `:CODE:`, `:SHORTHAND:`, `:YEAR:` from PROPERTIES drawers.
-
-2. **`my/dash--uni-assignments`** — scan `~/org/uni/assignments/*.org`, read `:CLASS:`, `:DEADLINE:`, `:GRADE:` from PROPERTIES drawers. Filter: `:GRADE:` empty.
-
-3. **`my/dash--uni-deadlines`** — currently reads from `UNI/Deadines/` (note the typo — "Deadines"). Replace with org-ql query on `~/org/uni/assignments/`:
-   ```elisp
-   (org-ql-select (directory-files (expand-file-name "uni/assignments/" org-roam-directory)
-                                    t "\\.org$")
-     '(and (not (property "GRADE")) ...)
-   ```
-   Or simply reuse `my/dash--uni-assignments` and filter for upcoming deadlines.
-
-4. **`my/uni-course-view`** — replace all `lec-dir` / `.md` reads with `~/org/uni/lecture/*.org` using `my/dash--prop-from-file`. The `:CLASS:` PROPERTIES value in lecture files now matches the query values. Summary path changes from `.md` to `.org`.
-
-5. **`my/uni-dashboard-org`** — currently a stub ("implement as org migration proceeds"). Once functions above are updated, this should call the same layout as `my/uni-dashboard`, using the new functions.
-
-**Ordering**: implement `my/dash--prop-from-file` → update `my/dash--uni-courses` → `my/dash--uni-assignments` → `my/dash--uni-deadlines` → `my/uni-course-view` → update `my/uni-dashboard` to call `my/uni-dashboard-org`.
+`Knowledge/`, `Concepts/`, `Essays/`, `Sources/` in `~/org/` are skeleton or have stripped wikilinks. Do not migrate until the dashboards (`my/vault-dashboard`) are updated to query PROPERTIES drawers instead of YAML frontmatter — `birthday:`, `tags:`, `date:` are currently read from frontmatter by `my/dash--fm-from-file`.
 
 ---
 
