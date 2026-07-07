@@ -12,129 +12,138 @@ Ordered. Do these before anything else.
 
 ### 1. org/ migration
 
-**Survey done 2026-07-08.** Most files are already converted. Work remaining is: 10 missing personal dailies, 3 missing assignments, wikilink repair across all lecture/class files, dataview → org-ql replacement in class/MOC files, and the "new lecture" capture workflow.
+**Survey done 2026-07-08.** Work remaining: 10 missing personal dailies, wikilink repair across lecture/class files, org-ql dynamic blocks replacing dataview placeholders in class/MOC files, and updating the capture workflow text in class files.
 
 ---
 
 #### Current conversion state
 
 **Personal daily notes** (`~/org/daily/`)
-- Source: 80 files in `Dailies/`
-- Converted: 70 files — all ≥ 2025 except last 10 (June–July 2026)
-- **Missing** (need pandoc conversion):
+- 80 source files; 70 converted. All converted except the 10 most recent:
   `2026-06-08`, `2026-06-10`, `2026-06-11`, `2026-06-12`, `2026-06-13`, `2026-06-14`, `2026-06-24`, `2026-06-25`, `2026-06-29`, `2026-07-06`
-- Source format: `# YYYY-MM-DD`, then `## Schedule / ## ToDo / ## Inbox / ## Italian / ## Notes`. Simple markdown, no dataview in modern notes.
-- **Template already set** in org-roam config (Schedule / ToDo / Inbox / Italian / Notes + `#+created` header) — matches source format exactly.
+- Source: simple markdown — `# YYYY-MM-DD` title, then `## Schedule / ## ToDo / ## Inbox / ## Italian / ## Notes`. No dataview in modern notes.
+- Org-roam capture template already matches this structure.
 
-**Uni daily notes** (`~/org/uni/daily/`)
-- 4 source files (2026 only), 4 converted — **complete**.
+**Uni daily notes** (`~/org/uni/daily/`) — 4 files, all empty or near-empty. Delete these; they add nothing.
 
 **Uni lecture notes** (`~/org/uni/lecture/`)
-- Source: 77 files. Converted: 83 (6 extra including one `~` backup). All 77 source files are converted.
-- **Quality issue: wikilinks stripped.** `[[../Assignments/Advanced QM Presentation|here]]` → bare text `here`. 0 org links exist where there were 16 wikilinks. Needs repair: convert to `[[file:~/org/uni/assignments/Advanced Quantum Mechanics Presentation.org][here]]`.
-- Math ($..$ Typst notation) is preserved correctly — typst-preview handles it.
-- filetags are garbled (topic names split on spaces incorrectly from `[[#Topic Name]]` links). Lower priority — filetags aren't essential for use.
-- All 12 courses represented: Advanced QM (12), Applications QM (5), C++ (7), Complex Analysis (14), Computational Physics (6), Continuum Physics (1), Engineering/Ethics (5), Fundamentals QI (9), Interpretation QM (2), Mesoscopic Physics (1), PDE (1), Quantum Computer Architecture (10).
+- All 77 source files converted. 83 files in org (6 extra: a `~` backup + a few course-level index files).
+- **Wikilinks stripped.** `[[../Assignments/Name|text]]` → bare `text`. 0 org links remain. Needs a repair script.
+- Math ($..$ Typst notation) preserved — typst-preview handles it.
+- Courses: Advanced QM (12), Applications QM (5), C++ (7), Complex Analysis (14), Computational Physics (6), Continuum Physics (1), Engineering/Ethics (5), Fundamentals QI (9), Interpretation QM (2), Mesoscopic Physics (1), PDE (1), Quantum Computer Architecture (10).
 
-**Uni class files** (`~/org/uni/classes/`)
-- 12 source, 12 converted — **complete**.
-- **Quality issues**: dataview blocks replaced with placeholder `* [org-ql query goes here]` — not real queries. Need real org-ql blocks (see dataview section below). Wikilinks stripped (summary links missing).
-- "ctrl+n → Lecture" prompt text is preserved but points to Obsidian. Replace with reference to `SPC n r c` (org-roam capture).
+**Uni class files** (`~/org/uni/classes/`) — 12/12 converted.
+- Dataview blocks replaced with `* [org-ql query goes here]` — not real queries.
+- "ctrl+n → Lecture" text preserved but points to Obsidian. Replace with org-roam capture note.
+- Wikilinks to summaries stripped.
 
-**Uni assignments** (`~/org/uni/assignments/`)
-- 22 source, 19 converted.
-- **Missing**: `Computational Physics project 1`, `project 2`, `project 3` — actual physics homework with heavy math. Need pandoc conversion.
+**Uni assignments** (`~/org/uni/assignments/`) — 19/22 converted.
+- The 3 missing are Computational Physics project files that were copies of git repo code. Keep them as markdown; do not convert.
 
 **Uni summary, thesis, concepts** — all complete (6/6, 3/3, 17/17).
 
-**Uni MOC** (`~/org/uni/Uni MOC.org`) — converted; planning table is a native org table (good). Dataview blocks replaced with placeholders.
+**Uni MOC** (`~/org/uni/Uni MOC.org`) — converted; planning table is native org (good). Dataview blocks replaced with placeholders.
 
 ---
 
-#### Dataview → org-ql replacement
+#### org-ql dynamic blocks (auto-render on file open)
 
-The converted files have `* [org-ql query goes here]` placeholders. Each needs a real replacement:
+`#+BEGIN: org-ql` is a standard org dynamic block. It does **not** auto-render by default. To make all dynamic blocks render when an org file is opened, add this to the org-ql config block in `config.org`:
 
-**1. Lecture list per class** (in each `classes/*.org` file):
-```org
-#+BEGIN: org-ql-block :query (and (property "CLASS" "Advanced Quantum Mechanics") (org-roam-file-p)) :columns (file lecture_number date)
-#+END:
-```
-Or simpler: a `dired` link to `~/org/uni/lecture/` filtered by name is enough for now.
-
-**2. Assignment list per class** (in each `classes/*.org` file):
-```org
-#+BEGIN: org-ql-block :query (and (property "CLASS" "Advanced Quantum Mechanics") (deadline))
-#+END:
+```elisp
+(add-hook 'org-mode-hook #'org-update-all-dblocks)
 ```
 
-**3. All-classes table** (Uni MOC):
+This fires `org-update-all-dblocks` on every org file open. For files with 1–3 blocks and a bounded search path it's fast. The `:files` parameter limits which files are queried — always set it to avoid scanning all of `org-agenda-files`.
+
+---
+
+**Block syntax** (the writer is `org-dblock-write:org-ql`; block name is `org-ql` not `org-ql-block`):
+
+**1. Lecture list per class** (each `classes/*.org` file):
 ```org
-#+BEGIN: org-ql-block :query (tags "class") :super-groups ((:auto-property "YEAR"))
+#+BEGIN: org-ql :files (directory-files "~/org/uni/lecture/" t "\\.org$") :query (property "CLASS" "Advanced Quantum Mechanics") :columns (heading (property "LECTURE_NUMBER" "Lec") (property "DATE" "Date")) :sort (property "LECTURE_NUMBER")
 #+END:
 ```
 
-**4. Active deadlines** (Uni MOC):
+**2. Assignment list per class** (each `classes/*.org` file):
 ```org
-#+BEGIN: org-ql-block :query (and (deadline :to +60d) (not (done)))
+#+BEGIN: org-ql :files (directory-files "~/org/uni/assignments/" t "\\.org$") :query (property "CLASS" "Advanced Quantum Mechanics") :columns (heading (property "DEADLINE" "Due") (property "GRADE" "Grade"))
 #+END:
 ```
 
-**5. Old Obsidian Tasks blocks** (`#+begin_src tasks`) in a few converted daily notes (2024–2025 era). These reference the previous day's incomplete tasks. No clean org-ql equivalent for "yesterday's tasks." Options:
-- Delete them (historical notes; the tasks are done or abandoned).
-- Replace with a static `* Carry-over` section if needed.
-- Ignore — they render as an opaque code block in org and cause no harm.
+**3. All-classes table** (`Uni MOC.org`):
+```org
+#+BEGIN: org-ql :files (directory-files "~/org/uni/classes/" t "\\.org$") :query (level 1) :columns (heading (property "YEAR" "Year") (property "Q" "Q") (property "CODE" "Code"))  :sort (property "YEAR")
+#+END:
+```
 
-**6. dataviewjs file tree** (classes): reads `~/Documents/BACKUP/Uni/Master/<ClassName>/` and builds a file tree. Replacement: a plain `dired` link:
+**4. Active deadlines** (`Uni MOC.org`):
+```org
+#+BEGIN: org-ql :files "~/org/uni/" :query (and (deadline :to +60d) (not (done))) :columns (heading deadline (property "CLASS" "Class")) :sort deadline
+#+END:
+```
+
+**5. Old Obsidian Tasks blocks** (`#+begin_src tasks`) in a few 2024-era daily notes — leave as-is. They render as an inert code block and the historical tasks are irrelevant.
+
+**6. File tree (per class)** — the dataviewjs block that listed project files from `~/Documents/BACKUP/Uni/Master/<ClassName>/`. Replace with a plain dired link:
 ```org
 [[file:~/Documents/BACKUP/Uni/Master/Advanced Quantum Mechanics/][Project files]]
 ```
 
 ---
 
-#### "Press n for new lecture/assignment" → org-roam capture
+#### Wikilink repair in lecture notes
+
+All lecture files had their wikilinks stripped during conversion. A wikilink `[[../Assignments/Advanced QM Presentation|here]]` became `here`. The `[[#Section]]` internal links became one-word fragments like "quantization" instead of "Second quantization".
+
+The repair strategy:
+- Write a Python script that reads each `.org` file, looks up the linked note name via `org-roam`'s sqlite DB, and inserts `[[file:~/org/uni/path/to/Note.org][display text]]`.
+- For `[[#Section]]` in-file links: convert to org `[[*Section Name]]` internal links.
+- The script only needs to run once; after that, future edits stay in org.
+
+Prerequisite: org-roam DB must be up to date (`M-x org-roam-db-sync`).
+
+---
+
+#### "Press n for new lecture" → org-roam capture
 
 The class files say: *"Type ctrl+n → Lecture → [Class name] for a new lecture."*
 
-In Emacs, the capture templates under `SPC n r c` already handle this (uni: class, lecture, assignment templates). The class-file prompt text should be replaced with the org-roam instruction, e.g.:
-
+Replace with:
 ```org
 /Use =SPC n r c= then =l= (lecture) to add a new lecture for this class./
 ```
 
-The capture template should auto-fill the CLASS property from the current file. Verify that the lecture capture template prompts for class name and sets `:CLASS:` in PROPERTIES.
+Also verify that the lecture capture template sets `:CLASS:` in the PROPERTIES drawer automatically — this is what the org-ql queries above rely on. Check the template in `config.org`; if it only prompts for the class name without inserting a `:CLASS:` property, add `":CLASS: %^{Class}"` to the template string.
 
 ---
 
-#### What's NOT done yet (personal vault)
+#### Personal vault — on hold
 
-Personal `Knowledge/`, `Concepts/`, `Essays/`, `Sources/` are in `~/org/` but largely skeleton or converted without wikilinks. **Hold on these** until wikilinks are sorted out:
+`Knowledge/`, `Concepts/`, `Essays/`, `Sources/` in `~/org/` are skeleton or wikilink-stripped. **Do not migrate until:**
 
-- Wikilinks (`[[Note Name]]` → `[[file:~/org/path/to/Note Name.org][Note Name]]`) need either pandoc with the `--from markdown+wikilinks` flag + a post-processing script to fix paths, or a dedicated Emacs function using org-roam's database.
-- YAML frontmatter is converted to PROPERTIES drawer — this is correct for org-roam, but dashboards (`my/vault-dashboard`, `my/uni-dashboard`) that currently query frontmatter need to be updated to query PROPERTIES instead.
-- Personal vault frontmatter includes things like `tags:`, `date:`, `birthday:` that are used by the dashboard elisp. Do not migrate personal vault until the dashboards are adapted.
+1. The wikilink repair script from the lecture notes is tested and generalised.
+2. The dashboards (`my/vault-dashboard`) are updated to query PROPERTIES drawers instead of YAML frontmatter — `birthday:`, `tags:`, `date:` are currently read from frontmatter.
 
 ---
 
-#### Immediate next actions
+#### Step-by-step actions
 
-1. **Pandoc-convert the 10 missing personal dailies.** Simple: no dataview, no wikilinks. Command:
+1. Convert the 10 missing personal dailies:
    ```bash
+   VAULT=~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure
    for f in 2026-06-08 2026-06-10 2026-06-11 2026-06-12 2026-06-13 2026-06-14 2026-06-24 2026-06-25 2026-06-29 2026-07-06; do
-     pandoc -f markdown -t org \
-       ~/Documents/BACKUP/.../Dailies/$f.md \
-       -o ~/org/daily/$f.org
-     # prepend #+title: and #+filetags: :daily:
+     pandoc -f markdown -t org "$VAULT/Dailies/$f.md" -o ~/org/daily/$f.org
+     sed -i "1s/^/#+title: $f\n#+filetags: :daily:\n\n/" ~/org/daily/$f.org
    done
    ```
-
-2. **Pandoc-convert the 3 missing Computational Physics assignments.** Math-heavy but no dataview.
-
-3. **Repair wikilinks in lecture notes.** Either a post-pandoc sed/python script, or an Emacs function using org-roam's DB to resolve note names to file paths. Decide on approach before converting more.
-
-4. **Replace org-ql placeholders in class files.** Do this after deciding on the query syntax (test one class first).
-
-5. **Update lecture capture template** to prompt for class name and set `:CLASS:` property automatically.
+2. Delete `~/org/uni/daily/` (4 empty files).
+3. Add `(add-hook 'org-mode-hook #'org-update-all-dblocks)` to the org-ql config block in `config.org`.
+4. Replace dataview placeholders in one class file first; verify the block renders correctly on open; then repeat for all 12.
+5. Write the wikilink repair Python script. Test on one lecture file before bulk-running.
+6. Update the "ctrl+n" prompts in class files.
+7. Verify the lecture capture template inserts `:CLASS:` property.
 
 ---
 
