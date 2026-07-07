@@ -100,7 +100,7 @@ Some basic settings I found, the one I actually care about is `scroll-margin 8`.
 
 
 (electric-pair-mode      1)  ; auto-close brackets
-(blink-cursor-mode      -1)  ; no blink = no timer-driven redraws (helps at 4K)
+(blink-cursor-mode       1)  ; no blink = no timer-driven redraws (helps at 4K)
 #+end_src
 
 ** Auto-revert
@@ -776,7 +776,79 @@ Common queries for dashboard files:
 
 #+begin_src emacs-lisp
 (use-package org-ql
-  :after org)
+  :after org
+  :config
+  (add-hook 'org-mode-hook #'org-update-all-dblocks))
+#+end_src
+
+*** Cross-file dynamic block (my-ql)
+
+The built-in =org-ql= dynamic block only queries the current buffer. =my-ql= adds
+=:files= support so uni class files can show live lecture and assignment tables.
+
+=#+BEGIN: my-ql :files "~/org/uni/lecture/" :query (property "CLASS" "Name") :columns (heading ...)=
+
+#+begin_src emacs-lisp
+(defun org-dblock-write:my-ql (params)
+  "Cross-file org-ql dynamic block.
+:files   — directory path (string) or list of .org paths
+:query   — org-ql sexp
+:columns — list of: heading | deadline | scheduled | (property \"NAME\") | (property \"NAME\" \"Header\")
+:sort    — org-ql sort symbol (date, deadline, etc.)"
+  (let* ((raw (plist-get params :files))
+         (files (cond
+                 ((null raw)
+                  (list (buffer-file-name)))
+                 ((stringp raw)
+                  (let ((p (expand-file-name raw)))
+                    (if (file-directory-p p)
+                        (directory-files p t "\\.org$" t)
+                      (list p))))
+                 (t (mapcar #'expand-file-name raw))))
+         (query   (plist-get params :query))
+         (columns (or (plist-get params :columns) '(heading)))
+         (sort    (plist-get params :sort))
+         (results
+          (when (and files query)
+            (org-ql-select
+              files query
+              :select
+              (lambda ()
+                (org-ql-view--resolve-element-properties
+                 (org-element-headline-parser (line-end-position))))
+              :order-by sort))))
+    (if (null results)
+        (insert "/No results/\n")
+      (insert
+       "| "
+       (mapconcat (lambda (col)
+                    (pcase col
+                      ('heading   "Heading")
+                      ('deadline  "Deadline")
+                      ('scheduled "Scheduled")
+                      (`(property ,_ ,h) h)
+                      (`(property ,n)    (upcase n))
+                      (_  "?")))
+                  columns " | ")
+       " |\n|-\n")
+      (dolist (el results)
+        (insert
+         "| "
+         (mapconcat (lambda (col)
+                      (or (pcase col
+                            ('heading  (org-element-property :raw-value el))
+                            ('deadline
+                             (when-let ((ts (org-element-property :deadline el)))
+                               (org-timestamp-format ts "%Y-%m-%d")))
+                            ('scheduled
+                             (when-let ((ts (org-element-property :scheduled el)))
+                               (org-timestamp-format ts "%Y-%m-%d")))
+                            (`(property ,name . ,_)
+                             (org-element-property
+                              (intern (concat ":" (upcase name))) el)))
+                          ""))
+                    columns " | ")
+         " |\n")))))
 #+end_src
 ** Google Calendar Sync
 
@@ -964,14 +1036,14 @@ Templates for org-roam nodes. Captures go to the correct folder automatically.
 
       ("ul" "lecture" plain
        "#+filetags: :lecture:\n\n%?"
-       :target (file+head "uni/lectures/%<%Y%m%d%H%M%S>-${slug}.org"
-                          "#+title: ${title}\n#+created: %U\n#+class:\n#+date: %<%Y-%m-%d>\n#+number:\n")
+       :target (file+head "uni/lecture/${slug}.org"
+                          ":PROPERTIES:\n:CLASS: %^{Class name}\n:DATE: %<%Y-%m-%d>\n:LECTURE_NUMBER: %^{Lecture number}\n:END:\n#+title: ${title}\n#+created: %U\n")
        :unnarrowed t)
 
       ("ua" "assignment" plain
        "#+filetags: :assignment:\n\n* Problem\n%?\n\n* Solution\n"
-       :target (file+head "uni/assignments/%<%Y%m%d%H%M%S>-${slug}.org"
-                          "#+title: ${title}\n#+created: %U\n#+class:\n#+deadline:\n#+grade:\n")
+       :target (file+head "uni/assignments/${slug}.org"
+                          ":PROPERTIES:\n:CLASS: %^{Class name}\n:DEADLINE: %^{Deadline (DD-MM-YYYY)}\n:GRADE:\n:END:\n#+title: ${title}\n#+created: %U\n")
        :unnarrowed t)
 
       ;; ── Quick capture ──────────────────────────────────────────────────

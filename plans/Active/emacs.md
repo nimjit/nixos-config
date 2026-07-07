@@ -1,6 +1,6 @@
 # Emacs — config plan
 
-*Last updated: 2026-07-08*
+*Last updated: 2026-07-08 (migration complete)*
 *Config lives at `~/.config/emacs/config.org` (edit directly; saved → auto-retangles to `config.el`).*
 *Nix packages: `home/emacs.nix`. Rebuild only when adding/removing packages.*
 
@@ -10,140 +10,70 @@
 
 Ordered. Do these before anything else.
 
-### 1. org/ migration
+### 1. org/ migration — config changes still needed
 
-**Survey done 2026-07-08.** Work remaining: 10 missing personal dailies, wikilink repair across lecture/class files, org-ql dynamic blocks replacing dataview placeholders in class/MOC files, and updating the capture workflow text in class files.
-
----
-
-#### Current conversion state
-
-**Personal daily notes** (`~/org/daily/`)
-- 80 source files; 70 converted. All converted except the 10 most recent:
-  `2026-06-08`, `2026-06-10`, `2026-06-11`, `2026-06-12`, `2026-06-13`, `2026-06-14`, `2026-06-24`, `2026-06-25`, `2026-06-29`, `2026-07-06`
-- Source: simple markdown — `# YYYY-MM-DD` title, then `## Schedule / ## ToDo / ## Inbox / ## Italian / ## Notes`. No dataview in modern notes.
-- Org-roam capture template already matches this structure.
-
-**Uni daily notes** (`~/org/uni/daily/`) — 4 files, all empty or near-empty. Delete these; they add nothing.
-
-**Uni lecture notes** (`~/org/uni/lecture/`)
-- All 77 source files converted. 83 files in org (6 extra: a `~` backup + a few course-level index files).
-- **Wikilinks stripped.** `[[../Assignments/Name|text]]` → bare `text`. 0 org links remain. Needs a repair script.
-- Math ($..$ Typst notation) preserved — typst-preview handles it.
-- Courses: Advanced QM (12), Applications QM (5), C++ (7), Complex Analysis (14), Computational Physics (6), Continuum Physics (1), Engineering/Ethics (5), Fundamentals QI (9), Interpretation QM (2), Mesoscopic Physics (1), PDE (1), Quantum Computer Architecture (10).
-
-**Uni class files** (`~/org/uni/classes/`) — 12/12 converted.
-- Dataview blocks replaced with `* [org-ql query goes here]` — not real queries.
-- "ctrl+n → Lecture" text preserved but points to Obsidian. Replace with org-roam capture note.
-- Wikilinks to summaries stripped.
-
-**Uni assignments** (`~/org/uni/assignments/`) — 19/22 converted.
-- The 3 missing are Computational Physics project files that were copies of git repo code. Keep them as markdown; do not convert.
-
-**Uni summary, thesis, concepts** — all complete (6/6, 3/3, 17/17).
-
-**Uni MOC** (`~/org/uni/Uni MOC.org`) — converted; planning table is native org (good). Dataview blocks replaced with placeholders.
+**File conversion complete (2026-07-08).** Files are done. The remaining work is updating the Emacs config to use org files instead of markdown. This section documents exactly what needs to change.
 
 ---
 
-#### org-ql dynamic blocks (auto-render on file open)
+#### What was done (2026-07-08)
 
-`#+BEGIN: org-ql` is a standard org dynamic block. It does **not** auto-render by default. To make all dynamic blocks render when an org file is opened, add this to the org-ql config block in `config.org`:
+- **Personal dailies**: all 80 converted. The 10 June–July 2026 files were missing; custom Python converter (no pandoc, handles YAML/H1 variation, strips HTML comments, fixes markdown horizontal rules).
+- **Uni daily notes**: deleted (4 files, all empty).
+- **Lecture notes**: re-converted all 77 from source with `pandoc -f markdown+wikilinks_title_after_pipe`. Links now properly resolved to `[[file:~/org/uni/...]]`. Cross-file: assignments, summaries, concepts, classes. Internal `[[#Section]]` → `[[*Section Name]]`. Math preserved as `$...$`.
+- **Class files**: fully rewritten with `my-ql` dynamic blocks for lectures and assignments, dired links for project files, `SPC n r c` capture prompt.
+- **Lecture capture template**: fixed path (`uni/lecture/`), fixed to use PROPERTIES drawers (`:CLASS:`, `:DATE:`, `:LECTURE_NUMBER:`) not `#+class:` keywords.
+- **`org-update-all-dblocks` hook**: added to org-ql config block — class files now auto-render their lecture/assignment tables on open.
+- **`org-dblock-write:my-ql`**: custom dynamic block writer in config.org. Extends `#+BEGIN: org-ql` with `:files` parameter for cross-file queries.
+
+---
+
+#### Config changes still needed (uni dashboard)
+
+The uni dashboard functions still read from the **markdown vault** (`my/dash-uni` = `~/Documents/BACKUP/Uni/Obsidian/Uni/`). They need to be updated to read from `~/org/uni/`.
+
+The core issue: `my/dash--fm-from-file` reads YAML frontmatter. Org files have PROPERTIES drawers. A new helper is needed first:
 
 ```elisp
-(add-hook 'org-mode-hook #'org-update-all-dblocks)
+(defun my/dash--prop-from-file (file prop)
+  "Read PROP from the PROPERTIES drawer of FILE (first 2000 bytes)."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 2000)
+    (goto-char (point-min))
+    (when (search-forward ":PROPERTIES:" nil t)
+      (let ((end (save-excursion (search-forward ":END:" nil t) (point))))
+        (goto-char (point-min))
+        (when (re-search-forward
+               (concat "^:" (upcase (regexp-quote prop)) ":[ \t]+\\(.+\\)$")
+               end t)
+          (string-trim (match-string 1)))))))
 ```
 
-This fires `org-update-all-dblocks` on every org file open. For files with 1–3 blocks and a bounded search path it's fast. The `:files` parameter limits which files are queried — always set it to avoid scanning all of `org-agenda-files`.
+**Functions to update:**
 
----
+1. **`my/dash--uni-courses`** — scan `~/org/uni/classes/*.org`, read `:Q:`, `:CODE:`, `:SHORTHAND:`, `:YEAR:` from PROPERTIES drawers.
 
-**Block syntax** (the writer is `org-dblock-write:org-ql`; block name is `org-ql` not `org-ql-block`):
+2. **`my/dash--uni-assignments`** — scan `~/org/uni/assignments/*.org`, read `:CLASS:`, `:DEADLINE:`, `:GRADE:` from PROPERTIES drawers. Filter: `:GRADE:` empty.
 
-**1. Lecture list per class** (each `classes/*.org` file):
-```org
-#+BEGIN: org-ql :files (directory-files "~/org/uni/lecture/" t "\\.org$") :query (property "CLASS" "Advanced Quantum Mechanics") :columns (heading (property "LECTURE_NUMBER" "Lec") (property "DATE" "Date")) :sort (property "LECTURE_NUMBER")
-#+END:
-```
+3. **`my/dash--uni-deadlines`** — currently reads from `UNI/Deadines/` (note the typo — "Deadines"). Replace with org-ql query on `~/org/uni/assignments/`:
+   ```elisp
+   (org-ql-select (directory-files (expand-file-name "uni/assignments/" org-roam-directory)
+                                    t "\\.org$")
+     '(and (not (property "GRADE")) ...)
+   ```
+   Or simply reuse `my/dash--uni-assignments` and filter for upcoming deadlines.
 
-**2. Assignment list per class** (each `classes/*.org` file):
-```org
-#+BEGIN: org-ql :files (directory-files "~/org/uni/assignments/" t "\\.org$") :query (property "CLASS" "Advanced Quantum Mechanics") :columns (heading (property "DEADLINE" "Due") (property "GRADE" "Grade"))
-#+END:
-```
+4. **`my/uni-course-view`** — replace all `lec-dir` / `.md` reads with `~/org/uni/lecture/*.org` using `my/dash--prop-from-file`. The `:CLASS:` PROPERTIES value in lecture files now matches the query values. Summary path changes from `.md` to `.org`.
 
-**3. All-classes table** (`Uni MOC.org`):
-```org
-#+BEGIN: org-ql :files (directory-files "~/org/uni/classes/" t "\\.org$") :query (level 1) :columns (heading (property "YEAR" "Year") (property "Q" "Q") (property "CODE" "Code"))  :sort (property "YEAR")
-#+END:
-```
+5. **`my/uni-dashboard-org`** — currently a stub ("implement as org migration proceeds"). Once functions above are updated, this should call the same layout as `my/uni-dashboard`, using the new functions.
 
-**4. Active deadlines** (`Uni MOC.org`):
-```org
-#+BEGIN: org-ql :files "~/org/uni/" :query (and (deadline :to +60d) (not (done))) :columns (heading deadline (property "CLASS" "Class")) :sort deadline
-#+END:
-```
-
-**5. Old Obsidian Tasks blocks** (`#+begin_src tasks`) in a few 2024-era daily notes — leave as-is. They render as an inert code block and the historical tasks are irrelevant.
-
-**6. File tree (per class)** — the dataviewjs block that listed project files from `~/Documents/BACKUP/Uni/Master/<ClassName>/`. Replace with a plain dired link:
-```org
-[[file:~/Documents/BACKUP/Uni/Master/Advanced Quantum Mechanics/][Project files]]
-```
-
----
-
-#### Wikilink repair in lecture notes
-
-All lecture files had their wikilinks stripped during conversion. A wikilink `[[../Assignments/Advanced QM Presentation|here]]` became `here`. The `[[#Section]]` internal links became one-word fragments like "quantization" instead of "Second quantization".
-
-The repair strategy:
-- Write a Python script that reads each `.org` file, looks up the linked note name via `org-roam`'s sqlite DB, and inserts `[[file:~/org/uni/path/to/Note.org][display text]]`.
-- For `[[#Section]]` in-file links: convert to org `[[*Section Name]]` internal links.
-- The script only needs to run once; after that, future edits stay in org.
-
-Prerequisite: org-roam DB must be up to date (`M-x org-roam-db-sync`).
-
----
-
-#### "Press n for new lecture" → org-roam capture
-
-The class files say: *"Type ctrl+n → Lecture → [Class name] for a new lecture."*
-
-Replace with:
-```org
-/Use =SPC n r c= then =l= (lecture) to add a new lecture for this class./
-```
-
-Also verify that the lecture capture template sets `:CLASS:` in the PROPERTIES drawer automatically — this is what the org-ql queries above rely on. Check the template in `config.org`; if it only prompts for the class name without inserting a `:CLASS:` property, add `":CLASS: %^{Class}"` to the template string.
+**Ordering**: implement `my/dash--prop-from-file` → update `my/dash--uni-courses` → `my/dash--uni-assignments` → `my/dash--uni-deadlines` → `my/uni-course-view` → update `my/uni-dashboard` to call `my/uni-dashboard-org`.
 
 ---
 
 #### Personal vault — on hold
 
-`Knowledge/`, `Concepts/`, `Essays/`, `Sources/` in `~/org/` are skeleton or wikilink-stripped. **Do not migrate until:**
-
-1. The wikilink repair script from the lecture notes is tested and generalised.
-2. The dashboards (`my/vault-dashboard`) are updated to query PROPERTIES drawers instead of YAML frontmatter — `birthday:`, `tags:`, `date:` are currently read from frontmatter.
-
----
-
-#### Step-by-step actions
-
-1. Convert the 10 missing personal dailies:
-   ```bash
-   VAULT=~/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure/Renaissance_Vault_Structure
-   for f in 2026-06-08 2026-06-10 2026-06-11 2026-06-12 2026-06-13 2026-06-14 2026-06-24 2026-06-25 2026-06-29 2026-07-06; do
-     pandoc -f markdown -t org "$VAULT/Dailies/$f.md" -o ~/org/daily/$f.org
-     sed -i "1s/^/#+title: $f\n#+filetags: :daily:\n\n/" ~/org/daily/$f.org
-   done
-   ```
-2. Delete `~/org/uni/daily/` (4 empty files).
-3. Add `(add-hook 'org-mode-hook #'org-update-all-dblocks)` to the org-ql config block in `config.org`.
-4. Replace dataview placeholders in one class file first; verify the block renders correctly on open; then repeat for all 12.
-5. Write the wikilink repair Python script. Test on one lecture file before bulk-running.
-6. Update the "ctrl+n" prompts in class files.
-7. Verify the lecture capture template inserts `:CLASS:` property.
+`Knowledge/`, `Concepts/`, `Essays/`, `Sources/` in `~/org/` are skeleton or have stripped wikilinks. Do not migrate until the dashboards (`my/vault-dashboard`) are updated to query PROPERTIES drawers instead of YAML frontmatter — `birthday:`, `tags:`, `date:` are currently read from frontmatter by `my/dash--fm-from-file`.
 
 ---
 
