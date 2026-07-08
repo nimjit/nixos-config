@@ -228,6 +228,8 @@ Vim keybindings throughout Emacs. Load-order is critical:
   (evil-goggles-use-diff-faces))
 #+end_src
 
+** Dired
+
 Dired evil mode stylings
 
 #+begin_src emacs-lisp
@@ -250,7 +252,7 @@ Dired evil mode stylings
     (kbd "Y") 'dired-copy-filename-as-kill
     (kbd "Z") 'dired-do-compress
     (kbd "+") 'dired-create-directory
-    (kbd "%f") 'dired-create-empty-file
+    (kbd "% f") 'dired-create-empty-file
     (kbd "-") 'dired-do-kill-lines
     (kbd "% l") 'dired-downcase
     (kbd "% m") 'dired-mark-files-regexp
@@ -262,7 +264,7 @@ Dired evil mode stylings
     (kbd "; e") 'epa-dired-do-encrypt))
 #+end_src
 
-** Peep-dired
+*** Peep-dired
 
 Preview files in a side window as you navigate the dired listing.
 =p= toggles the preview, =j=/=k= scroll it while preview is active.
@@ -270,12 +272,15 @@ Preview files in a side window as you navigate the dired listing.
 #+begin_src emacs-lisp
 (use-package peep-dired
   :after dired
+  :custom
+  (peep-dired-split-direction 'vertical)
   :config
   (evil-define-key 'normal peep-dired-mode-map
     (kbd "j") 'peep-dired-next-file
     (kbd "k") 'peep-dired-prev-file)
   (evil-define-key 'normal dired-mode-map
-    (kbd "p") 'peep-dired))
+    (kbd "p") 'peep-dired)
+  (add-hook 'peep-dired-hook #'evil-normalize-keymaps))
 #+end_src
 
 * SPC Leader Keybindings
