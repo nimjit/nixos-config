@@ -1810,7 +1810,17 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
 (defun my/dash-today-org ()
   "Open today's org-roam daily note, creating from template if new."
   (interactive)
-  (org-roam-dailies-goto-today))
+  (let* ((date-str (format-time-string "%Y-%m-%d"))
+         (f (expand-file-name
+             (concat "daily/" date-str ".org")
+             org-roam-directory)))
+    (unless (file-exists-p f)
+      (with-temp-buffer
+        (insert (format "#+title: %s\n#+created: [%s]\n\n"
+                        date-str (format-time-string "%Y-%m-%d %a %H:%M")))
+        (insert "* Schedule\n\n* ToDo\n\n* Inbox\n\n* Italian\n\n* Notes\n")
+        (write-region (point-min) (point-max) f)))
+    (find-file f)))
 
 (defun my/dash-vault-work ()
   "Open personal vault dashboard."
