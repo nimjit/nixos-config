@@ -1960,14 +1960,14 @@ populate the schedule column.
    org-roam-directory))
 
 (defun my/dash--org-section (file heading)
-  "List items from org * HEADING in FILE."
+  "List items from org HEADING (any level) in FILE."
   (when (file-exists-p file)
     (with-temp-buffer
       (insert-file-contents file)
       (let (results in-sec)
         (dolist (line (split-string (buffer-string) "\n"))
           (cond
-           ((string-match (concat "^\\* " (regexp-quote heading) "$") line)
+           ((string-match (concat "^\\*+ " (regexp-quote heading) "$") line)
             (setq in-sec t))
            ((and in-sec (string-match "^\\*+ " line)) (setq in-sec nil))
            ((and in-sec
@@ -1983,7 +1983,7 @@ populate the schedule column.
       (let (results in-sec)
         (dolist (line (split-string (buffer-string) "\n"))
           (cond
-           ((string-match "^\\* Schedule$" line) (setq in-sec t))
+           ((string-match "^\\*+ Schedule$" line) (setq in-sec t))
            ((and in-sec (string-match "^\\*+ " line)) (setq in-sec nil))
            ((and in-sec
                  (string-match
@@ -2543,8 +2543,7 @@ FACE-MAP: list of (ridx cidx face-plist)."
                       sched-ev)
                      (lambda (a b) (string< (car a) (car b)))))
          (deadlines (my/dash--deadlines))
-         (todo-d    (or (my/dash--parse-section daily-f "ToDo")
-                        (my/dash--org-section daily-org-f "ToDo")))
+         (todo-d    (my/dash--org-section daily-org-f "ToDo"))
          (todo-p    (my/dash--parse-section todo-f  "ToDo"))
          (projects  (my/dash--parse-section todo-f  "Projects"))
          (proj-idx  (when projects
