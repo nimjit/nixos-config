@@ -2531,8 +2531,7 @@ FACE-MAP: list of (ridx cidx face-plist)."
          (khal-timed (seq-filter
                       (lambda (l) (string-match "^[0-9]\\{2\\}:[0-9]\\{2\\}" l))
                       today-ev))
-         (sched-ev  (or (my/dash--schedule-events daily-f)
-                        (my/dash--org-schedule-events daily-org-f)))
+         (sched-ev  (my/dash--org-schedule-events daily-org-f))
          (all-ev    (sort
                      (append
                       (mapcar (lambda (l)
