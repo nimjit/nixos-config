@@ -32,6 +32,7 @@
 
       # ── Files ─────────────────────────────────────────────────────────────
       dired-sidebar        # persistent left file tree
+      peep-dired           # preview files in a side window while navigating dired
 
       # ── Appearance ────────────────────────────────────────────────────────
       mixed-pitch          # variable pitch in prose, mono in code
