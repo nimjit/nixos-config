@@ -272,6 +272,8 @@ Preview files in a side window as you navigate the dired listing.
 #+begin_src emacs-lisp
 (use-package peep-dired
   :after dired
+  :custom
+  (peep-dired-cleanup-eagerly t)
   :config
   ;; Always open preview to the right, reusing the same window on navigation.
   ;; The packaged version uses display-buffer which ignores split direction,
@@ -282,14 +284,20 @@ Preview files in a side window as you navigate the dired listing.
                           peep-dired-ignored-extensions)
                   (> (nth 7 (file-attributes entry-name))
                      peep-dired-max-size))
-        (let* ((buf (if (file-directory-p entry-name)
+        (let* ((old-bufs peep-dired-peeped-buffers)
+               (buf (if (file-directory-p entry-name)
                         (peep-dired-dir-buffer entry-name)
                       (or (find-buffer-visiting entry-name)
                           (find-file-noselect entry-name))))
                (win (or (window-in-direction 'right)
                         (split-window-right))))
-          (add-to-list 'peep-dired-peeped-buffers buf)
-          (set-window-buffer win buf)))))
+          (setq peep-dired-peeped-buffers (list buf))
+          (set-window-buffer win buf)
+          (when peep-dired-cleanup-eagerly
+            (mapc (lambda (b)
+                    (when (and (buffer-live-p b) (not (eq b buf)))
+                      (kill-buffer b)))
+                  old-bufs))))))
 
   ;; Force-kill all previewed buffers on disable (original only kills unmodified).
   (defun peep-dired-disable ()
