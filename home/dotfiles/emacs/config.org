@@ -2001,7 +2001,7 @@ populate the schedule column.
 Original markdown-vault schedule readers. Kept as reference; superseded by the
 org versions above. Not loaded into Emacs.
 
-#+begin_src emacs-lisp :tangle no
+#+begin_src emacs-lisp
 (defun my/dash--parse-section (file section)
   "List items from markdown ## SECTION in FILE."
   (when (file-exists-p file)
@@ -2016,7 +2016,9 @@ org versions above. Not loaded into Emacs.
                  (string-match "^[[:space:]]*-[[:space:]]\\(.*\\)" line))
             (push (match-string 1 line) results))))
         (nreverse results)))))
+#+end_src
 
+#+begin_src emacs-lisp :tangle no
 (defun my/dash--schedule-events (file)
   "Return ((TIME . TITLE) ...) from ## Schedule in FILE."
   (when (file-exists-p file)
