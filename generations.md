@@ -179,3 +179,4 @@ Generated 2026-06-12. Keep updated: add a row after each rebuild going forward.
 | 175 | 2026-07-05  00:54 | ea437e7 | emacs: retangle on save, daemon restart, font fix, ghostel terminal     |
 | 176 | 2026-07-05  02:09 | dbbd21d | emacs: fix ukiyo-theme palette (base08/0B/0C) + retangle function fix  |
 | 177 | 2026-07-06  22:16 | 4127cc5 | emacs: gcal auth fix, posframe agenda panel, calfw week view           |
+| 178 | 2026-07-08  14:31 | 4e1c765 | emacs: fix dired keybindings; add peep-dired |
