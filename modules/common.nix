@@ -143,6 +143,9 @@ in
     ]))
       # Rust
     rustup        # installs cargo, rustc, rust-analyzer
+      # C++
+    gcc            # provides g++
+    clang-tools    # provides clangd and clang-format
       # Typst
     typst
     pandoc          # document converter; used by ereader export and courseware pipeline
