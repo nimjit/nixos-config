@@ -70,8 +70,7 @@
       # vterm              # fallback: C/libvterm, no Kitty graphics, slower
 
       # ── Music ─────────────────────────────────────────────────────────────
-      libmpdel             # MPD protocol library
-      mpdel                # Emacs MPD client (hierarchical browser)
+      libmpdel             # MPD protocol library (connection + playback control)
 
       # ── Workspaces ────────────────────────────────────────────────────────
       perspective          # named workspaces with separate buffer lists

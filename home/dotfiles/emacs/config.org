@@ -444,12 +444,14 @@ Comma (,) is a secondary local leader used for mode-specific commands.
 
     ;; Music
     "m"     '(:ignore t :wk "music")
-    "m m"   '(my/mpd-view                   :wk "mpd library view")
-    "m s"   '(my/mpd-player                 :wk "mpd side player")
-    "m SPC" '(libmpdel-playback-play-pause   :wk "play / pause")
-    "m n"   '(libmpdel-playback-next         :wk "next")
-    "m p"   '(libmpdel-playback-previous     :wk "prev")
-    "m q"   '(mpdel-playlist-open            :wk "queue")
+    "m m"   '(my/mpd-browser              :wk "music browser")
+    "m s"   '(my/mpd-player               :wk "now playing")
+    "m SPC" '(libmpdel-playback-play-pause :wk "play / pause")
+    "m n"   '(libmpdel-playback-next       :wk "next")
+    "m P"   '(libmpdel-playback-previous   :wk "prev")
+    "m p"   '(my/mpd-pick-playlist         :wk "playlist")
+    "m r"   '(my/mpd-toggle-random         :wk "random")
+    "m R"   '(my/mpd-play-all-random       :wk "play all random")
 
     ;; Workspaces (perspective)
     "TAB"    '(:ignore t :wk "workspace")
@@ -1164,6 +1166,37 @@ Magit is the best git interface on any platform. diff-hl adds gutter indicators.
   :config (global-diff-hl-mode))
 #+end_src
 
+* C++ / Compilation
+
+Compile and run C++ files. =SPC c x= compiles the current file and runs it, with
+output appearing in a split above the C++ window — the other windows are untouched.
+=SPC c c= / =SPC c r= are for Makefile-based projects.
+
+#+begin_src emacs-lisp
+(defun my/cpp-run ()
+  "Compile and run the current C++ file; output appears above current window."
+  (interactive)
+  (let* ((file (buffer-file-name))
+         (exe  (file-name-sans-extension file))
+         (display-buffer-alist
+          `(("\\*compilation\\*"
+             (display-buffer-reuse-window display-buffer-in-direction)
+             (direction . above)
+             (window-height . 0.35)))))
+    (compile (format "g++ -std=c++20 -Wall -g %s -o %s && %s"
+                     (shell-quote-argument file)
+                     (shell-quote-argument exe)
+                     (shell-quote-argument exe)))))
+
+(add-hook 'c++-mode-hook #'eglot-ensure)
+
+(spc!
+  "c"   '(:ignore t :wk "compile")
+  "cc"  'compile
+  "cr"  'recompile
+  "cx"  'my/cpp-run)
+#+end_src
+
 * Completion Stack
 
 Vertico (minibuffer), consult (enhanced commands), orderless (fuzzy matching),
@@ -1705,52 +1738,78 @@ We derive the socket name from the Emacs frame's own display parameter."
   (evil-local-set-key 'normal (kbd "q")   #'my/yt--quit))
 #+end_src
 
-** Music (mpdel)
+** Music (custom)
 
-Hierarchical MPD browser: Artists → Albums → Tracks. MPD is already running
-on port 6600 (rmpc is the primary TUI; mpdel is the Emacs interface).
-
-=SPC m m= open browser. =SPC m SPC= play/pause. =j/k= navigate, =l= open, =h= back.
+Album-art grid browser (=SPC m m=). Slim side player (=SPC m s=).
+Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel hooks.
 
 #+begin_src emacs-lisp
+;; ── libmpdel connection ────────────────────────────────────────────────────
+
 (use-package libmpdel
   :config
-  (setq libmpdel-hostname "localhost"
-        libmpdel-port 6600))
+  (setq libmpdel-hostname       "localhost"
+        libmpdel-port           6600
+        libmpdel-music-directory (expand-file-name "~/Music/")))
 
-(use-package mpdel
-  :after libmpdel
-  :config
-  (mpdel-mode)
+;; ── mpc helpers (album/track listing) ─────────────────────────────────────
 
-  (evil-define-key 'normal mpdel-browser-mode-map
-    "j"   #'next-line
-    "k"   #'previous-line
-    "l"   #'navigel-open
-    "h"   #'navigel-open-parent
-    "gg"  (lambda () (interactive) (goto-char (point-min)))
-    "G"   (lambda () (interactive) (goto-char (point-max)))
-    "a"   #'mpdel-core-add-to-current-playlist
-    "q"   #'bury-buffer
-    "SPC" #'libmpdel-playback-play-pause)
+(defun my/mpd--mpc (&rest args)
+  "Run mpc ARGS synchronously; return trimmed stdout."
+  (string-trim
+   (shell-command-to-string
+    (concat "mpc " (mapconcat #'shell-quote-argument args " ")))))
 
-  (evil-define-key 'normal mpdel-playlist-mode-map
-    "j"   #'next-line
-    "k"   #'previous-line
-    "d"   #'navigel-delete
-    "SPC" #'libmpdel-playback-play-pause
-    "q"   #'bury-buffer))
-#+end_src
+(defun my/mpd--albums ()
+  "Return sorted list of (ARTIST ALBUM DIR COVER)."
+  (let ((raw (my/mpd--mpc "-f" "%albumartist%\t%artist%\t%album%\t%file%"
+                           "search" "albumartist" ""))
+        (cover-names '("cover.jpg" "Cover.jpg" "folder.jpg" "Folder.jpg"
+                       "cover.png" "front.jpg" "Front.jpg"))
+        seen result)
+    (dolist (line (split-string raw "\n" t))
+      (let ((parts (split-string line "\t")))
+        (when (= (length parts) 4)
+          (let* ((albumartist (nth 0 parts))
+                 (artist (string-trim (if (string-empty-p albumartist) (nth 1 parts) albumartist)))
+                 (album  (string-trim (nth 2 parts)))
+                 (file   (nth 3 parts))
+                 (key    (concat artist "\0" album)))
+            (unless (member key seen)
+              (push key seen)
+              (let* ((abs   (expand-file-name file "~/Music/"))
+                     (dir1  (file-name-directory abs))
+                     (dir2  (file-name-directory (directory-file-name dir1)))
+                     (find-cover (lambda (dir)
+                                   (cl-find-if #'file-exists-p
+                                               (mapcar (lambda (n) (expand-file-name n dir))
+                                                       cover-names))))
+                     (cover (or (funcall find-cover dir1)
+                                (funcall find-cover dir2))))
+                (push (list artist album dir1 cover) result)))))))
+    (sort (nreverse result)
+          (lambda (a b)
+            (let ((ca (downcase (car a))) (cb (downcase (car b))))
+              (or (string< ca cb)
+                  (and (string= ca cb)
+                       (string< (downcase (cadr a)) (downcase (cadr b))))))))))
 
-** MPD view
+(defun my/mpd--tracks (artist album)
+  "Return list of (NUM TITLE FILE DURATION) for ARTIST/ALBUM."
+  (let ((raw (my/mpd--mpc "-f" "%track%\t%title%\t%file%\t%time%"
+                           "find" "albumartist" artist "album" album)))
+    (sort (delq nil
+                (mapcar (lambda (line)
+                          (let ((p (split-string line "\t")))
+                            (when (= (length p) 4) p)))
+                        (split-string raw "\n" t)))
+          (lambda (a b) (< (string-to-number (car a))
+                           (string-to-number (car b)))))))
 
-Two-panel view (=SPC m m=): directory browser left, cover art + now-playing right.
-Slim side player (=SPC m s=): narrow panel alongside any buffer, auto-hides with =q=.
-Both share the =*MPD Now Playing*= buffer which auto-updates on track changes.
+;; ── Now-playing buffer ─────────────────────────────────────────────────────
 
-#+begin_src emacs-lisp
 (defun my/mpd--cover-path (song)
-  "Return a cover art path for SONG, or nil."
+  "Return a cover art path for SONG (libmpdel entity), or nil."
   (when-let* ((file (libmpdel-song-file song))
               (dir  (file-name-directory
                      (expand-file-name file libmpdel-music-directory))))
@@ -1763,8 +1822,9 @@ Both share the =*MPD Now Playing*= buffer which auto-updates on track changes.
 
 (defun my/mpd--draw-now-playing ()
   "Redraw the *MPD Now Playing* buffer."
-  (let* ((song (libmpdel-current-song))
-         (buf  (get-buffer-create my/mpd--np-buf)))
+  (let* ((song   (libmpdel-current-song))
+         (buf    (get-buffer-create my/mpd--np-buf))
+         (status (my/mpd--mpc "status")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -1777,18 +1837,34 @@ Both share the =*MPD Now Playing*= buffer which auto-updates on track changes.
                            (libmpdel-entity-name a)))
                  (cover  (my/mpd--cover-path song))
                  (state  (pcase (libmpdel-play-state)
-                           ('play "▶") ('pause "⏸") (_ "■"))))
+                           ('play "▶") ('pause "⏸") (_ "■")))
+                 (pct    (when (string-match "(\\([0-9]+\\)%)" status)
+                           (/ (string-to-number (match-string 1 status)) 100.0)))
+                 (time-str (when (string-match "\\([0-9]+:[0-9]+\\)/\\([0-9]+:[0-9]+\\)" status)
+                             (match-string 0 status)))
+                 (bar-w  36)
+                 (filled (if pct (round (* bar-w pct)) 0)))
             (when (and cover (file-exists-p cover))
               (insert-image (create-image cover nil nil
                                           :max-width 300 :max-height 300) " ")
               (insert "\n\n"))
-            (insert (propertize title 'face '(:weight bold :height 1.1)) "\n")
+            (insert (propertize (concat state "  " title)
+                                'face '(:weight bold :height 1.1)) "\n")
             (insert (propertize (concat artist (when album (concat "  ·  " album)))
-                                'face 'shadow) "\n")
-            (insert "\n")
+                                'face 'shadow) "\n\n")
+            (when pct
+              (insert (propertize (make-string filled ?━)
+                                  'face '(:foreground "#cc9966")))
+              (insert (propertize (make-string (- bar-w filled) ?─)
+                                  'face '(:foreground "#8a7a6e")))
+              (when time-str
+                (insert (propertize (concat "  " time-str) 'face 'shadow)))
+              (insert "\n\n"))
             (insert (propertize
-                     (format "%s  [SPC] play/pause  [n] next  [p] prev  [q] close"
-                             state)
+                     (string-join
+                      '("[SPC] play/pause" "[n] next" "[P] prev"
+                        "[p] playlist" "[r] random" "[R] play all" "[q] close")
+                      "  ")
                      'face 'shadow) "\n")))
         (read-only-mode 1)
         (goto-char (point-min))))))
@@ -1804,36 +1880,338 @@ Both share the =*MPD Now Playing*= buffer which auto-updates on track changes.
   (add-hook 'libmpdel-player-changed-hook       #'my/mpd--hook-update)
   (setq my/mpd--hooks-live t))
 
-(defun my/mpd-view ()
-  "Two-panel MPD view: directory browser left, now-playing right."
+(defvar my/mpd--progress-timer nil)
+(unless my/mpd--progress-timer
+  (setq my/mpd--progress-timer
+        (run-with-timer 1 1
+                        (lambda ()
+                          (let ((buf (get-buffer my/mpd--np-buf)))
+                            (when (and buf
+                                       (or (get-buffer-window buf t)
+                                           (and (boundp 'my/mpd-player-visible)
+                                                my/mpd-player-visible)))
+                              (my/mpd--draw-now-playing)))))))
+
+;; ── Playlist / random helpers ──────────────────────────────────────────────
+
+(defun my/mpd-pick-playlist ()
+  "Select and load an MPD playlist via completing-read."
   (interactive)
+  (let* ((lists  (split-string (my/mpd--mpc "lsplaylists") "\n" t))
+         (chosen (completing-read "Playlist: " lists nil t)))
+    (my/mpd--mpc "clear")
+    (my/mpd--mpc "load" chosen)
+    (my/mpd--mpc "play")))
+
+(defun my/mpd-play-all-random ()
+  "Add entire library to queue, enable random, play."
+  (interactive)
+  (my/mpd--mpc "clear")
+  (my/mpd--mpc "add" "/")
+  (my/mpd--mpc "random" "on")
+  (my/mpd--mpc "play"))
+
+(defun my/mpd-toggle-random ()
+  "Toggle MPD random mode."
+  (interactive)
+  (let ((on (string-match "random: on" (my/mpd--mpc "status"))))
+    (my/mpd--mpc "random" (if on "off" "on"))
+    (message "Random %s" (if on "off" "on"))))
+
+;; ── Grid browser state ─────────────────────────────────────────────────────
+
+(defvar my/mpd--albums-cache      nil)
+(defvar my/mpd--grid-cols         4)
+(defvar my/mpd--cell-ch           16 "Char width of one grid cell (thumb-ch + gap-ch); set by draw-grid.")
+(defvar my/mpd--grid-positions    nil "Vector of [point artist album row col].")
+(defvar my/mpd--cursor-idx        0)
+(defvar my/mpd--hl-overlay        nil "Overlay on gap chars after selected image.")
+(defvar my/mpd--hl-text-overlay   nil "Overlay on selected album's artist text.")
+(defvar my/mpd--expanded          nil "(artist album start-marker end-marker) or nil.")
+(defvar my/mpd--browser-wconf     nil)
+(defvar my/mpd--progress-timer    nil "1-second timer for progress bar updates.")
+
+;; ── Grid renderer ──────────────────────────────────────────────────────────
+
+(defun my/mpd--draw-grid ()
+  "Render the album art grid into *mpd-browser*."
+  (require 'svg)
+  (let* ((albums   (or my/mpd--albums-cache
+                       (setq my/mpd--albums-cache (my/mpd--albums))))
+         (buf      (get-buffer-create "*mpd-browser*"))
+         (win-w    (or (when-let ((w (get-buffer-window buf t))) (window-width w))
+                       (window-width)))
+         (char-w   (frame-char-width))
+         (gap-ch   2)
+         (thumb-ch 50)                    ; fixed 50-char cells (~550px on 4K)
+         (thumb-w  (* thumb-ch char-w))
+         (cell-ch  (+ thumb-ch gap-ch))
+         (cols     (max 2 (/ win-w cell-ch)))
+         positions row-artists row-albums)
+    (setq my/mpd--grid-cols cols
+          my/mpd--cell-ch   cell-ch)
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize "  Music Library\n\n" 'face '(:weight bold)))
+        (cl-loop for entry in albums
+                 for i from 0
+                 for col = (% i cols)
+                 do
+                 (let* ((artist (nth 0 entry))
+                        (album  (nth 1 entry))
+                        (cover  (nth 3 entry))
+                        (img    (when (and cover (file-exists-p cover))
+                                  (create-image cover nil nil
+                                                :width thumb-w :height thumb-w)))
+                        (pos    (point)))
+                   (push (vector pos artist album (/ i cols) col) positions)
+                   (push artist row-artists)
+                   (push album  row-albums)
+                   (if img
+                       (insert-image img (propertize " "
+                                                     'my/mpd-artist artist
+                                                     'my/mpd-album  album))
+                     ;; Placeholder — pixel-exact (space) spec avoids HiDPI scaling
+                     (insert (propertize " "
+                                         'display `(space :width (,thumb-w) :height (,thumb-w))
+                                         'face `(:background "#5a4a42")
+                                         'my/mpd-artist artist
+                                         'my/mpd-album  album)))
+                   (insert (make-string gap-ch ? ))
+                   ;; End of row: insert artist + album text lines below
+                   (when (or (= col (1- cols)) (= i (1- (length albums))))
+                     (insert "\n")
+                     (let ((ra (nreverse row-artists))
+                           (rb (nreverse row-albums)))
+                       (dolist (a ra)
+                         (insert (truncate-string-to-width a thumb-ch 0 ?\s t))
+                         (insert (make-string gap-ch ? )))
+                       (insert "\n")
+                       (dolist (b rb)
+                         (insert (propertize
+                                  (truncate-string-to-width b thumb-ch 0 ?\s t)
+                                  'face 'shadow))
+                         (insert (make-string gap-ch ? )))
+                       (insert "\n\n"))
+                     (setq row-artists nil row-albums nil))))
+        (setq my/mpd--grid-positions (vconcat (nreverse positions)))
+        (read-only-mode 1)))
+    buf))
+
+;; ── Navigation ────────────────────────────────────────────────────────────
+
+(defun my/mpd--goto-idx (idx)
+  (setq my/mpd--cursor-idx
+        (max 0 (min idx (1- (length my/mpd--grid-positions)))))
+  (let* ((entry       (aref my/mpd--grid-positions my/mpd--cursor-idx))
+         (pos         (aref entry 0))
+         (col         (aref entry 4))
+         (cells-right (- my/mpd--grid-cols 1 col))
+         ;; Artist text position: after image row + newline, at this column
+         ;; Formula: pos + 3*(1+cells-right) + 1 + col*cell-ch
+         (artist-pos  (+ pos 3 (* cells-right 3) 1 (* col my/mpd--cell-ch)))
+         (thumb-ch    (- my/mpd--cell-ch 2)))
+    (goto-char pos)
+    (when my/mpd--hl-text-overlay (delete-overlay my/mpd--hl-text-overlay))
+    ;; Highlight artist name below selected image — no cursor, no box on image
+    (setq my/mpd--hl-text-overlay (make-overlay artist-pos (+ artist-pos thumb-ch)))
+    (overlay-put my/mpd--hl-text-overlay 'face
+                 '(:background "#3d2808" :foreground "#e8b060" :weight bold))))
+
+(defun my/mpd--next     () (interactive) (my/mpd--goto-idx (1+ my/mpd--cursor-idx)))
+(defun my/mpd--prev     () (interactive) (my/mpd--goto-idx (1- my/mpd--cursor-idx)))
+(defun my/mpd--next-row () (interactive) (my/mpd--goto-idx (+ my/mpd--cursor-idx my/mpd--grid-cols)))
+(defun my/mpd--prev-row () (interactive) (my/mpd--goto-idx (- my/mpd--cursor-idx my/mpd--grid-cols)))
+
+;; ── Accordion expand / collapse ────────────────────────────────────────────
+
+(defun my/mpd--collapse ()
+  (when my/mpd--expanded
+    (let ((start    (nth 2 my/mpd--expanded))
+          (end      (nth 3 my/mpd--expanded))
+          (track-m  (nth 4 my/mpd--expanded)))
+      (let ((inhibit-read-only t))
+        (delete-region start end))
+      (set-marker start nil)
+      (set-marker end   nil)
+      (when track-m (set-marker track-m nil))
+      (setq my/mpd--expanded nil)
+      ;; Restore grid-wise j/k and re-apply selection overlays
+      (evil-local-set-key 'normal (kbd "j") #'my/mpd--next-row)
+      (evil-local-set-key 'normal (kbd "k") #'my/mpd--prev-row)
+      (my/mpd--goto-idx my/mpd--cursor-idx))))
+
+(defun my/mpd--expand (artist album cover)
+  (my/mpd--collapse)
+  (let* ((tracks   (my/mpd--tracks artist album))
+         (img      (when (and cover (file-exists-p cover))
+                     (create-image cover nil nil :width 200 :height 200)))
+         ;; row-end: start of next image row (past image + 2 text lines + blank)
+         (row-end  (save-excursion (forward-line 4) (point)))
+         (start-m  (copy-marker row-end))
+         track-m)
+    (save-excursion
+      (goto-char row-end)
+      (let ((inhibit-read-only t))
+        (insert (propertize (make-string (window-width) ?─) 'face 'shadow) "\n")
+        (when img (insert-image img " ") (insert "\n"))
+        (insert (propertize artist 'face '(:weight bold)) "\n")
+        (insert (propertize album  'face 'shadow) "\n\n")
+        (setq track-m (copy-marker (point)))
+        (dolist (track tracks)
+          (insert (propertize
+                   (format "  %2s.  %-40s  %s\n"
+                           (nth 0 track) (nth 1 track) (nth 3 track))
+                   'my/mpd-track-file (nth 2 track)
+                   'face 'default)))
+        (insert (propertize (make-string (window-width) ?─) 'face 'shadow) "\n")
+        (setq my/mpd--expanded
+              (list artist album start-m (copy-marker (point)) track-m))))
+    ;; Move to first track and switch to line-wise navigation
+    (goto-char track-m)
+    (evil-local-set-key 'normal (kbd "j") #'evil-next-line)
+    (evil-local-set-key 'normal (kbd "k") #'evil-previous-line)))
+
+(defun my/mpd--toggle-expand ()
+  (interactive)
+  (let* ((entry  (aref my/mpd--grid-positions my/mpd--cursor-idx))
+         (artist (aref entry 1))
+         (album  (aref entry 2)))
+    (if (and my/mpd--expanded
+             (string= artist (car  my/mpd--expanded))
+             (string= album  (cadr my/mpd--expanded)))
+        (my/mpd--collapse)
+      (let* ((row   (cl-find-if (lambda (r) (and (string= (nth 0 r) artist)
+                                                  (string= (nth 1 r) album)))
+                                my/mpd--albums-cache))
+             (cover (nth 3 row)))
+        (my/mpd--expand artist album cover)))))
+
+;; ── RET action ────────────────────────────────────────────────────────────
+
+(defun my/mpd--ret ()
+  (interactive)
+  (let ((file   (get-text-property (point) 'my/mpd-track-file))
+        (artist (get-text-property (point) 'my/mpd-artist))
+        (album  (get-text-property (point) 'my/mpd-album)))
+    (cond
+     ;; Track line in expanded block → play that track
+     (file
+      (my/mpd--mpc "clear")
+      (my/mpd--mpc "add" file)
+      (my/mpd--mpc "play"))
+     ;; Album cell while that album is expanded → play full album
+     ((and my/mpd--expanded artist
+           (string= artist (car my/mpd--expanded))
+           (not file))
+      (let ((tracks (my/mpd--tracks artist album)))
+        (my/mpd--mpc "clear")
+        (dolist (tr tracks) (my/mpd--mpc "add" (nth 2 tr)))
+        (my/mpd--mpc "play")))
+     ;; Album cell → play full album
+     ((and artist album)
+      (let ((tracks (my/mpd--tracks artist album)))
+        (my/mpd--mpc "clear")
+        (dolist (tr tracks) (my/mpd--mpc "add" (nth 2 tr)))
+        (my/mpd--mpc "play"))))))
+
+;; ── Main browser entry point ───────────────────────────────────────────────
+
+(defun my/mpd-browser ()
+  "Open the album-art grid MPD browser."
+  (interactive)
+  (setq my/mpd--browser-wconf  (current-window-configuration)
+        my/mpd--albums-cache   nil
+        my/mpd--cursor-idx     0
+        my/mpd--expanded       nil)
   (delete-other-windows)
-  (mpdel-core-open-directories)
-  (split-window-right)
+  (let ((np-w (/ (frame-width) 3)))
+    (split-window-right (- (frame-width) np-w)))
+  (switch-to-buffer (get-buffer-create "*mpd-browser*"))
+  (my/mpd--draw-grid)
   (other-window 1)
   (switch-to-buffer (get-buffer-create my/mpd--np-buf))
+  (my/mpd--draw-now-playing)
   (evil-normal-state)
   (evil-local-set-key 'normal (kbd "SPC") #'libmpdel-playback-play-pause)
   (evil-local-set-key 'normal (kbd "n")   #'libmpdel-playback-next)
-  (evil-local-set-key 'normal (kbd "p")   #'libmpdel-playback-previous)
+  (evil-local-set-key 'normal (kbd "P")   #'libmpdel-playback-previous)
+  (evil-local-set-key 'normal (kbd "p")   #'my/mpd-pick-playlist)
   (evil-local-set-key 'normal (kbd "q")   #'delete-window)
   (other-window 1)
-  (my/mpd--draw-now-playing))
+  (my/mpd--goto-idx 0)
+  (evil-normal-state)
+  ;; Disable cursor so Evil's block cursor never expands image cells
+  (setq-local evil-normal-state-cursor '(nil))
+  (add-hook 'evil-normal-state-entry-hook
+            (lambda () (setq-local cursor-type nil)) nil t)
+  (evil-refresh-cursor evil-state)
+  (evil-local-set-key 'normal (kbd "j")   #'my/mpd--next-row)
+  (evil-local-set-key 'normal (kbd "k")   #'my/mpd--prev-row)
+  (evil-local-set-key 'normal (kbd "h")   #'my/mpd--prev)
+  (evil-local-set-key 'normal (kbd "l")   #'my/mpd--next)
+  (evil-local-set-key 'normal (kbd "TAB") #'my/mpd--toggle-expand)
+  (evil-local-set-key 'normal (kbd "RET") #'my/mpd--ret)
+  (evil-local-set-key 'normal (kbd "SPC") #'libmpdel-playback-play-pause)
+  (evil-local-set-key 'normal (kbd "n")   #'libmpdel-playback-next)
+  (evil-local-set-key 'normal (kbd "r")   #'my/mpd-toggle-random)
+  (evil-local-set-key 'normal (kbd "R")   #'my/mpd-play-all-random)
+  (evil-local-set-key 'normal (kbd "p")   #'my/mpd-pick-playlist)
+  (evil-local-set-key 'normal (kbd "P")   #'libmpdel-playback-previous)
+  (evil-local-set-key 'normal (kbd "u")   (lambda ()
+                                             (interactive)
+                                             (setq my/mpd--albums-cache nil)
+                                             (my/mpd--draw-grid)
+                                             (my/mpd--goto-idx 0)))
+  (evil-local-set-key 'normal (kbd "q")   #'my/mpd--quit))
+
+(defun my/mpd--quit ()
+  (interactive)
+  (my/mpd--collapse)
+  (when my/mpd--browser-wconf
+    (set-window-configuration my/mpd--browser-wconf)))
+
+(defun my/mpd--reload-covers ()
+  "Clear Emacs image cache and redraw the browser grid with fresh cover art."
+  (clear-image-cache t)
+  (setq my/mpd--albums-cache nil)
+  (when (buffer-live-p (get-buffer "*mpd-browser*"))
+    (my/mpd--draw-grid)
+    (when my/mpd--grid-positions
+      (my/mpd--goto-idx my/mpd--cursor-idx))))
+
+;; ── Slim side player (SPC m s) ─────────────────────────────────────────────
+
+(defvar my/mpd-player-visible nil
+  "Non-nil when the MPD now-playing posframe is shown.")
 
 (defun my/mpd-player ()
-  "Open a slim MPD player panel on the right."
+  "Toggle the MPD now-playing panel as a posframe in the olivetti right margin."
   (interactive)
-  (let ((w (max 40 (min 50 (/ (window-width) 3)))))
-    (split-window-right (- (window-width) w)))
-  (other-window 1)
-  (switch-to-buffer (get-buffer-create my/mpd--np-buf))
-  (evil-normal-state)
-  (evil-local-set-key 'normal (kbd "SPC") #'libmpdel-playback-play-pause)
-  (evil-local-set-key 'normal (kbd "n")   #'libmpdel-playback-next)
-  (evil-local-set-key 'normal (kbd "p")   #'libmpdel-playback-previous)
-  (evil-local-set-key 'normal (kbd "q")   #'delete-window)
-  (other-window -1)
-  (my/mpd--draw-now-playing))
+  (require 'posframe)
+  (if my/mpd-player-visible
+      (progn
+        (when-let ((buf (get-buffer my/mpd--np-buf)))
+          (posframe-hide buf))
+        (setq my/mpd-player-visible nil))
+    (my/mpd--draw-now-playing)
+    (let* ((margins  (window-margins))
+           (left-m   (or (car margins) 0))
+           (right-m  (or (cdr margins) 0))
+           (char-w   (frame-char-width))
+           (x        (* (+ (window-left-column) left-m
+                           (or olivetti-body-width 200) 1)
+                        char-w))
+           (panel-w  (max 28 (- right-m 2)))
+           (panel-h  (window-body-height)))
+      (posframe-show (get-buffer-create my/mpd--np-buf)
+                     :position (cons x 0)
+                     :width    panel-w
+                     :height   panel-h
+                     :internal-border-width 0
+                     :border-width 0)
+      (setq my/mpd-player-visible t))))
 #+end_src
 
 * Startup Behaviour 
@@ -1994,9 +2372,9 @@ clickable buttons; single-key shortcuts: =t= today, =v= vault, =u= uni,
   (mu4e))
 
 (defun my/dash-music ()
-  "Open MPD two-panel view."
+  "Open MPD album browser."
   (interactive)
-  (my/mpd-view))
+  (my/mpd-browser))
 
 (defun my/dash-cal ()
   "Open org-agenda week view (org-gcal keeps it in sync)."
