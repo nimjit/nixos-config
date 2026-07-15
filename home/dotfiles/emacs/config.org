@@ -1943,7 +1943,7 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
                        (window-width)))
          (char-w   (frame-char-width))
          (gap-ch   2)
-         (thumb-ch 50)                    ; fixed 50-char cells (~550px on 4K)
+         (thumb-ch 40)                    ; fixed 40-char cells (~440px on 4K)
          (thumb-w  (* thumb-ch char-w))
          (cell-ch  (+ thumb-ch gap-ch))
          (cols     (max 2 (/ win-w cell-ch)))
@@ -1963,7 +1963,8 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
                         (cover  (nth 3 entry))
                         (img    (when (and cover (file-exists-p cover))
                                   (create-image cover nil nil
-                                                :width thumb-w :height thumb-w)))
+                                                :width thumb-w :height thumb-w
+                                                :scale 1.0)))
                         (pos    (point)))
                    (push (vector pos artist album (/ i cols) col) positions)
                    (push artist row-artists)
