@@ -34,6 +34,8 @@
 
     keyBindings.normal = {
       # qute-lastpass: fill username+password via LastPass CLI
+
+      "F"       = "hint links run open -p {hint-url}')";
       "<Alt-p>" = "spawn --userscript qute-lastpass";
     };
 

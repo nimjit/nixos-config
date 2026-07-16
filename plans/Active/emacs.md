@@ -47,15 +47,12 @@ mpv plays audio but no video window. Was working; something broke. The `--gpu-ap
 
 ---
 
-### 3. Weight graph readability
+### 3. Weight graph readability — **complete (2026-07-15)**
 
-The vault dashboard weight chart is slightly wider than the olivetti body, DPI is too high (chart appears small), no horizontal grid lines, legend and axes are hard to read.
-
-Fix in `my/dash--insert-weight-chart` (the matplotlib call):
-- `dpi=80` (was higher)
-- `ax.yaxis.grid(True, alpha=0.3)`
-- Increase `fontsize` on tick labels
-- Move legend inside
+Updated `home/dotfiles/plot-weights.py` (requires rebuild to install to `~/.local/bin/`):
+- Font sizes increased: tick labels 7→11, ylabel 7→11, legend 6→10
+- Grid added: both axes, `linewidth=0.3, alpha=0.4`; x monthly (`MonthLocator`), y per-kg (`MultipleLocator(1.0)`)
+- Slope annotation: 7d and 21d kg/wk via linear regression, shown upper-right below legend
 
 ---
 
@@ -138,7 +135,7 @@ Debug: `cat ~/.local/share/wuzapi/.env` and compare the admin token to `my/wuzap
 | Component | Status | Notes |
 |-----------|--------|-------|
 | `my/dashboard` (greeting) | ✅ | Date/weather/fortune; khal events; timetable; birthdays/deadlines/mail/messages; weight logging |
-| Weight chart (async PNG) | ⚠️ | Shows on vault dashboard; readability issues (see priorities) |
+| Weight chart (async PNG) | ✅ | Font sizes increased, grid added, slope annotation; rebuild pending |
 | `my/vault-dashboard` | ✅ | Birthdays, recent folders, projects, daily notes, knowledge counts |
 | `my/uni-dashboard` | ✅ | Deadlines, assignments, courses, planning table (native org table) |
 | `my/uni-course-view` | ✅ | Per-course summary, assignments, lectures |

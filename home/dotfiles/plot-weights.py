@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
 
 WEIGHTS_FILE = (
     "/home/thijmen/Documents/BACKUP/Obsidian/Renaissance_Vault_Structure"
@@ -57,6 +58,19 @@ ma30     = ma30[idx:]
 if not dates:
     sys.exit(1)
 
+def _slope_kgweek(dates_seq, vals_seq, n_points):
+    d = dates_seq[-n_points:]
+    v = vals_seq[-n_points:]
+    if len(d) < 2:
+        return None
+    x = [(dt - d[0]).total_seconds() / 86400 for dt in d]
+    n = len(x)
+    sx  = sum(x);  sv  = sum(v)
+    sxx = sum(xi**2 for xi in x)
+    sxv = sum(x[i] * v[i] for i in range(n))
+    den = n * sxx - sx * sx
+    return None if den == 0 else (n * sxv - sx * sv) / den * 7
+
 DPI  = 110
 figw = max(args.cols * 9 / DPI, 5.0)
 figh = round(figw * 0.28, 2)
@@ -70,13 +84,27 @@ ax.plot(dates, ma21,     color=C_21,  linewidth=0.9, label="21d MA")
 ax.plot(dates, ma7,      color=C_7,   linewidth=1.1, label="7d MA")
 ax.plot(dates, recorded, color=C_REC, linewidth=1.4, label="recorded")
 
-ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
-ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%b '%y"))
+ax.yaxis.set_major_locator(mticker.MultipleLocator(1.0))
 for sp in ax.spines.values():
     sp.set_color(SPINE)
-ax.tick_params(colors=FG, labelsize=7)
-ax.set_ylabel("kg", color=FG, fontsize=7)
-ax.legend(fontsize=6, framealpha=0, labelcolor=FG, loc="upper right")
+ax.tick_params(colors=FG, labelsize=11)
+ax.set_ylabel("kg", color=FG, fontsize=11)
+ax.grid(True, color=SPINE, linewidth=0.3, alpha=0.4)
+ax.legend(fontsize=10, framealpha=0, labelcolor=FG, loc="upper right")
+
+slope_7  = _slope_kgweek(dates, ma7,  7)
+slope_21 = _slope_kgweek(dates, ma21, 21)
+parts = []
+if slope_7  is not None: parts.append(f"7d:  {slope_7:+.2f} kg/wk")
+if slope_21 is not None: parts.append(f"21d: {slope_21:+.2f} kg/wk")
+if parts:
+    ax.text(0.98, 0.62, "\n".join(parts),
+            transform=ax.transAxes, fontsize=9, color=FG,
+            va="top", ha="right",
+            bbox=dict(boxstyle="round,pad=0.3",
+                      facecolor=BG, alpha=0.8, edgecolor=SPINE))
 
 fig.autofmt_xdate(rotation=25)
 plt.tight_layout(pad=0.3)
