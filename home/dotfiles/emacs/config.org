@@ -1920,6 +1920,8 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
 
 ;; ── Grid browser state ─────────────────────────────────────────────────────
 
+(defvar my/mpd--thumb-dir (expand-file-name "~/.cache/mpd-thumbs/")
+  "Directory for pre-scaled 150×150 album cover thumbnails.")
 (defvar my/mpd--albums-cache      nil)
 (defvar my/mpd--grid-cols         4)
 (defvar my/mpd--cell-ch           16 "Char width of one grid cell (thumb-ch + gap-ch); set by draw-grid.")
@@ -1927,9 +1929,35 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
 (defvar my/mpd--cursor-idx        0)
 (defvar my/mpd--hl-overlay        nil "Overlay on gap chars after selected image.")
 (defvar my/mpd--hl-text-overlay   nil "Overlay on selected album's artist text.")
+(defvar my/mpd--track-hl-overlay  nil "Overlay on currently pointed-at track row.")
 (defvar my/mpd--expanded          nil "(artist album start-marker end-marker) or nil.")
 (defvar my/mpd--browser-wconf     nil)
 (defvar my/mpd--progress-timer    nil "1-second timer for progress bar updates.")
+
+;; ── Thumbnail cache ────────────────────────────────────────────────────────
+
+(defun my/mpd--thumb-path (cover)
+  "Return thumbnail cache path for COVER, or nil if cover is nil."
+  (when cover
+    (expand-file-name (concat (md5 cover) ".jpg") my/mpd--thumb-dir)))
+
+(defun my/mpd--generate-thumbs ()
+  "Generate 150×150 thumbnails for all covers that lack one. Synchronous."
+  (make-directory my/mpd--thumb-dir t)
+  (let* ((albums  (or my/mpd--albums-cache
+                      (setq my/mpd--albums-cache (my/mpd--albums))))
+         (covers  (delq nil (mapcar (lambda (e) (nth 3 e)) albums)))
+         (missing (cl-remove-if
+                   (lambda (c) (file-exists-p (my/mpd--thumb-path c)))
+                   covers)))
+    (when missing
+      (message "Generating %d thumbnails…" (length missing))
+      (dolist (c missing)
+        (call-process "convert" nil nil nil
+                      c "-resize" "150x150^"
+                      "-gravity" "center" "-extent" "150x150"
+                      (my/mpd--thumb-path c)))
+      (message "MPD thumbnails ready."))))
 
 ;; ── Grid renderer ──────────────────────────────────────────────────────────
 
@@ -1943,9 +1971,18 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
                        (window-width)))
          (char-w   (frame-char-width))
          (gap-ch   2)
-         (thumb-ch 40)                    ; fixed 40-char cells (~440px on 4K)
-         (thumb-w  (* thumb-ch char-w))
-         (cell-ch  (+ thumb-ch gap-ch))
+         (thumb-ch 40)                    ; target cell size in chars
+         (thumb-w  (* thumb-ch char-w))   ; logical pixel size passed to create-image
+         ;; Build placeholder SVG now so we can measure its ACTUAL rendered size.
+         ;; Both SVG and JPEG go through the same auto-scaling, so the probe gives
+         ;; us the rendered width we need for the text boxes.
+         (ph-img   (let ((s (svg-create thumb-w thumb-w)))
+                     (svg-rectangle s 0 0 thumb-w thumb-w :fill "#5a4a42")
+                     (svg-image s)))
+         (rend-w   (car (image-size ph-img t)))
+         ;; Text columns must equal the rendered image width in chars
+         (text-ch  (max 1 (/ rend-w char-w)))
+         (cell-ch  (+ text-ch gap-ch))
          (cols     (max 2 (/ win-w cell-ch)))
          positions row-artists row-albums)
     (setq my/mpd--grid-cols cols
@@ -1961,24 +1998,22 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
                  (let* ((artist (nth 0 entry))
                         (album  (nth 1 entry))
                         (cover  (nth 3 entry))
+                        ;; No :scale — let image-scaling-factor auto-scale,
+                        ;; same as SVG placeholder, so heights always match.
+                        ;; Use pre-scaled thumbnail if available (faster decode).
                         (img    (when (and cover (file-exists-p cover))
-                                  (create-image cover nil nil
-                                                :width thumb-w :height thumb-w
-                                                :scale 1.0)))
+                                  (let ((thumb (my/mpd--thumb-path cover)))
+                                    (create-image
+                                     (if (and thumb (file-exists-p thumb)) thumb cover)
+                                     nil nil :width thumb-w :height thumb-w))))
                         (pos    (point)))
                    (push (vector pos artist album (/ i cols) col) positions)
                    (push artist row-artists)
                    (push album  row-albums)
-                   (if img
-                       (insert-image img (propertize " "
-                                                     'my/mpd-artist artist
-                                                     'my/mpd-album  album))
-                     ;; Placeholder — pixel-exact (space) spec avoids HiDPI scaling
-                     (insert (propertize " "
-                                         'display `(space :width (,thumb-w) :height (,thumb-w))
-                                         'face `(:background "#5a4a42")
-                                         'my/mpd-artist artist
-                                         'my/mpd-album  album)))
+                   (insert-image (or img ph-img)
+                                 (propertize " "
+                                             'my/mpd-artist artist
+                                             'my/mpd-album  album))
                    (insert (make-string gap-ch ? ))
                    ;; End of row: insert artist + album text lines below
                    (when (or (= col (1- cols)) (= i (1- (length albums))))
@@ -1986,12 +2021,12 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
                      (let ((ra (nreverse row-artists))
                            (rb (nreverse row-albums)))
                        (dolist (a ra)
-                         (insert (truncate-string-to-width a thumb-ch 0 ?\s t))
+                         (insert (truncate-string-to-width a text-ch 0 ?\s t))
                          (insert (make-string gap-ch ? )))
                        (insert "\n")
                        (dolist (b rb)
                          (insert (propertize
-                                  (truncate-string-to-width b thumb-ch 0 ?\s t)
+                                  (truncate-string-to-width b text-ch 0 ?\s t)
                                   'face 'shadow))
                          (insert (make-string gap-ch ? )))
                        (insert "\n\n"))
@@ -2019,6 +2054,19 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
     (setq my/mpd--hl-text-overlay (make-overlay artist-pos (+ artist-pos thumb-ch)))
     (overlay-put my/mpd--hl-text-overlay 'face
                  '(:background "#3d2808" :foreground "#e8b060" :weight bold))))
+
+(defun my/mpd--update-track-hl ()
+  "Highlight the track row under point; clear when point leaves track lines."
+  (when (and (buffer-live-p (current-buffer))
+             (string= (buffer-name) "*mpd-browser*"))
+    (when my/mpd--track-hl-overlay
+      (delete-overlay my/mpd--track-hl-overlay)
+      (setq my/mpd--track-hl-overlay nil))
+    (when (get-text-property (point) 'my/mpd-track-file)
+      (setq my/mpd--track-hl-overlay
+            (make-overlay (line-beginning-position) (1+ (line-end-position))))
+      (overlay-put my/mpd--track-hl-overlay 'face
+                   '(:background "#413632" :weight bold)))))
 
 (defun my/mpd--next     () (interactive) (my/mpd--goto-idx (1+ my/mpd--cursor-idx)))
 (defun my/mpd--prev     () (interactive) (my/mpd--goto-idx (1- my/mpd--cursor-idx)))
@@ -2089,6 +2137,22 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
              (cover (nth 3 row)))
         (my/mpd--expand artist album cover)))))
 
+(defun my/mpd--mouse-expand (event)
+  "Toggle expand for the album cell clicked by mouse EVENT."
+  (interactive "e")
+  (let* ((pos    (posn-point (event-start event)))
+         (artist (get-text-property pos 'my/mpd-artist))
+         (album  (get-text-property pos 'my/mpd-album)))
+    (when (and artist album (not (get-text-property pos 'my/mpd-track-file)))
+      (let ((idx (cl-position-if
+                  (lambda (entry)
+                    (and (string= (aref entry 1) artist)
+                         (string= (aref entry 2) album)))
+                  my/mpd--grid-positions)))
+        (when idx
+          (my/mpd--goto-idx idx)
+          (my/mpd--toggle-expand))))))
+
 ;; ── RET action ────────────────────────────────────────────────────────────
 
 (defun my/mpd--ret ()
@@ -2130,6 +2194,7 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
   (let ((np-w (/ (frame-width) 3)))
     (split-window-right (- (frame-width) np-w)))
   (switch-to-buffer (get-buffer-create "*mpd-browser*"))
+  (my/mpd--generate-thumbs)
   (my/mpd--draw-grid)
   (other-window 1)
   (switch-to-buffer (get-buffer-create my/mpd--np-buf))
@@ -2165,7 +2230,14 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
                                              (setq my/mpd--albums-cache nil)
                                              (my/mpd--draw-grid)
                                              (my/mpd--goto-idx 0)))
-  (evil-local-set-key 'normal (kbd "q")   #'my/mpd--quit))
+  (evil-local-set-key 'normal (kbd "g g") (lambda () (interactive)
+                                             (my/mpd--goto-idx 0)))
+  (evil-local-set-key 'normal (kbd "G")   (lambda () (interactive)
+                                             (my/mpd--goto-idx
+                                              (1- (length my/mpd--grid-positions)))))
+  (evil-local-set-key 'normal (kbd "q")   #'my/mpd--quit)
+  (local-set-key [mouse-1] #'my/mpd--mouse-expand)
+  (add-hook 'post-command-hook #'my/mpd--update-track-hl nil t))
 
 (defun my/mpd--quit ()
   (interactive)
@@ -2174,7 +2246,9 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
     (set-window-configuration my/mpd--browser-wconf)))
 
 (defun my/mpd--reload-covers ()
-  "Clear Emacs image cache and redraw the browser grid with fresh cover art."
+  "Clear image cache, regenerate missing thumbnails, and redraw the grid."
+  (interactive)
+  (my/mpd--generate-thumbs)
   (clear-image-cache t)
   (setq my/mpd--albums-cache nil)
   (when (buffer-live-p (get-buffer "*mpd-browser*"))
