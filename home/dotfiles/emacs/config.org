@@ -1943,29 +1943,30 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
 
 (defun my/mpd--generate-thumbs ()
   "Generate 150×150 thumbnails for all covers that lack one. Synchronous."
+  (interactive)
   (let ((conv (executable-find "convert")))
-    (unless conv
-      (message "mpd-browser: imagemagick not found; skipping thumbnails")
-      (cl-return-from my/mpd--generate-thumbs nil))
-    (make-directory my/mpd--thumb-dir t)
-    (let* ((albums  (or my/mpd--albums-cache
-                        (setq my/mpd--albums-cache (my/mpd--albums))))
-           (covers  (delq nil (mapcar (lambda (e) (nth 3 e)) albums)))
-           (missing (cl-remove-if
-                     (lambda (c) (file-exists-p (my/mpd--thumb-path c)))
-                     covers)))
-      (when missing
-        (message "Generating %d thumbnails…" (length missing))
-        (dolist (c missing)
-          (condition-case err
-              (call-process conv nil nil nil
-                            c "-resize" "150x150^"
-                            "-gravity" "center" "-extent" "150x150"
-                            (my/mpd--thumb-path c))
-            (error (message "Thumbnail failed for %s: %s"
-                            (file-name-nondirectory c)
-                            (error-message-string err)))))
-        (message "MPD thumbnails ready.")))))
+    (if (not conv)
+        (message "mpd-browser: imagemagick not found; skipping thumbnails")
+      (make-directory my/mpd--thumb-dir t)
+      (let* ((albums  (or my/mpd--albums-cache
+                          (setq my/mpd--albums-cache (my/mpd--albums))))
+             (covers  (delq nil (mapcar (lambda (e) (nth 3 e)) albums)))
+             (missing (cl-remove-if
+                       (lambda (c) (file-exists-p (my/mpd--thumb-path c)))
+                       covers)))
+        (if (not missing)
+            (message "MPD thumbnails: all up to date.")
+          (message "Generating %d thumbnails…" (length missing))
+          (dolist (c missing)
+            (condition-case err
+                (call-process conv nil nil nil
+                              c "-resize" "150x150^"
+                              "-gravity" "center" "-extent" "150x150"
+                              (my/mpd--thumb-path c))
+              (error (message "Thumbnail failed for %s: %s"
+                              (file-name-nondirectory c)
+                              (error-message-string err)))))
+          (message "MPD thumbnails ready."))))))
 
 ;; ── Grid renderer ──────────────────────────────────────────────────────────
 
@@ -2202,7 +2203,6 @@ Both share =*MPD Now Playing*= which auto-updates on track changes via libmpdel 
   (let ((np-w (/ (frame-width) 3)))
     (split-window-right (- (frame-width) np-w)))
   (switch-to-buffer (get-buffer-create "*mpd-browser*"))
-  (my/mpd--generate-thumbs)
   (my/mpd--draw-grid)
   (other-window 1)
   (switch-to-buffer (get-buffer-create my/mpd--np-buf))
