@@ -11,6 +11,7 @@
       # Video
       hwdec = "auto-safe";          # hardware decoding where possible
       vo = "gpu";
+      gpu-context = "wayland";      # force native Wayland/EGL path; auto-detect picks broken dmabuf path on NVIDIA
       profile = "gpu-hq";
 
       # Audio
