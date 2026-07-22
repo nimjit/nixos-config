@@ -1197,6 +1197,35 @@ output appearing in a split above the C++ window — the other windows are untou
   "cx"  'my/cpp-run)
 #+end_src
 
+* Rust
+
+Auto-start eglot (rust-analyzer) in Rust buffers. =SPC R r= runs =cargo run=,
+=SPC R t= runs =cargo test=, output appears in a split above.
+
+#+begin_src emacs-lisp
+(add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode))
+(add-to-list 'org-src-lang-modes '("rust" . rust-ts))
+(add-hook 'rust-ts-mode-hook #'eglot-ensure)
+
+(defun my/rust-run ()
+  "cargo run from project root."
+  (interactive)
+  (let ((default-directory (project-root (project-current t)))
+        (display-buffer-alist
+         `(("\\*compilation\\*"
+            (display-buffer-reuse-window display-buffer-in-direction)
+            (direction . above)
+            (window-height . 0.35)))))
+    (compile "cargo run")))
+
+(spc!
+  "R"   '(:ignore t :wk "rust")
+  "Rr"  'my/rust-run
+  "Rt"  '(lambda () (interactive)
+            (let ((default-directory (project-root (project-current t))))
+              (compile "cargo test"))))
+#+end_src
+
 * Completion Stack
 
 Vertico (minibuffer), consult (enhanced commands), orderless (fuzzy matching),

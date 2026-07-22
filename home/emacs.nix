@@ -81,6 +81,11 @@
       # ── Markup / writing ──────────────────────────────────────────────────
       markdown-mode
       typst-ts-mode        # .typ files with tree-sitter + tinymist LSP
+
+      # ── Tree-sitter grammars ──────────────────────────────────────────────
+      (treesit-grammars.with-grammars (g: [
+        g.tree-sitter-rust
+      ]))
     ];
   };
 

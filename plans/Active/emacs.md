@@ -35,18 +35,6 @@ Ordered. Do these before anything else.
 
 ---
 
-#### Personal vault — on hold
-
-`Knowledge/`, `Concepts/`, `Essays/`, `Sources/` in `~/org/` are skeleton or have stripped wikilinks. Do not migrate until the dashboards (`my/vault-dashboard`) are updated to query PROPERTIES drawers instead of YAML frontmatter — `birthday:`, `tags:`, `date:` are currently read from frontmatter by `my/dash--fm-from-file`.
-
----
-
-### 2. mpv opens windowless
-
-mpv plays audio but no video window. Was working; something broke. The `--gpu-api=opengl` flag in `my/yt--play` was the original fix for the NVIDIA Wayland DMA-buf path. Check that flag is still present in config.org and test whether it's still effective.
-
----
-
 ### 3. Weight graph readability — **complete (2026-07-15)**
 
 Updated `home/dotfiles/plot-weights.py` (requires rebuild to install to `~/.local/bin/`):
