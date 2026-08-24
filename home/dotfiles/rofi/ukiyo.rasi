@@ -26,7 +26,15 @@ window {
 mainbox {
     background-color: transparent;
     spacing:          0px;
-    children:         [inputbar, listview];
+    children:         [inputbar, message, listview];
+}
+
+message {
+    background-color: @bg;
+    border:           0px 0px 1px 0px;
+    border-color:     @sel;
+    padding:          10px 14px;
+    text-color:       @fg;
 }
 
 inputbar {

@@ -64,6 +64,30 @@
     executable = true;
   };
 
+  # ── Rofi quick-answer search ──────────────────────────────────────────────
+  home.file.".local/bin/rofi-launcher" = {
+    source     = ./dotfiles/rofi-launcher.sh;
+    executable = true;
+  };
+  home.file.".local/bin/rofi-quickanswer" = {
+    source     = ./dotfiles/rofi-quickanswer.py;
+    executable = true;
+  };
+
+  # KDE global shortcut (Alt+Space) — replaces the bare `rofi -show combi`
+  # command with the quickanswer-aware wrapper. The shortcut binding itself
+  # is stored in kglobalshortcutsrc and keyed to this filename, so keeping
+  # the same name (net.local.rofi.desktop) preserves the Alt+Space binding.
+  home.file.".local/share/applications/net.local.rofi.desktop".text = ''
+    [Desktop Entry]
+    Exec=/home/thijmen/.local/bin/rofi-launcher
+    Name=rofi
+    NoDisplay=true
+    StartupNotify=false
+    Type=Application
+    X-KDE-GlobalAccel-CommandShortcut=true
+  '';
+
   # ── vim-kitty-navigator kitten ────────────────────────────────────────────
   home.file.".config/kitty/pass_keys.py".source = ./dotfiles/kitty/pass_keys.py;
 
