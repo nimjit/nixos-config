@@ -1,4 +1,4 @@
-{ pkgs, username, ... }:
+{ pkgs, pkgs-unstable, username, ... }:
 
 let
   # Packaged as a system derivation so KWin discovers it at startup the same
@@ -96,22 +96,22 @@ in
     claude-code
 
     # Terminal tools
-    wiki-tui   # Wikipedia TUI; K in neovim markdown opens vsplit
-    yt-dlp     # YouTube downloader; used by mpv and the yt-feed TUI
-    w3m        # text-mode browser; natural terminal theming; used for text-heavy sites
+    wiki-tui      # Wikipedia TUI; K in neovim markdown opens vsplit
+    pkgs-unstable.yt-dlp     # YouTube downloader; used by mpv and the yt-feed TUI
+    w3m           # text-mode browser; natural terminal theming; used for text-heavy sites
 
     # CLI tools
-    nchat          # WhatsApp in terminal (desktop notifications, no browser tab)
-    lastpass-cli   # lpass CLI — same vault as LastPass extension
-    libnotify      # provides notify-send; nchat auto-detects it for desktop notifications
-    dtach          # detach/reattach a process from its terminal; keeps nchat alive
-    fortune        # random quote for the zsh greeting
-    nvd            # diff two NixOS generations: what actually changed
+    nchat         # WhatsApp in terminal (desktop notifications, no browser tab)
+    lastpass-cli  # lpass CLI — same vault as LastPass extension
+    libnotify     # provides notify-send; nchat auto-detects it for desktop notifications
+    dtach         # detach/reattach a process from its terminal; keeps nchat alive
+    fortune       # random quote for the zsh greeting
+    nvd           # diff two NixOS generations: what actually changed
 
     # Media
     spotify
-    mpc            # CLI control for MPD (mpc toggle, mpc next, etc.)
-    rmpc           # TUI music client with album art via kitty graphics protocol
+    mpc           # CLI control for MPD (mpc toggle, mpc next, etc.)
+    rmpc          # TUI music client with album art via kitty graphics protocol
 
     # Wayland / sway tools
     grim                  # Wayland screenshot

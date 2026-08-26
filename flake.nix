@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
@@ -15,10 +16,13 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, stylix, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, stylix, ... }:
   let
     system = "x86_64-linux";
-
+    pkgs-unstable = import nixpkgs-unstable {
+      inherit system;
+      config.allowUnfree = true;
+    };
     # Change "yourname" to your actual username throughout this repo
     username = "thijmen";
 
@@ -47,7 +51,7 @@
           ./modules/syncthing.nix
           ./modules/tailscale.nix
         ];
-        specialArgs = { inherit username; };
+        specialArgs = { inherit username pkgs-unstable; };
       };
 
       laptop = nixpkgs.lib.nixosSystem {
@@ -57,7 +61,7 @@
           ./modules/syncthing.nix
           ./modules/tailscale.nix
         ];
-        specialArgs = { inherit username; };
+        specialArgs = { inherit username pkgs-unstable; };
       };
 
       usb = nixpkgs.lib.nixosSystem {
@@ -67,7 +71,7 @@
           ./modules/syncthing.nix
           ./modules/tailscale.nix
         ];
-        specialArgs = { inherit username; };
+        specialArgs = { inherit username pkgs-unstable; };
       };
 
     };
